@@ -1,0 +1,15 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "net.mision_thi.nbttooltips.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "mixins": [
+  ],
+  "client": [
+    "mision_thi_TooltipChanger",
+    "MixinRegistryEntryReference"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

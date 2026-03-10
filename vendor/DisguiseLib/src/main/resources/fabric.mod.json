@@ -1,0 +1,42 @@
+{
+  "schemaVersion": 1,
+  "id": "disguiselib",
+  "version": "${version}",
+
+  "name": "Disguise Library",
+  "description": "A (server-side) library for disguising entities in Minecraft.",
+  "authors": [
+    "samo_lego"
+  ],
+  "contact": {
+    "homepage": "https://nucleoid.xyz/",
+    "sources": "https://github.com/NucleoidMC/DisguiseLib"
+  },
+
+  "license": "MIT",
+  "icon": "icon.png",
+
+  "environment": "*",
+  "entrypoints": {
+    "main": [
+      "xyz.nucleoid.disguiselib.impl.DisguiseLib::init"
+    ]
+  },
+  "mixins": [
+    "disguiselib.mixins.json"
+  ],
+
+  "custom": {
+    "modmenu": {
+      "badges": [
+        "library"
+      ]
+    }
+  },
+
+  "depends": {
+    "fabricloader": ">=0.7.4",
+    "minecraft": ">=1.19.3",
+    "fabric": "*"
+  }
+}

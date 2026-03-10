@@ -1,0 +1,26 @@
+{
+	"required": true,
+	"minVersion": "0.8",
+	"package": "xyz.nucleoid.disguiselib.impl.mixin",
+	"compatibilityLevel": "JAVA_21",
+	"mixins": [
+		"EntityMixin_Disguise",
+		"LivingEntityMixin_DisguiseSound",
+		"ServerCommonNetworkHandlerMixin_Disguiser",
+		"ServerPlayNetworkHandlerMixin_Disguiser",
+		"accessor.EntitiesDestroyS2CPacketAccessor",
+		"accessor.EntityAccessor",
+		"accessor.EntityAttributesS2CPacketAccessor",
+		"accessor.EntitySetHeadYawS2CPacketAccessor",
+		"accessor.EntitySpawnS2CPacketAccessor",
+		"accessor.EntityTrackerEntryAccessor",
+		"accessor.EntityTrackerUpdateS2CPacketAccessor",
+		"accessor.LivingEntityAccessor",
+		"accessor.PlayerEntityAccessor",
+		"accessor.PlayerListS2CPacketAccessor",
+		"accessor.ServerChunkLoadingManagerAccessor"
+	],
+	"injectors": {
+		"defaultRequire": 1
+	}
+}
