@@ -76,6 +76,9 @@ dependencies {
     modImplementation include("com.github.Kardane:DialogUtils:${project.dialogutils_version}")
     compileOnly "com.github.Uni0305:NBTtooltips:${project.nbttooltips_version}"
     compileOnly "com.github.Kardane:DisguiseLib:${project.disguiselib_version}"
+
+    testImplementation "org.junit.jupiter:junit-jupiter:5.12.0"
+    testRuntimeOnly "org.junit.platform:junit-platform-launcher:1.12.0"
 }
 
 processResources {
@@ -100,6 +103,10 @@ java {
     targetCompatibility = JavaVersion.toVersion(project.java_version)
 
     withSourcesJar()
+}
+
+test {
+    useJUnitPlatform()
 }
 
 jar {

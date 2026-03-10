@@ -53,4 +53,8 @@ public final class StyledChatSupport {
 			return Text.literal(input);
 		}
 	}
+
+	public static Text format(net.minecraft.server.network.ServerPlayerEntity player, String input) {
+		return format(player.getCommandSource(), input);
+	}
 }
