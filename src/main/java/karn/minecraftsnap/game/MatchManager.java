@@ -6,6 +6,7 @@ import net.minecraft.server.network.ServerPlayerEntity;
 import java.util.Collection;
 import java.util.EnumMap;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -13,6 +14,7 @@ import java.util.UUID;
 public class MatchManager {
 	private final Map<UUID, PlayerMatchState> playerStates = new HashMap<>();
 	private final Map<LaneId, Boolean> laneActiveStates = new EnumMap<>(LaneId.class);
+	private final Map<TeamId, FactionId> factionSelections = new EnumMap<>(TeamId.class);
 	private MatchPhase phase = MatchPhase.LOBBY;
 	private MatchClock clock = new MatchClock(9 * 60);
 	private int redScore;
@@ -21,6 +23,7 @@ public class MatchManager {
 	private TeamId allPointsHeldTeam;
 	private int allPointsHeldSeconds;
 	private long serverTicks;
+	private long phaseTicks;
 	private MinecraftServer server;
 
 	public MatchManager() {
@@ -49,6 +52,7 @@ public class MatchManager {
 
 	public void tick() {
 		serverTicks++;
+		phaseTicks++;
 
 		if (phase != MatchPhase.GAME_RUNNING || serverTicks % 20L != 0L) {
 			return;
@@ -62,6 +66,7 @@ public class MatchManager {
 
 	public void setPhase(MatchPhase phase) {
 		this.phase = phase;
+		this.phaseTicks = 0L;
 		if (phase == MatchPhase.GAME_RUNNING) {
 			redScore = 0;
 			blueScore = 0;
@@ -71,7 +76,8 @@ public class MatchManager {
 			clock.reset(clock.getTotalSeconds());
 			deactivateAllLanes();
 			activateLane(LaneId.LANE_1);
-			assignUnassignedPlayersAsUnits();
+			fillMissingRoles();
+			applySelectedFactionsToPlayers();
 		} else if (phase == MatchPhase.LOBBY) {
 			redScore = 0;
 			blueScore = 0;
@@ -79,7 +85,11 @@ public class MatchManager {
 			allPointsHeldTeam = null;
 			allPointsHeldSeconds = 0;
 			deactivateAllLanes();
+			factionSelections.clear();
 			playerStates.values().forEach(PlayerMatchState::clear);
+		} else if (phase == MatchPhase.TEAM_SELECT) {
+			factionSelections.clear();
+			playerStates.values().forEach(state -> state.setFactionId(null));
 		} else if (phase == MatchPhase.GAME_END) {
 			deactivateAllLanes();
 		}
@@ -109,6 +119,10 @@ public class MatchManager {
 		return serverTicks;
 	}
 
+	public long getPhaseTicks() {
+		return phaseTicks;
+	}
+
 	public void addScore(TeamId teamId, int amount) {
 		if (teamId == TeamId.RED) {
 			redScore += amount;
@@ -121,12 +135,24 @@ public class MatchManager {
 		getOrCreateState(player.getUuid()).setTeam(teamId, RoleType.CAPTAIN);
 	}
 
+	public void setCaptain(TeamId teamId, UUID playerId) {
+		getOrCreateState(playerId).setTeam(teamId, RoleType.CAPTAIN);
+	}
+
 	public void setRole(ServerPlayerEntity player, TeamId teamId, RoleType roleType) {
 		getOrCreateState(player.getUuid()).setTeam(teamId, roleType);
 	}
 
+	public void setRole(UUID playerId, TeamId teamId, RoleType roleType) {
+		getOrCreateState(playerId).setTeam(teamId, roleType);
+	}
+
 	public PlayerMatchState getPlayerState(UUID playerId) {
 		return getOrCreateState(playerId);
+	}
+
+	public Map<UUID, PlayerMatchState> getPlayerStatesSnapshot() {
+		return new LinkedHashMap<>(playerStates);
 	}
 
 	public void activateLane(LaneId laneId) {
@@ -143,6 +169,39 @@ public class MatchManager {
 
 	public TeamId getWinnerTeam() {
 		return winnerTeam;
+	}
+
+	public void clearPlayerAssignments() {
+		playerStates.values().forEach(PlayerMatchState::clear);
+		factionSelections.clear();
+	}
+
+	public Map<TeamId, FactionId> getFactionSelectionsSnapshot() {
+		return new EnumMap<>(factionSelections);
+	}
+
+	public void setFactionSelection(TeamId teamId, FactionId factionId) {
+		factionSelections.put(teamId, factionId);
+	}
+
+	public FactionId getFactionSelection(TeamId teamId) {
+		return factionSelections.get(teamId);
+	}
+
+	public UUID getCaptainId(TeamId teamId) {
+		return playerStates.entrySet().stream()
+			.filter(entry -> entry.getValue().getTeamId() == teamId && entry.getValue().getRoleType() == RoleType.CAPTAIN)
+			.map(Map.Entry::getKey)
+			.findFirst()
+			.orElse(null);
+	}
+
+	public boolean isFactionSelectionComplete() {
+		return factionSelections.containsKey(TeamId.RED) && factionSelections.containsKey(TeamId.BLUE);
+	}
+
+	public boolean isPregameDamageBlocked() {
+		return phase != MatchPhase.GAME_RUNNING;
 	}
 
 	public void recordAllPointsHeld(TeamId teamId, int requiredSeconds) {
@@ -178,6 +237,14 @@ public class MatchManager {
 			.toList();
 	}
 
+	public Collection<ServerPlayerEntity> getOnlinePlayers() {
+		if (server == null) {
+			return List.of();
+		}
+
+		return List.copyOf(server.getPlayerManager().getPlayerList());
+	}
+
 	private PlayerMatchState getOrCreateState(UUID playerId) {
 		return playerStates.computeIfAbsent(playerId, ignored -> new PlayerMatchState());
 	}
@@ -188,19 +255,35 @@ public class MatchManager {
 		}
 	}
 
-	private void assignUnassignedPlayersAsUnits() {
+	private void fillMissingRoles() {
 		if (server == null) {
 			return;
 		}
 
 		for (var player : server.getPlayerManager().getPlayerList()) {
 			var state = getOrCreateState(player.getUuid());
+			if (state.getTeamId() == null) {
+				var targetTeam = countUnits(TeamId.RED) <= countUnits(TeamId.BLUE) ? TeamId.RED : TeamId.BLUE;
+				state.setTeam(targetTeam, RoleType.UNIT);
+				continue;
+			}
+
 			if (state.getRoleType() != RoleType.NONE) {
 				continue;
 			}
 
-			var targetTeam = countUnits(TeamId.RED) <= countUnits(TeamId.BLUE) ? TeamId.RED : TeamId.BLUE;
-			state.setTeam(targetTeam, RoleType.UNIT);
+			state.setTeam(state.getTeamId(), RoleType.UNIT);
+		}
+	}
+
+	private void applySelectedFactionsToPlayers() {
+		for (var state : playerStates.values()) {
+			if (state.getTeamId() == null) {
+				state.setFactionId(null);
+				continue;
+			}
+
+			state.setFactionId(factionSelections.get(state.getTeamId()));
 		}
 	}
 

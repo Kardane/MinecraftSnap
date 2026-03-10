@@ -2,6 +2,8 @@ package karn.minecraftsnap.game;
 
 import org.junit.jupiter.api.Test;
 
+import java.util.UUID;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
@@ -51,5 +53,30 @@ class MatchManagerTest {
 
 		assertEquals(MatchPhase.GAME_END, manager.getPhase());
 		assertNull(manager.getWinnerTeam());
+	}
+
+	@Test
+	void selectedFactionAppliedOnGameStart() {
+		var manager = new MatchManager();
+		var playerId = UUID.randomUUID();
+		manager.setRole(playerId, TeamId.RED, RoleType.UNIT);
+		manager.setFactionSelection(TeamId.RED, FactionId.MONSTER);
+		manager.setPhase(MatchPhase.GAME_RUNNING);
+
+		assertEquals(FactionId.MONSTER, manager.getPlayerState(playerId).getFactionId());
+	}
+
+	@Test
+	void teamSelectClearsPreviousFactionState() {
+		var manager = new MatchManager();
+		var playerId = UUID.randomUUID();
+		manager.setRole(playerId, TeamId.BLUE, RoleType.CAPTAIN);
+		manager.getPlayerState(playerId).setFactionId(FactionId.NETHER);
+		manager.setFactionSelection(TeamId.BLUE, FactionId.NETHER);
+
+		manager.setPhase(MatchPhase.TEAM_SELECT);
+
+		assertNull(manager.getPlayerState(playerId).getFactionId());
+		assertNull(manager.getFactionSelection(TeamId.BLUE));
 	}
 }

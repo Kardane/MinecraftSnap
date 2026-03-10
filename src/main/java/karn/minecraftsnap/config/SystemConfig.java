@@ -8,6 +8,7 @@ public class SystemConfig {
 	public MusicLoopConfig gameMusic = MusicLoopConfig.create("&c경기 브금", "minecraft:music.dragon", 20 * 110);
 	public TeamChatConfig teamChat = new TeamChatConfig();
 	public CaptureConfig capture = new CaptureConfig();
+	public LobbyConfig lobby = new LobbyConfig();
 
 	public static class BossBarConfig {
 		public String template = "&c레드 {red_score} &8| &f남은 시간 {time} &8| &9블루 {blue_score}";
@@ -48,6 +49,18 @@ public class SystemConfig {
 		public CapturePointConfig lane3 = CapturePointConfig.create("3번 라인", 40.0, 64.0, 0.0);
 	}
 
+	public static class LobbyConfig {
+		public String world = "minecraft:overworld";
+		public double spawnX = 0.0;
+		public double spawnY = 64.0;
+		public double spawnZ = 0.0;
+		public float spawnYaw = 0.0f;
+		public float spawnPitch = 0.0f;
+		public int factionSelectDelaySeconds = 5;
+		public int factionSelectDurationSeconds = 15;
+		public int gameStartDelaySeconds = 0;
+	}
+
 	public static class CapturePointConfig {
 		public boolean enabled = false;
 		public String world = "world";
@@ -82,6 +95,9 @@ public class SystemConfig {
 		}
 		if (capture == null) {
 			capture = new CaptureConfig();
+		}
+		if (lobby == null) {
+			lobby = new LobbyConfig();
 		}
 		if (capture.lane1 == null) {
 			capture.lane1 = CapturePointConfig.create("1번 라인", 0.0, 64.0, 0.0);

@@ -30,7 +30,11 @@ public class McSnapCommandRegistrar {
 					return send(ctx.getSource(), "&aMCsnap 컨픽 리로드 완료");
 				}))
 			.then(CommandManager.literal("wiki")
-				.executes(ctx -> send(ctx.getSource(), "&e위키 GUI는 다음 단계에서 연결 예정"))
+				.requires(ServerCommandSource::isExecutedByPlayer)
+				.executes(ctx -> {
+					mod.openWiki(ctx.getSource().getPlayer());
+					return Command.SINGLE_SUCCESS;
+				})
 			)
 			.then(CommandManager.literal("stat")
 				.executes(ctx -> showStat(ctx.getSource(), ctx.getSource().getPlayer()))
@@ -41,11 +45,9 @@ public class McSnapCommandRegistrar {
 				.then(CommandManager.literal("unit").executes(ctx -> setPreference(ctx.getSource(), "unit")))
 				.then(CommandManager.literal("none").executes(ctx -> setPreference(ctx.getSource(), "none"))))
 			.then(CommandManager.literal("captain_red")
-				.requires(ServerCommandSource::isExecutedByPlayer)
 				.then(CommandManager.argument("player", EntityArgumentType.player())
 					.executes(ctx -> assignCaptain(ctx.getSource(), TeamId.RED, EntityArgumentType.getPlayer(ctx, "player")))))
 			.then(CommandManager.literal("captain_blue")
-				.requires(ServerCommandSource::isExecutedByPlayer)
 				.then(CommandManager.argument("player", EntityArgumentType.player())
 					.executes(ctx -> assignCaptain(ctx.getSource(), TeamId.BLUE, EntityArgumentType.getPlayer(ctx, "player")))))
 			.then(CommandManager.literal("admin")
@@ -56,8 +58,8 @@ public class McSnapCommandRegistrar {
 					.then(CommandManager.literal("faction_select").executes(ctx -> setPhase(ctx.getSource(), MatchPhase.FACTION_SELECT)))
 					.then(CommandManager.literal("game_running").executes(ctx -> setPhase(ctx.getSource(), MatchPhase.GAME_RUNNING)))
 					.then(CommandManager.literal("game_end").executes(ctx -> setPhase(ctx.getSource(), MatchPhase.GAME_END))))
-				.then(CommandManager.literal("teamsel").executes(ctx -> setPhase(ctx.getSource(), MatchPhase.TEAM_SELECT)))
-				.then(CommandManager.literal("gamestart").executes(ctx -> setPhase(ctx.getSource(), MatchPhase.GAME_RUNNING)))
+				.then(CommandManager.literal("teamsel").executes(ctx -> startTeamSelection(ctx.getSource())))
+				.then(CommandManager.literal("gamestart").executes(ctx -> forceStartGame(ctx.getSource())))
 				.then(CommandManager.literal("gamestop").executes(ctx -> setPhase(ctx.getSource(), MatchPhase.GAME_END)))
 				.then(CommandManager.literal("biomeshow")
 					.then(CommandManager.literal("lane1").executes(ctx -> setLaneState(ctx.getSource(), LaneId.LANE_1, true)))
@@ -93,6 +95,16 @@ public class McSnapCommandRegistrar {
 	private int assignCaptain(ServerCommandSource source, TeamId teamId, ServerPlayerEntity target) {
 		mod.getMatchManager().setCaptain(teamId, target);
 		return send(source, "&a" + target.getName().getString() + " 님을 " + teamId.getDisplayName() + " 사령관으로 지정 완료");
+	}
+
+	private int startTeamSelection(ServerCommandSource source) {
+		mod.startTeamSelection();
+		return send(source, "&a팀 자동 배정과 사령관 선출 시작");
+	}
+
+	private int forceStartGame(ServerCommandSource source) {
+		mod.forceStartGame();
+		return send(source, "&a기본값 보정 후 게임 강제 시작");
 	}
 
 	private int setPhase(ServerCommandSource source, MatchPhase phase) {

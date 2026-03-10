@@ -68,9 +68,16 @@ public class StatsRepository {
 
 	public PlayerStats getOrCreate(UUID playerId, String name) {
 		var key = playerId.toString();
-		var stats = statsFile.players.computeIfAbsent(key, ignored -> new PlayerStats());
-		stats.lastKnownName = name;
-		dirty = true;
+		var stats = statsFile.players.get(key);
+		if (stats == null) {
+			stats = new PlayerStats();
+			statsFile.players.put(key, stats);
+			dirty = true;
+		}
+		if (!name.equals(stats.lastKnownName)) {
+			stats.lastKnownName = name;
+			dirty = true;
+		}
 		return stats;
 	}
 

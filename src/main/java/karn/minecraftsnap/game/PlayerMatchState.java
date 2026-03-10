@@ -3,6 +3,7 @@ package karn.minecraftsnap.game;
 public class PlayerMatchState {
 	private TeamId teamId;
 	private RoleType roleType = RoleType.NONE;
+	private FactionId factionId;
 
 	public TeamId getTeamId() {
 		return teamId;
@@ -16,6 +17,7 @@ public class PlayerMatchState {
 	public void clear() {
 		this.teamId = null;
 		this.roleType = RoleType.NONE;
+		this.factionId = null;
 	}
 
 	public RoleType getRoleType() {
@@ -28,5 +30,13 @@ public class PlayerMatchState {
 
 	public boolean isUnit() {
 		return teamId != null && roleType == RoleType.UNIT;
+	}
+
+	public FactionId getFactionId() {
+		return factionId;
+	}
+
+	public void setFactionId(FactionId factionId) {
+		this.factionId = factionId;
 	}
 }
