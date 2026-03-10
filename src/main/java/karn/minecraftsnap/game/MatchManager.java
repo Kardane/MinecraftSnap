@@ -14,6 +14,8 @@ import java.util.UUID;
 public class MatchManager {
 	private final Map<UUID, PlayerMatchState> playerStates = new HashMap<>();
 	private final Map<LaneId, Boolean> laneActiveStates = new EnumMap<>(LaneId.class);
+	private final Map<LaneId, Boolean> laneRevealedStates = new EnumMap<>(LaneId.class);
+	private final Map<LaneId, Boolean> laneRevealOverrides = new EnumMap<>(LaneId.class);
 	private final Map<TeamId, FactionId> factionSelections = new EnumMap<>(TeamId.class);
 	private MatchPhase phase = MatchPhase.LOBBY;
 	private MatchClock clock = new MatchClock(9 * 60);
@@ -29,6 +31,7 @@ public class MatchManager {
 	public MatchManager() {
 		for (var laneId : LaneId.values()) {
 			laneActiveStates.put(laneId, false);
+			laneRevealedStates.put(laneId, false);
 		}
 	}
 
@@ -67,28 +70,39 @@ public class MatchManager {
 	public void setPhase(MatchPhase phase) {
 		this.phase = phase;
 		this.phaseTicks = 0L;
-		if (phase == MatchPhase.GAME_RUNNING) {
+		if (phase == MatchPhase.GAME_START) {
 			redScore = 0;
 			blueScore = 0;
 			winnerTeam = null;
 			allPointsHeldTeam = null;
 			allPointsHeldSeconds = 0;
 			clock.reset(clock.getTotalSeconds());
-			deactivateAllLanes();
-			activateLane(LaneId.LANE_1);
+			hideAllLanes();
 			fillMissingRoles();
 			applySelectedFactionsToPlayers();
+		} else if (phase == MatchPhase.GAME_RUNNING) {
+			redScore = 0;
+			blueScore = 0;
+			winnerTeam = null;
+			allPointsHeldTeam = null;
+			allPointsHeldSeconds = 0;
+			clock.reset(clock.getTotalSeconds());
+			hideAllLanes();
+			fillMissingRoles();
+			applySelectedFactionsToPlayers();
+			revealLane(LaneId.LANE_1);
 		} else if (phase == MatchPhase.LOBBY) {
 			redScore = 0;
 			blueScore = 0;
 			winnerTeam = null;
 			allPointsHeldTeam = null;
 			allPointsHeldSeconds = 0;
-			deactivateAllLanes();
+			hideAllLanes();
 			factionSelections.clear();
 			playerStates.values().forEach(PlayerMatchState::clear);
 		} else if (phase == MatchPhase.TEAM_SELECT) {
 			factionSelections.clear();
+			hideAllLanes();
 			playerStates.values().forEach(state -> state.setFactionId(null));
 		} else if (phase == MatchPhase.GAME_END) {
 			deactivateAllLanes();
@@ -163,8 +177,35 @@ public class MatchManager {
 		laneActiveStates.put(laneId, false);
 	}
 
+	public void revealLane(LaneId laneId) {
+		laneRevealedStates.put(laneId, true);
+		laneActiveStates.put(laneId, true);
+	}
+
+	public void hideLane(LaneId laneId) {
+		laneRevealedStates.put(laneId, false);
+		laneActiveStates.put(laneId, false);
+	}
+
+	public void setLaneRevealOverride(LaneId laneId, boolean revealed) {
+		laneRevealOverrides.put(laneId, revealed);
+		if (revealed) {
+			revealLane(laneId);
+		} else {
+			hideLane(laneId);
+		}
+	}
+
 	public boolean isLaneActive(LaneId laneId) {
 		return laneActiveStates.getOrDefault(laneId, false);
+	}
+
+	public boolean isLaneRevealed(LaneId laneId) {
+		return laneRevealedStates.getOrDefault(laneId, false);
+	}
+
+	public Boolean getLaneRevealOverride(LaneId laneId) {
+		return laneRevealOverrides.get(laneId);
 	}
 
 	public TeamId getWinnerTeam() {
@@ -202,6 +243,14 @@ public class MatchManager {
 
 	public boolean isPregameDamageBlocked() {
 		return phase != MatchPhase.GAME_RUNNING;
+	}
+
+	public void enterGameStart() {
+		setPhase(MatchPhase.GAME_START);
+	}
+
+	public void startGameRunning() {
+		setPhase(MatchPhase.GAME_RUNNING);
 	}
 
 	public void recordAllPointsHeld(TeamId teamId, int requiredSeconds) {
@@ -252,6 +301,14 @@ public class MatchManager {
 	private void deactivateAllLanes() {
 		for (var laneId : LaneId.values()) {
 			laneActiveStates.put(laneId, false);
+		}
+	}
+
+	private void hideAllLanes() {
+		laneRevealOverrides.clear();
+		for (var laneId : LaneId.values()) {
+			laneActiveStates.put(laneId, false);
+			laneRevealedStates.put(laneId, false);
 		}
 	}
 

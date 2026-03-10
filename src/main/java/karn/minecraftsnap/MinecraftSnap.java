@@ -6,6 +6,7 @@ import karn.minecraftsnap.command.TeamChatService;
 import karn.minecraftsnap.config.MinecraftSnapConfigManager;
 import karn.minecraftsnap.config.StatsRepository;
 import karn.minecraftsnap.game.CaptainSelectionService;
+import karn.minecraftsnap.game.BiomeRevealService;
 import karn.minecraftsnap.game.CapturePointService;
 import karn.minecraftsnap.game.FactionSelectionService;
 import karn.minecraftsnap.game.LobbyCoordinator;
@@ -15,6 +16,7 @@ import karn.minecraftsnap.game.TeamAssignmentService;
 import karn.minecraftsnap.ui.BossBarService;
 import karn.minecraftsnap.ui.FactionSelectionGuiService;
 import karn.minecraftsnap.ui.LobbyScoreboardService;
+import karn.minecraftsnap.ui.PreparationGuiService;
 import karn.minecraftsnap.ui.WikiGuiService;
 import karn.minecraftsnap.util.TextTemplateResolver;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
@@ -54,9 +56,11 @@ public class MinecraftSnap implements DedicatedServerModInitializer {
 	private final FactionSelectionService factionSelectionService = new FactionSelectionService();
 	private final WikiGuiService wikiGuiService = new WikiGuiService(textTemplateResolver);
 	private final FactionSelectionGuiService factionSelectionGuiService = new FactionSelectionGuiService(textTemplateResolver);
+	private final PreparationGuiService preparationGuiService = new PreparationGuiService(textTemplateResolver);
 	private final LobbyScoreboardService lobbyScoreboardService = new LobbyScoreboardService(textTemplateResolver);
 	private final McSnapCommandRegistrar commandRegistrar = new McSnapCommandRegistrar(this);
 	private CapturePointService capturePointService;
+	private BiomeRevealService biomeRevealService;
 	private LobbyCoordinator lobbyCoordinator;
 
 	@Override
@@ -67,6 +71,7 @@ public class MinecraftSnap implements DedicatedServerModInitializer {
 		configManager.load();
 		matchManager.applyGameDuration(configManager.getSystemConfig().gameDurationSeconds);
 		capturePointService = new CapturePointService(matchManager, configManager.getStatsRepository());
+		biomeRevealService = new BiomeRevealService(matchManager, textTemplateResolver);
 		lobbyCoordinator = createLobbyCoordinator();
 
 		// 커맨드 등록
@@ -98,6 +103,7 @@ public class MinecraftSnap implements DedicatedServerModInitializer {
 		ServerTickEvents.END_SERVER_TICK.register(server -> {
 			matchManager.tick();
 			lobbyCoordinator.tick(server, configManager.getSystemConfig());
+			biomeRevealService.tick(server, configManager.getSystemConfig());
 			capturePointService.tick(server, configManager.getSystemConfig());
 			bossBarService.tick(server, configManager.getSystemConfig());
 			phaseMusicService.tick(server, configManager.getSystemConfig());
@@ -126,6 +132,7 @@ public class MinecraftSnap implements DedicatedServerModInitializer {
 		configManager.reload();
 		matchManager.applyGameDuration(configManager.getSystemConfig().gameDurationSeconds);
 		capturePointService = new CapturePointService(matchManager, configManager.getStatsRepository());
+		biomeRevealService = new BiomeRevealService(matchManager, textTemplateResolver);
 		lobbyCoordinator = createLobbyCoordinator();
 	}
 
@@ -157,10 +164,19 @@ public class MinecraftSnap implements DedicatedServerModInitializer {
 	public void forceStartGame() {
 		var server = matchManager.getOnlinePlayers().stream().findFirst().map(player -> player.getServer()).orElse(null);
 		if (server == null) {
-			matchManager.setPhase(MatchPhase.GAME_RUNNING);
+			matchManager.enterGameStart();
 			return;
 		}
 		lobbyCoordinator.forceStartGame(server, configManager.getSystemConfig());
+	}
+
+	public void forcePhase(MatchPhase phase) {
+		var server = matchManager.getOnlinePlayers().stream().findFirst().map(player -> player.getServer()).orElse(null);
+		if (server == null) {
+			matchManager.setPhase(phase);
+			return;
+		}
+		lobbyCoordinator.forcePhase(phase, server, configManager.getSystemConfig());
 	}
 
 	public void openWiki(net.minecraft.server.network.ServerPlayerEntity player) {
@@ -175,6 +191,10 @@ public class MinecraftSnap implements DedicatedServerModInitializer {
 		return instance;
 	}
 
+	public void setLaneRevealState(karn.minecraftsnap.game.LaneId laneId, boolean revealed) {
+		lobbyCoordinator.setLaneRevealState(laneId, revealed);
+	}
+
 	private LobbyCoordinator createLobbyCoordinator() {
 		return new LobbyCoordinator(
 			matchManager,
@@ -184,7 +204,8 @@ public class MinecraftSnap implements DedicatedServerModInitializer {
 			factionSelectionService,
 			wikiGuiService,
 			factionSelectionGuiService,
-			lobbyScoreboardService
+			lobbyScoreboardService,
+			preparationGuiService
 		);
 	}
 

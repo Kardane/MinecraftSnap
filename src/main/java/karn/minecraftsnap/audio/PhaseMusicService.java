@@ -92,7 +92,7 @@ public class PhaseMusicService {
 			return systemConfig.lobbyMusic;
 		}
 
-		if (phase == MatchPhase.GAME_RUNNING) {
+		if (phase == MatchPhase.GAME_START || phase == MatchPhase.GAME_RUNNING) {
 			return systemConfig.gameMusic;
 		}
 

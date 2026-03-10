@@ -9,6 +9,8 @@ public class SystemConfig {
 	public TeamChatConfig teamChat = new TeamChatConfig();
 	public CaptureConfig capture = new CaptureConfig();
 	public LobbyConfig lobby = new LobbyConfig();
+	public GameStartConfig gameStart = new GameStartConfig();
+	public BiomeRevealConfig biomeReveal = new BiomeRevealConfig();
 
 	public static class BossBarConfig {
 		public String template = "&c레드 {red_score} &8| &f남은 시간 {time} &8| &9블루 {blue_score}";
@@ -61,6 +63,39 @@ public class SystemConfig {
 		public int gameStartDelaySeconds = 0;
 	}
 
+	public static class GameStartConfig {
+		public int waitSeconds = 15;
+		public boolean allowShiftF = true;
+		public PositionConfig captainSpawn = PositionConfig.create("minecraft:overworld", 0.0, 64.0, 10.0);
+		public PositionConfig unitSpawn = PositionConfig.create("minecraft:overworld", 0.0, 64.0, -10.0);
+	}
+
+	public static class BiomeRevealConfig {
+		public int lane1RevealSecond = 0;
+		public int lane2RevealSecond = 180;
+		public int lane3RevealSecond = 360;
+		public String messageTemplate = "&a{lane}&f 라인 바이옴 공개";
+		public String hiddenWorldKey = "minecraft:the_void";
+	}
+
+	public static class PositionConfig {
+		public String world = "minecraft:overworld";
+		public double x;
+		public double y;
+		public double z;
+		public float yaw;
+		public float pitch;
+
+		public static PositionConfig create(String world, double x, double y, double z) {
+			var config = new PositionConfig();
+			config.world = world;
+			config.x = x;
+			config.y = y;
+			config.z = z;
+			return config;
+		}
+	}
+
 	public static class CapturePointConfig {
 		public boolean enabled = false;
 		public String world = "world";
@@ -98,6 +133,18 @@ public class SystemConfig {
 		}
 		if (lobby == null) {
 			lobby = new LobbyConfig();
+		}
+		if (gameStart == null) {
+			gameStart = new GameStartConfig();
+		}
+		if (biomeReveal == null) {
+			biomeReveal = new BiomeRevealConfig();
+		}
+		if (gameStart.captainSpawn == null) {
+			gameStart.captainSpawn = PositionConfig.create("minecraft:overworld", 0.0, 64.0, 10.0);
+		}
+		if (gameStart.unitSpawn == null) {
+			gameStart.unitSpawn = PositionConfig.create("minecraft:overworld", 0.0, 64.0, -10.0);
 		}
 		if (capture.lane1 == null) {
 			capture.lane1 = CapturePointConfig.create("1번 라인", 0.0, 64.0, 0.0);

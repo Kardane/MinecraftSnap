@@ -4,6 +4,7 @@ public class PlayerMatchState {
 	private TeamId teamId;
 	private RoleType roleType = RoleType.NONE;
 	private FactionId factionId;
+	private String preferredUnitId;
 
 	public TeamId getTeamId() {
 		return teamId;
@@ -18,6 +19,7 @@ public class PlayerMatchState {
 		this.teamId = null;
 		this.roleType = RoleType.NONE;
 		this.factionId = null;
+		this.preferredUnitId = null;
 	}
 
 	public RoleType getRoleType() {
@@ -38,5 +40,13 @@ public class PlayerMatchState {
 
 	public void setFactionId(FactionId factionId) {
 		this.factionId = factionId;
+	}
+
+	public String getPreferredUnitId() {
+		return preferredUnitId;
+	}
+
+	public void setPreferredUnitId(String preferredUnitId) {
+		this.preferredUnitId = preferredUnitId;
 	}
 }

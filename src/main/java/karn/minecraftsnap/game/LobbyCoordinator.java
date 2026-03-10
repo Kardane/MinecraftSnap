@@ -4,6 +4,7 @@ import karn.minecraftsnap.config.StatsRepository;
 import karn.minecraftsnap.config.SystemConfig;
 import karn.minecraftsnap.ui.FactionSelectionGuiService;
 import karn.minecraftsnap.ui.LobbyScoreboardService;
+import karn.minecraftsnap.ui.PreparationGuiService;
 import karn.minecraftsnap.ui.WikiGuiService;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.damage.DamageSource;
@@ -13,10 +14,9 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.util.Identifier;
+import net.minecraft.util.math.Vec3d;
 import net.minecraft.world.GameMode;
 import net.minecraft.world.TeleportTarget;
-
-import java.util.List;
 
 public class LobbyCoordinator {
 	private final MatchManager matchManager;
@@ -27,6 +27,7 @@ public class LobbyCoordinator {
 	private final WikiGuiService wikiGuiService;
 	private final FactionSelectionGuiService factionSelectionGuiService;
 	private final LobbyScoreboardService lobbyScoreboardService;
+	private final PreparationGuiService preparationGuiService;
 
 	public LobbyCoordinator(
 		MatchManager matchManager,
@@ -36,7 +37,8 @@ public class LobbyCoordinator {
 		FactionSelectionService factionSelectionService,
 		WikiGuiService wikiGuiService,
 		FactionSelectionGuiService factionSelectionGuiService,
-		LobbyScoreboardService lobbyScoreboardService
+		LobbyScoreboardService lobbyScoreboardService,
+		PreparationGuiService preparationGuiService
 	) {
 		this.matchManager = matchManager;
 		this.statsRepository = statsRepository;
@@ -46,10 +48,13 @@ public class LobbyCoordinator {
 		this.wikiGuiService = wikiGuiService;
 		this.factionSelectionGuiService = factionSelectionGuiService;
 		this.lobbyScoreboardService = lobbyScoreboardService;
+		this.preparationGuiService = preparationGuiService;
 	}
 
 	public void handleJoin(ServerPlayerEntity player, SystemConfig config) {
-		if (matchManager.getPhase() != MatchPhase.GAME_RUNNING) {
+		if (matchManager.getPhase() == MatchPhase.GAME_START) {
+			preparePlayerForGameStart(player, config);
+		} else if (matchManager.getPhase() != MatchPhase.GAME_RUNNING) {
 			applyLobbyState(player, config);
 		}
 
@@ -75,7 +80,41 @@ public class LobbyCoordinator {
 		if (matchManager.getPhase() == MatchPhase.FACTION_SELECT) {
 			if (matchManager.isFactionSelectionComplete()
 				|| matchManager.getPhaseTicks() >= config.lobby.factionSelectDurationSeconds * 20L) {
-				startGame(server, config, false);
+				enterGameStart(server, config, false);
+			}
+		}
+
+		if (matchManager.getPhase() == MatchPhase.GAME_START
+			&& matchManager.getPhaseTicks() >= config.gameStart.waitSeconds * 20L) {
+			matchManager.startGameRunning();
+			lobbyScoreboardService.sync(server, matchManager, statsRepository);
+		}
+	}
+
+	public void setLaneRevealState(LaneId laneId, boolean revealed) {
+		matchManager.setLaneRevealOverride(laneId, revealed);
+	}
+
+	public boolean isLaneRevealed(LaneId laneId) {
+		return matchManager.isLaneRevealed(laneId);
+	}
+
+	public void forcePhase(MatchPhase phase, MinecraftServer server, SystemConfig config) {
+		if (phase == MatchPhase.GAME_START) {
+			enterGameStart(server, config, true);
+			return;
+		}
+		if (phase == MatchPhase.GAME_RUNNING) {
+			enterGameStart(server, config, true);
+			matchManager.startGameRunning();
+			lobbyScoreboardService.sync(server, matchManager, statsRepository);
+			return;
+		}
+
+		matchManager.setPhase(phase);
+		if (phase == MatchPhase.LOBBY) {
+			for (var player : server.getPlayerManager().getPlayerList()) {
+				applyLobbyState(player, config);
 			}
 		}
 	}
@@ -123,7 +162,7 @@ public class LobbyCoordinator {
 			startTeamSelection(server, config);
 		}
 
-		startGame(server, config, true);
+		enterGameStart(server, config, true);
 	}
 
 	public void openWiki(ServerPlayerEntity player) {
@@ -134,6 +173,10 @@ public class LobbyCoordinator {
 		var state = matchManager.getPlayerState(player.getUuid());
 		if (player.isSneaking() && matchManager.getPhase() == MatchPhase.FACTION_SELECT && state.getRoleType() == RoleType.CAPTAIN && state.getTeamId() != null) {
 			openFactionGui(player, config);
+			return true;
+		}
+		if (matchManager.getPhase() == MatchPhase.GAME_START && config.gameStart.allowShiftF) {
+			preparationGuiService.open(player, state);
 			return true;
 		}
 
@@ -155,16 +198,23 @@ public class LobbyCoordinator {
 			openFactionGui(player, config);
 			return;
 		}
+		if (matchManager.getPhase() == MatchPhase.GAME_START && config.gameStart.allowShiftF) {
+			preparationGuiService.open(player, state);
+			return;
+		}
 
 		openWiki(player);
 	}
 
-	private void startGame(MinecraftServer server, SystemConfig config, boolean forced) {
+	private void enterGameStart(MinecraftServer server, SystemConfig config, boolean forced) {
 		if (forced || !matchManager.isFactionSelectionComplete()) {
 			fillMissingFactions();
 		}
 
-		matchManager.setPhase(MatchPhase.GAME_RUNNING);
+		matchManager.enterGameStart();
+		for (var player : server.getPlayerManager().getPlayerList()) {
+			preparePlayerForGameStart(player, config);
+		}
 		lobbyScoreboardService.sync(server, matchManager, statsRepository);
 	}
 
@@ -202,28 +252,56 @@ public class LobbyCoordinator {
 		factionSelectionGuiService.open(player, teamId, matchManager.getFactionSelection(teamId), factionId -> {
 			matchManager.setFactionSelection(teamId, factionId);
 			if (matchManager.isFactionSelectionComplete()) {
-				startGame(player.getServer(), config, false);
+				enterGameStart(player.getServer(), config, false);
 			}
 		});
 	}
 
+	private void preparePlayerForGameStart(ServerPlayerEntity player, SystemConfig config) {
+		player.clearStatusEffects();
+		player.setHealth(player.getMaxHealth());
+		player.getInventory().clear();
+		player.getHungerManager().setFoodLevel(20);
+		player.getHungerManager().setSaturationLevel(20.0f);
+
+		var state = matchManager.getPlayerState(player.getUuid());
+		if (state.getRoleType() == RoleType.UNIT) {
+			player.changeGameMode(GameMode.SPECTATOR);
+			teleport(player, config.gameStart.unitSpawn);
+		} else {
+			player.changeGameMode(GameMode.ADVENTURE);
+			teleport(player, config.gameStart.captainSpawn);
+		}
+	}
+
 	private void applyLobbyState(ServerPlayerEntity player, SystemConfig config) {
 		player.changeGameMode(GameMode.ADVENTURE);
-		var world = resolveLobbyWorld(player.getServer(), config);
+		var position = new SystemConfig.PositionConfig();
+		position.world = config.lobby.world;
+		position.x = config.lobby.spawnX;
+		position.y = config.lobby.spawnY;
+		position.z = config.lobby.spawnZ;
+		position.yaw = config.lobby.spawnYaw;
+		position.pitch = config.lobby.spawnPitch;
+		teleport(player, position);
+	}
+
+	private void teleport(ServerPlayerEntity player, SystemConfig.PositionConfig position) {
+		var world = resolveWorld(player.getServer(), position.world);
 		var teleportTarget = new TeleportTarget(
 			world,
-			new net.minecraft.util.math.Vec3d(config.lobby.spawnX, config.lobby.spawnY, config.lobby.spawnZ),
-			net.minecraft.util.math.Vec3d.ZERO,
-			config.lobby.spawnYaw,
-			config.lobby.spawnPitch,
+			new Vec3d(position.x, position.y, position.z),
+			Vec3d.ZERO,
+			position.yaw,
+			position.pitch,
 			TeleportTarget.NO_OP
 		);
 		player.teleportTo(teleportTarget);
 	}
 
-	private ServerWorld resolveLobbyWorld(MinecraftServer server, SystemConfig config) {
+	private ServerWorld resolveWorld(MinecraftServer server, String worldId) {
 		try {
-			var worldKey = RegistryKey.of(RegistryKeys.WORLD, Identifier.of(config.lobby.world));
+			var worldKey = RegistryKey.of(RegistryKeys.WORLD, Identifier.of(worldId));
 			var world = server.getWorld(worldKey);
 			return world != null ? world : server.getOverworld();
 		} catch (Exception ignored) {

@@ -56,6 +56,7 @@ public class McSnapCommandRegistrar {
 					.then(CommandManager.literal("lobby").executes(ctx -> setPhase(ctx.getSource(), MatchPhase.LOBBY)))
 					.then(CommandManager.literal("team_select").executes(ctx -> setPhase(ctx.getSource(), MatchPhase.TEAM_SELECT)))
 					.then(CommandManager.literal("faction_select").executes(ctx -> setPhase(ctx.getSource(), MatchPhase.FACTION_SELECT)))
+					.then(CommandManager.literal("game_start").executes(ctx -> setPhase(ctx.getSource(), MatchPhase.GAME_START)))
 					.then(CommandManager.literal("game_running").executes(ctx -> setPhase(ctx.getSource(), MatchPhase.GAME_RUNNING)))
 					.then(CommandManager.literal("game_end").executes(ctx -> setPhase(ctx.getSource(), MatchPhase.GAME_END))))
 				.then(CommandManager.literal("teamsel").executes(ctx -> startTeamSelection(ctx.getSource())))
@@ -108,7 +109,7 @@ public class McSnapCommandRegistrar {
 	}
 
 	private int setPhase(ServerCommandSource source, MatchPhase phase) {
-		mod.getMatchManager().setPhase(phase);
+		mod.forcePhase(phase);
 		if (phase == MatchPhase.LOBBY) {
 			mod.getCapturePointService().resetAll();
 		}
@@ -116,12 +117,8 @@ public class McSnapCommandRegistrar {
 	}
 
 	private int setLaneState(ServerCommandSource source, LaneId laneId, boolean active) {
-		if (active) {
-			mod.getMatchManager().activateLane(laneId);
-		} else {
-			mod.getMatchManager().deactivateLane(laneId);
-		}
-		return send(source, "&a" + laneLabel(laneId) + " 상태: &f" + (active ? "활성" : "비활성"));
+		mod.setLaneRevealState(laneId, active);
+		return send(source, "&a" + laneLabel(laneId) + " 상태: &f" + (active ? "공개" : "비공개"));
 	}
 
 	private int send(ServerCommandSource source, String message) {

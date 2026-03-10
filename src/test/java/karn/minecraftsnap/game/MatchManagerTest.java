@@ -61,7 +61,7 @@ class MatchManagerTest {
 		var playerId = UUID.randomUUID();
 		manager.setRole(playerId, TeamId.RED, RoleType.UNIT);
 		manager.setFactionSelection(TeamId.RED, FactionId.MONSTER);
-		manager.setPhase(MatchPhase.GAME_RUNNING);
+		manager.startGameRunning();
 
 		assertEquals(FactionId.MONSTER, manager.getPlayerState(playerId).getFactionId());
 	}
@@ -78,5 +78,43 @@ class MatchManagerTest {
 
 		assertNull(manager.getPlayerState(playerId).getFactionId());
 		assertNull(manager.getFactionSelection(TeamId.BLUE));
+	}
+
+	@Test
+	void gameStartPhaseDoesNotAdvanceClock() {
+		var manager = new MatchManager();
+		manager.enterGameStart();
+
+		for (int i = 0; i < 60; i++) {
+			manager.tick();
+		}
+
+		assertEquals(MatchPhase.GAME_START, manager.getPhase());
+		assertEquals(manager.getTotalSeconds(), manager.getRemainingSeconds());
+	}
+
+	@Test
+	void startGameRunningRevealsOnlyFirstLane() {
+		var manager = new MatchManager();
+
+		manager.startGameRunning();
+
+		assertEquals(MatchPhase.GAME_RUNNING, manager.getPhase());
+		assertEquals(true, manager.isLaneRevealed(LaneId.LANE_1));
+		assertEquals(false, manager.isLaneRevealed(LaneId.LANE_2));
+		assertEquals(false, manager.isLaneRevealed(LaneId.LANE_3));
+	}
+
+	@Test
+	void enteringGameStartClearsLaneRevealState() {
+		var manager = new MatchManager();
+		manager.revealLane(LaneId.LANE_1);
+		manager.revealLane(LaneId.LANE_2);
+
+		manager.enterGameStart();
+
+		assertEquals(false, manager.isLaneRevealed(LaneId.LANE_1));
+		assertEquals(false, manager.isLaneRevealed(LaneId.LANE_2));
+		assertEquals(false, manager.isLaneRevealed(LaneId.LANE_3));
 	}
 }
