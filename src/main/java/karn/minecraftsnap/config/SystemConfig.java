@@ -12,6 +12,7 @@ public class SystemConfig {
 	public GameStartConfig gameStart = new GameStartConfig();
 	public BiomeRevealConfig biomeReveal = new BiomeRevealConfig();
 	public InGameConfig inGame = new InGameConfig();
+	public AdvanceConfig advance = new AdvanceConfig();
 
 	public static class BossBarConfig {
 		public String template = "&c레드 {red_score} &8| &f남은 시간 {time} &8| &9블루 {blue_score}";
@@ -127,6 +128,20 @@ public class SystemConfig {
 		public LaneRegionConfig lane3Region = LaneRegionConfig.create("minecraft:overworld", 32.0, 0.0, -8.0, 48.0, 320.0, 8.0);
 	}
 
+	public static class AdvanceConfig {
+		public String notAvailableMessage = "&c아직 전직할 수 없음";
+		public String readyMessage = "&a전직 가능 상태가 됨";
+		public java.util.List<AdvanceConditionConfig> conditions = new java.util.ArrayList<>();
+	}
+
+	public static class AdvanceConditionConfig {
+		public String unitId = "";
+		public java.util.List<String> biomes = new java.util.ArrayList<>();
+		public java.util.List<String> weathers = new java.util.ArrayList<>();
+		public int requiredSeconds = 15;
+		public String resultUnitId = "";
+	}
+
 	public static class CapturePointConfig {
 		public boolean enabled = false;
 		public String world = "world";
@@ -174,6 +189,9 @@ public class SystemConfig {
 		if (inGame == null) {
 			inGame = new InGameConfig();
 		}
+		if (advance == null) {
+			advance = new AdvanceConfig();
+		}
 		if (gameStart.captainSpawn == null) {
 			gameStart.captainSpawn = PositionConfig.create("minecraft:overworld", 0.0, 64.0, 10.0);
 		}
@@ -198,5 +216,49 @@ public class SystemConfig {
 		if (capture.lane3 == null) {
 			capture.lane3 = CapturePointConfig.create("3번 라인", 40.0, 64.0, 0.0);
 		}
+		if (advance.conditions == null || advance.conditions.isEmpty()) {
+			advance.conditions = defaultAdvanceConditions();
+		} else {
+			for (var condition : advance.conditions) {
+				if (condition.biomes == null) {
+					condition.biomes = new java.util.ArrayList<>();
+				}
+				if (condition.weathers == null) {
+					condition.weathers = new java.util.ArrayList<>();
+				}
+			}
+		}
+	}
+
+	private java.util.List<AdvanceConditionConfig> defaultAdvanceConditions() {
+		var zombie = new AdvanceConditionConfig();
+		zombie.unitId = "zombie";
+		zombie.biomes = java.util.List.of("minecraft:swamp", "minecraft:mangrove_swamp");
+		zombie.weathers = java.util.List.of("rain", "thunder");
+		zombie.requiredSeconds = 15;
+		zombie.resultUnitId = "zombie_veteran";
+
+		var skeleton = new AdvanceConditionConfig();
+		skeleton.unitId = "skeleton";
+		skeleton.biomes = java.util.List.of("minecraft:snowy_plains", "minecraft:snowy_taiga");
+		skeleton.weathers = java.util.List.of("clear", "rain");
+		skeleton.requiredSeconds = 15;
+		skeleton.resultUnitId = "skeleton_sniper";
+
+		var slime = new AdvanceConditionConfig();
+		slime.unitId = "slime";
+		slime.biomes = java.util.List.of("minecraft:swamp", "minecraft:mangrove_swamp");
+		slime.weathers = java.util.List.of("clear", "rain", "thunder");
+		slime.requiredSeconds = 12;
+		slime.resultUnitId = "slime_brute";
+
+		var creeper = new AdvanceConditionConfig();
+		creeper.unitId = "creeper";
+		creeper.biomes = java.util.List.of("minecraft:plains", "minecraft:forest", "minecraft:dark_forest");
+		creeper.weathers = java.util.List.of("thunder");
+		creeper.requiredSeconds = 10;
+		creeper.resultUnitId = "charged_creeper";
+
+		return new java.util.ArrayList<>(java.util.List.of(zombie, skeleton, slime, creeper));
 	}
 }

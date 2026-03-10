@@ -114,4 +114,16 @@ public class StatsRepository {
 		stats.deaths += amount;
 		dirty = true;
 	}
+
+	public void addEmeralds(UUID playerId, String name, int amount) {
+		var stats = getOrCreate(playerId, name);
+		stats.emeralds += amount;
+		dirty = true;
+	}
+
+	public void addGoldIngots(UUID playerId, String name, int amount) {
+		var stats = getOrCreate(playerId, name);
+		stats.goldIngots += amount;
+		dirty = true;
+	}
 }

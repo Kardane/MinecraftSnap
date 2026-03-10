@@ -177,6 +177,12 @@ public class MatchManager {
 		return getOrCreateState(playerId);
 	}
 
+	public void syncPersistentState(UUID playerId, int emeralds, int goldIngots) {
+		var state = getOrCreateState(playerId);
+		state.setEmeralds(emeralds);
+		state.setGoldIngots(goldIngots);
+	}
+
 	public Map<UUID, PlayerMatchState> getPlayerStatesSnapshot() {
 		return new LinkedHashMap<>(playerStates);
 	}
@@ -367,11 +373,15 @@ public class MatchManager {
 	}
 
 	public void setCurrentUnit(UUID playerId, String unitId) {
-		getOrCreateState(playerId).setCurrentUnitId(unitId);
+		var state = getOrCreateState(playerId);
+		state.setCurrentUnitId(unitId);
+		state.resetAdvanceState();
 	}
 
 	public void clearCurrentUnit(UUID playerId) {
-		getOrCreateState(playerId).setCurrentUnitId(null);
+		var state = getOrCreateState(playerId);
+		state.setCurrentUnitId(null);
+		state.resetAdvanceState();
 	}
 
 	private PlayerMatchState getOrCreateState(UUID playerId) {

@@ -78,7 +78,10 @@ public class McSnapCommandRegistrar {
 					.executes(ctx -> chargeMana(ctx.getSource(), ctx.getSource().getPlayer()))
 					.then(CommandManager.argument("player", EntityArgumentType.player())
 						.executes(ctx -> chargeMana(ctx.getSource(), EntityArgumentType.getPlayer(ctx, "player")))))
-				.then(CommandManager.literal("advance").executes(ctx -> send(ctx.getSource(), "&e전직 강제 로직은 다음 단계에서 연결 예정")))
+				.then(CommandManager.literal("advance")
+					.executes(ctx -> advance(ctx.getSource(), ctx.getSource().getPlayer()))
+					.then(CommandManager.argument("player", EntityArgumentType.player())
+						.executes(ctx -> advance(ctx.getSource(), EntityArgumentType.getPlayer(ctx, "player")))))
 				.then(CommandManager.literal("captainskill")
 					.then(CommandManager.literal("villager").executes(ctx -> triggerCaptainSkill(ctx.getSource(), FactionId.VILLAGER)))
 					.then(CommandManager.literal("monster").executes(ctx -> triggerCaptainSkill(ctx.getSource(), FactionId.MONSTER)))
@@ -91,6 +94,7 @@ public class McSnapCommandRegistrar {
 		send(source, "&f플레이어: &e" + stats.lastKnownName);
 		send(source, "&f래더: &b" + stats.ladder + " &8/ &f선호: &d" + stats.preference);
 		send(source, "&f킬: &a" + stats.kills + " &8/ &f데스: &c" + stats.deaths + " &8/ &f점령: &6" + stats.captures);
+		send(source, "&f에메랄드: &a" + stats.emeralds + " &8/ &f금괴: &6" + stats.goldIngots);
 		return Command.SINGLE_SUCCESS;
 	}
 
@@ -140,6 +144,13 @@ public class McSnapCommandRegistrar {
 			return send(source, "&c해당 팩션 사령관 스킬 발동 실패");
 		}
 		return send(source, "&a" + factionId.name().toLowerCase() + " 팩션 사령관 스킬 강제 발동");
+	}
+
+	private int advance(ServerCommandSource source, ServerPlayerEntity player) {
+		if (!mod.forceAdvance(player)) {
+			return send(source, "&c전직 가능 상태 강제 부여 실패");
+		}
+		return send(source, "&a전직 가능 상태 강제 부여: &f" + player.getName().getString());
 	}
 
 	private int send(ServerCommandSource source, String message) {

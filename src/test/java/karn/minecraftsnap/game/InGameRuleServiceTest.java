@@ -79,6 +79,8 @@ class InGameRuleServiceTest {
 		var killerId = UUID.randomUUID();
 		manager.setRole(victimId, TeamId.RED, RoleType.UNIT);
 		manager.setRole(killerId, TeamId.BLUE, RoleType.UNIT);
+		manager.getPlayerState(killerId).setFactionId(FactionId.VILLAGER);
+		manager.getPlayerState(killerId).setCurrentUnitId("villager");
 
 		service.recordKillAndDeath(victimId, "victim", killerId, "killer");
 
@@ -86,7 +88,24 @@ class InGameRuleServiceTest {
 		assertEquals(1, repository.getOrCreate(victimId, "victim").deaths);
 		assertEquals(1, repository.getOrCreate(killerId, "killer").kills);
 		assertEquals(303, repository.getLadder(killerId, "killer"));
+		assertEquals(1, repository.getOrCreate(killerId, "killer").emeralds);
 		assertTrue(service.isPendingSpectator(victimId));
+	}
+
+	@Test
+	void netherKillRewardsGold() {
+		var manager = new MatchManager();
+		var service = createService(manager);
+		var victimId = UUID.randomUUID();
+		var killerId = UUID.randomUUID();
+		manager.setRole(victimId, TeamId.RED, RoleType.UNIT);
+		manager.setRole(killerId, TeamId.BLUE, RoleType.UNIT);
+		manager.getPlayerState(killerId).setFactionId(FactionId.NETHER);
+		manager.getPlayerState(killerId).setCurrentUnitId("piglin");
+
+		service.recordKillAndDeath(victimId, "victim", killerId, "killer");
+
+		assertEquals(1, service.getStatsRepository().getOrCreate(killerId, "killer").goldIngots);
 	}
 
 	@Test

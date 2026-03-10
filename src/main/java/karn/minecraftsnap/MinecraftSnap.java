@@ -6,6 +6,7 @@ import karn.minecraftsnap.command.TeamChatService;
 import karn.minecraftsnap.config.MinecraftSnapConfigManager;
 import karn.minecraftsnap.config.StatsRepository;
 import karn.minecraftsnap.config.SystemConfig;
+import karn.minecraftsnap.game.AdvanceService;
 import karn.minecraftsnap.game.CaptainSelectionService;
 import karn.minecraftsnap.game.BiomeRevealService;
 import karn.minecraftsnap.game.CaptainManaService;
@@ -15,17 +16,20 @@ import karn.minecraftsnap.game.InGameRuleService;
 import karn.minecraftsnap.game.LobbyCoordinator;
 import karn.minecraftsnap.game.MatchManager;
 import karn.minecraftsnap.game.MatchPhase;
+import karn.minecraftsnap.game.PlayerMatchState;
 import karn.minecraftsnap.game.RoleType;
 import karn.minecraftsnap.game.TeamAssignmentService;
 import karn.minecraftsnap.game.UnitAbilityService;
 import karn.minecraftsnap.game.UnitLoadoutService;
 import karn.minecraftsnap.game.UnitRegistry;
 import karn.minecraftsnap.game.UnitSpawnService;
+import karn.minecraftsnap.ui.AdvanceGuiService;
 import karn.minecraftsnap.ui.BossBarService;
 import karn.minecraftsnap.ui.CaptainSpawnGuiService;
 import karn.minecraftsnap.ui.FactionSelectionGuiService;
 import karn.minecraftsnap.ui.LobbyScoreboardService;
 import karn.minecraftsnap.ui.PreparationGuiService;
+import karn.minecraftsnap.ui.TradeGuiService;
 import karn.minecraftsnap.ui.WikiGuiService;
 import karn.minecraftsnap.util.TextTemplateResolver;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
@@ -68,6 +72,7 @@ public class MinecraftSnap implements DedicatedServerModInitializer {
 	private final FactionSelectionService factionSelectionService = new FactionSelectionService();
 	private final CaptainManaService captainManaService = new CaptainManaService();
 	private final UnitRegistry unitRegistry = new UnitRegistry();
+	private final AdvanceService advanceService = new AdvanceService(unitRegistry);
 	private final UnitLoadoutService unitLoadoutService = new UnitLoadoutService();
 	private final UnitAbilityService unitAbilityService = new UnitAbilityService(textTemplateResolver);
 	private final UnitSpawnService unitSpawnService = new UnitSpawnService(captainManaService, unitRegistry, unitLoadoutService, unitAbilityService);
@@ -75,6 +80,8 @@ public class MinecraftSnap implements DedicatedServerModInitializer {
 	private final FactionSelectionGuiService factionSelectionGuiService = new FactionSelectionGuiService(textTemplateResolver);
 	private final PreparationGuiService preparationGuiService = new PreparationGuiService(textTemplateResolver, unitRegistry);
 	private final CaptainSpawnGuiService captainSpawnGuiService = new CaptainSpawnGuiService(textTemplateResolver, unitRegistry);
+	private final TradeGuiService tradeGuiService = new TradeGuiService(textTemplateResolver);
+	private final AdvanceGuiService advanceGuiService = new AdvanceGuiService(textTemplateResolver);
 	private final LobbyScoreboardService lobbyScoreboardService = new LobbyScoreboardService(textTemplateResolver);
 	private final McSnapCommandRegistrar commandRegistrar = new McSnapCommandRegistrar(this);
 	private CapturePointService capturePointService;
@@ -138,6 +145,7 @@ public class MinecraftSnap implements DedicatedServerModInitializer {
 				refillCaptainMana();
 			}
 			tickCaptainMana(server);
+			advanceService.tick(server, matchManager, configManager.getSystemConfig().advance);
 			unitAbilityService.tick(server, matchManager);
 			unitSpawnService.maintainActiveUnits(matchManager);
 			inGameRuleService.tick(server, configManager.getSystemConfig());
@@ -150,7 +158,8 @@ public class MinecraftSnap implements DedicatedServerModInitializer {
 		});
 		ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> {
 			matchManager.handleJoin(handler.getPlayer());
-			getStatsRepository().getOrCreate(handler.getPlayer().getUuid(), handler.getPlayer().getName().getString());
+			var stats = getStatsRepository().getOrCreate(handler.getPlayer().getUuid(), handler.getPlayer().getName().getString());
+			matchManager.syncPersistentState(handler.getPlayer().getUuid(), stats.emeralds, stats.goldIngots);
 			lobbyCoordinator.handleJoin(handler.getPlayer(), configManager.getSystemConfig());
 			phaseMusicService.handleJoin(handler.getPlayer(), configManager.getSystemConfig());
 		});
@@ -188,6 +197,10 @@ public class MinecraftSnap implements DedicatedServerModInitializer {
 			unitAbilityService
 		);
 		lobbyCoordinator = createLobbyCoordinator();
+		for (var player : matchManager.getOnlinePlayers()) {
+			var stats = getStatsRepository().getOrCreate(player.getUuid(), player.getName().getString());
+			matchManager.syncPersistentState(player.getUuid(), stats.emeralds, stats.goldIngots);
+		}
 	}
 
 	public MatchManager getMatchManager() {
@@ -238,10 +251,23 @@ public class MinecraftSnap implements DedicatedServerModInitializer {
 	}
 
 	public boolean handleShortcut(net.minecraft.server.network.ServerPlayerEntity player) {
-		if (matchManager.getPhase() == MatchPhase.GAME_RUNNING
-			&& matchManager.getPlayerState(player.getUuid()).getRoleType() == RoleType.CAPTAIN) {
-			openCaptainSpawnGui(player);
-			return true;
+		if (matchManager.getPhase() == MatchPhase.GAME_RUNNING) {
+			var state = matchManager.getPlayerState(player.getUuid());
+			if (state.getRoleType() == RoleType.CAPTAIN) {
+				openCaptainSpawnGui(player);
+				return true;
+			}
+			if (state.getRoleType() == RoleType.UNIT && state.getCurrentUnitId() != null) {
+				if (state.getFactionId() == karn.minecraftsnap.game.FactionId.VILLAGER
+					|| state.getFactionId() == karn.minecraftsnap.game.FactionId.NETHER) {
+					tradeGuiService.open(player, state);
+					return true;
+				}
+				if (state.getFactionId() == karn.minecraftsnap.game.FactionId.MONSTER) {
+					openAdvanceGui(player, state);
+					return true;
+				}
+			}
 		}
 		return lobbyCoordinator.handleShortcut(player, configManager.getSystemConfig());
 	}
@@ -287,6 +313,10 @@ public class MinecraftSnap implements DedicatedServerModInitializer {
 
 	public SystemConfig getSystemConfig() {
 		return configManager.getSystemConfig();
+	}
+
+	public boolean forceAdvance(ServerPlayerEntity player) {
+		return player != null && advanceService.forceAdvance(matchManager.getPlayerState(player.getUuid()), configManager.getSystemConfig().advance);
 	}
 
 	private LobbyCoordinator createLobbyCoordinator() {
@@ -347,6 +377,30 @@ public class MinecraftSnap implements DedicatedServerModInitializer {
 				}
 			}
 		);
+	}
+
+	private void openAdvanceGui(net.minecraft.server.network.ServerPlayerEntity player, PlayerMatchState state) {
+		var condition = advanceService.findCondition(state.getCurrentUnitId(), configManager.getSystemConfig().advance);
+		var biomeId = player.getWorld().getBiome(player.getBlockPos()).getKey()
+			.map(key -> key.getValue().toString())
+			.orElse("minecraft:plains");
+		var weather = advanceService.currentWeather(player);
+		var targetDefinition = state.getAdvanceTargetUnitId() == null ? null : unitRegistry.get(state.getAdvanceTargetUnitId());
+		if (targetDefinition == null && condition != null) {
+			targetDefinition = unitRegistry.get(condition.resultUnitId);
+		}
+		var requiredSeconds = condition == null ? 0 : condition.requiredSeconds;
+
+		advanceGuiService.open(player, state, biomeId, weather, requiredSeconds, targetDefinition, () -> {
+			var definition = advanceService.applyAdvance(state);
+			if (definition == null) {
+				player.sendMessage(textTemplateResolver.format(configManager.getSystemConfig().advance.notAvailableMessage), false);
+				return;
+			}
+			unitLoadoutService.applyUnitLoadout(player, definition, textTemplateResolver);
+			karn.minecraftsnap.integration.DisguiseSupport.applyDisguise(player, definition.disguiseId());
+			player.sendMessage(textTemplateResolver.format("&a전직 완료: &f" + definition.displayName()), false);
+		});
 	}
 
 	private void handlePhaseTransition() {

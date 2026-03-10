@@ -6,6 +6,11 @@ public class PlayerMatchState {
 	private FactionId factionId;
 	private String preferredUnitId;
 	private String currentUnitId;
+	private int emeralds;
+	private int goldIngots;
+	private boolean advanceAvailable;
+	private int advanceProgressSeconds;
+	private String advanceTargetUnitId;
 
 	public TeamId getTeamId() {
 		return teamId;
@@ -22,6 +27,9 @@ public class PlayerMatchState {
 		this.factionId = null;
 		this.preferredUnitId = null;
 		this.currentUnitId = null;
+		this.advanceAvailable = false;
+		this.advanceProgressSeconds = 0;
+		this.advanceTargetUnitId = null;
 	}
 
 	public RoleType getRoleType() {
@@ -62,5 +70,59 @@ public class PlayerMatchState {
 
 	public void setCurrentUnitId(String currentUnitId) {
 		this.currentUnitId = currentUnitId;
+	}
+
+	public int getEmeralds() {
+		return emeralds;
+	}
+
+	public void setEmeralds(int emeralds) {
+		this.emeralds = emeralds;
+	}
+
+	public void addEmeralds(int amount) {
+		this.emeralds += amount;
+	}
+
+	public int getGoldIngots() {
+		return goldIngots;
+	}
+
+	public void setGoldIngots(int goldIngots) {
+		this.goldIngots = goldIngots;
+	}
+
+	public void addGoldIngots(int amount) {
+		this.goldIngots += amount;
+	}
+
+	public boolean isAdvanceAvailable() {
+		return advanceAvailable;
+	}
+
+	public void setAdvanceAvailable(boolean advanceAvailable) {
+		this.advanceAvailable = advanceAvailable;
+	}
+
+	public int getAdvanceProgressSeconds() {
+		return advanceProgressSeconds;
+	}
+
+	public void setAdvanceProgressSeconds(int advanceProgressSeconds) {
+		this.advanceProgressSeconds = advanceProgressSeconds;
+	}
+
+	public String getAdvanceTargetUnitId() {
+		return advanceTargetUnitId;
+	}
+
+	public void setAdvanceTargetUnitId(String advanceTargetUnitId) {
+		this.advanceTargetUnitId = advanceTargetUnitId;
+	}
+
+	public void resetAdvanceState() {
+		this.advanceAvailable = false;
+		this.advanceProgressSeconds = 0;
+		this.advanceTargetUnitId = null;
 	}
 }

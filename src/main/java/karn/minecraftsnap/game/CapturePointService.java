@@ -108,6 +108,7 @@ public class CapturePointService {
 
 		if (ownerPresent) {
 			matchManager.addScore(ownerTeam, 1);
+			rewardVillagerCurrency(occupants, ownerTeam);
 		}
 	}
 
@@ -140,5 +141,20 @@ public class CapturePointService {
 			case BLUE -> TeamId.BLUE;
 			case NEUTRAL -> null;
 		};
+	}
+
+	private void rewardVillagerCurrency(List<ServerPlayerEntity> occupants, TeamId ownerTeam) {
+		for (var player : occupants) {
+			var playerState = matchManager.getPlayerState(player.getUuid());
+			if (!playerState.isUnit()
+				|| player.isSpectator()
+				|| playerState.getCurrentUnitId() == null
+				|| playerState.getTeamId() != ownerTeam
+				|| playerState.getFactionId() != FactionId.VILLAGER) {
+				continue;
+			}
+			playerState.addEmeralds(1);
+			statsRepository.addEmeralds(player.getUuid(), player.getName().getString(), 1);
+		}
 	}
 }

@@ -6,6 +6,7 @@ public record UnitDefinition(
 	String id,
 	String displayName,
 	FactionId factionId,
+	boolean captainSpawnable,
 	int cost,
 	int spawnCooldownSeconds,
 	double maxHealth,
