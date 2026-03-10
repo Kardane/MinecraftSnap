@@ -17,9 +17,9 @@ public class BiomeRevealService {
 		this.textTemplateResolver = textTemplateResolver;
 	}
 
-	public void tick(MinecraftServer server, SystemConfig systemConfig) {
+	public List<LaneId> tick(MinecraftServer server, SystemConfig systemConfig) {
 		if (matchManager.getPhase() != MatchPhase.GAME_RUNNING || matchManager.getServerTicks() % 20L != 0L) {
-			return;
+			return List.of();
 		}
 
 		var elapsedSeconds = matchManager.getTotalSeconds() - matchManager.getRemainingSeconds();
@@ -30,6 +30,7 @@ public class BiomeRevealService {
 				Map.of("{lane}", laneLabel(laneId))
 			), false);
 		}
+		return revealed;
 	}
 
 	public List<LaneId> syncRevealState(int elapsedSeconds, SystemConfig.BiomeRevealConfig config) {

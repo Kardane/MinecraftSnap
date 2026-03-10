@@ -146,19 +146,31 @@ public class MatchManager {
 	}
 
 	public void setCaptain(TeamId teamId, ServerPlayerEntity player) {
-		getOrCreateState(player.getUuid()).setTeam(teamId, RoleType.CAPTAIN);
+		var state = getOrCreateState(player.getUuid());
+		state.setTeam(teamId, RoleType.CAPTAIN);
+		state.setCurrentUnitId(null);
 	}
 
 	public void setCaptain(TeamId teamId, UUID playerId) {
-		getOrCreateState(playerId).setTeam(teamId, RoleType.CAPTAIN);
+		var state = getOrCreateState(playerId);
+		state.setTeam(teamId, RoleType.CAPTAIN);
+		state.setCurrentUnitId(null);
 	}
 
 	public void setRole(ServerPlayerEntity player, TeamId teamId, RoleType roleType) {
-		getOrCreateState(player.getUuid()).setTeam(teamId, roleType);
+		var state = getOrCreateState(player.getUuid());
+		state.setTeam(teamId, roleType);
+		if (roleType != RoleType.UNIT) {
+			state.setCurrentUnitId(null);
+		}
 	}
 
 	public void setRole(UUID playerId, TeamId teamId, RoleType roleType) {
-		getOrCreateState(playerId).setTeam(teamId, roleType);
+		var state = getOrCreateState(playerId);
+		state.setTeam(teamId, roleType);
+		if (roleType != RoleType.UNIT) {
+			state.setCurrentUnitId(null);
+		}
 	}
 
 	public PlayerMatchState getPlayerState(UUID playerId) {
@@ -237,6 +249,41 @@ public class MatchManager {
 			.orElse(null);
 	}
 
+	public Collection<UUID> getCaptainIds() {
+		return playerStates.entrySet().stream()
+			.filter(entry -> entry.getValue().getRoleType() == RoleType.CAPTAIN && entry.getValue().getTeamId() != null)
+			.map(Map.Entry::getKey)
+			.toList();
+	}
+
+	public TeamId getCaptainTeam(UUID captainId) {
+		var state = getOrCreateState(captainId);
+		return state.getRoleType() == RoleType.CAPTAIN ? state.getTeamId() : null;
+	}
+
+	public UUID getCaptainIdByFaction(FactionId factionId) {
+		if (factionId == null) {
+			return null;
+		}
+		for (var teamId : TeamId.values()) {
+			if (factionId == factionSelections.get(teamId)) {
+				return getCaptainId(teamId);
+			}
+		}
+		return null;
+	}
+
+	public Collection<UUID> getCaptainIdsByFaction(FactionId factionId) {
+		if (factionId == null) {
+			return List.of();
+		}
+		return java.util.Arrays.stream(TeamId.values())
+			.filter(teamId -> factionId == factionSelections.get(teamId))
+			.map(this::getCaptainId)
+			.filter(java.util.Objects::nonNull)
+			.toList();
+	}
+
 	public boolean isFactionSelectionComplete() {
 		return factionSelections.containsKey(TeamId.RED) && factionSelections.containsKey(TeamId.BLUE);
 	}
@@ -292,6 +339,39 @@ public class MatchManager {
 		}
 
 		return List.copyOf(server.getPlayerManager().getPlayerList());
+	}
+
+	public Collection<ServerPlayerEntity> getOnlineTeamPlayers(TeamId teamId) {
+		if (server == null) {
+			return List.of();
+		}
+
+		return server.getPlayerManager().getPlayerList().stream()
+			.filter(player -> getOrCreateState(player.getUuid()).getTeamId() == teamId)
+			.toList();
+	}
+
+	public Collection<ServerPlayerEntity> getOnlineSpectatorUnits(TeamId teamId) {
+		if (server == null) {
+			return List.of();
+		}
+
+		return server.getPlayerManager().getPlayerList().stream()
+			.filter(player -> {
+				var state = getOrCreateState(player.getUuid());
+				return state.getTeamId() == teamId
+					&& state.getRoleType() == RoleType.UNIT
+					&& player.isSpectator();
+			})
+			.toList();
+	}
+
+	public void setCurrentUnit(UUID playerId, String unitId) {
+		getOrCreateState(playerId).setCurrentUnitId(unitId);
+	}
+
+	public void clearCurrentUnit(UUID playerId) {
+		getOrCreateState(playerId).setCurrentUnitId(null);
 	}
 
 	private PlayerMatchState getOrCreateState(UUID playerId) {

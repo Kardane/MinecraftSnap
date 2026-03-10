@@ -6,6 +6,7 @@ import karn.minecraftsnap.ui.FactionSelectionGuiService;
 import karn.minecraftsnap.ui.LobbyScoreboardService;
 import karn.minecraftsnap.ui.PreparationGuiService;
 import karn.minecraftsnap.ui.WikiGuiService;
+import karn.minecraftsnap.util.TextTemplateResolver;
 import net.minecraft.registry.RegistryKey;
 import net.minecraft.registry.RegistryKeys;
 import net.minecraft.server.MinecraftServer;
@@ -26,6 +27,8 @@ public class LobbyCoordinator {
 	private final FactionSelectionGuiService factionSelectionGuiService;
 	private final LobbyScoreboardService lobbyScoreboardService;
 	private final PreparationGuiService preparationGuiService;
+	private final UnitSpawnService unitSpawnService;
+	private final TextTemplateResolver textTemplateResolver;
 
 	public LobbyCoordinator(
 		MatchManager matchManager,
@@ -36,7 +39,9 @@ public class LobbyCoordinator {
 		WikiGuiService wikiGuiService,
 		FactionSelectionGuiService factionSelectionGuiService,
 		LobbyScoreboardService lobbyScoreboardService,
-		PreparationGuiService preparationGuiService
+		PreparationGuiService preparationGuiService,
+		UnitSpawnService unitSpawnService,
+		TextTemplateResolver textTemplateResolver
 	) {
 		this.matchManager = matchManager;
 		this.statsRepository = statsRepository;
@@ -47,6 +52,8 @@ public class LobbyCoordinator {
 		this.factionSelectionGuiService = factionSelectionGuiService;
 		this.lobbyScoreboardService = lobbyScoreboardService;
 		this.preparationGuiService = preparationGuiService;
+		this.unitSpawnService = unitSpawnService;
+		this.textTemplateResolver = textTemplateResolver;
 	}
 
 	public void handleJoin(ServerPlayerEntity player, SystemConfig config) {
@@ -248,23 +255,27 @@ public class LobbyCoordinator {
 	}
 
 	private void preparePlayerForGameStart(ServerPlayerEntity player, SystemConfig config) {
-		player.clearStatusEffects();
-		player.setHealth(player.getMaxHealth());
+		unitSpawnService.resetPlayer(player);
 		player.getInventory().clear();
 		player.getHungerManager().setFoodLevel(20);
 		player.getHungerManager().setSaturationLevel(20.0f);
 
 		var state = matchManager.getPlayerState(player.getUuid());
 		if (state.getRoleType() == RoleType.UNIT) {
+			matchManager.clearCurrentUnit(player.getUuid());
 			player.changeGameMode(GameMode.SPECTATOR);
 			teleport(player, config.gameStart.unitSpawn);
 		} else {
 			player.changeGameMode(GameMode.ADVENTURE);
 			teleport(player, config.gameStart.captainSpawn);
+			unitSpawnService.getUnitLoadoutService().giveCaptainItems(player, state.getFactionId(), textTemplateResolver);
 		}
 	}
 
 	private void applyLobbyState(ServerPlayerEntity player, SystemConfig config) {
+		unitSpawnService.resetPlayer(player);
+		player.getInventory().clear();
+		matchManager.clearCurrentUnit(player.getUuid());
 		player.changeGameMode(GameMode.ADVENTURE);
 		var position = new SystemConfig.PositionConfig();
 		position.world = config.lobby.world;

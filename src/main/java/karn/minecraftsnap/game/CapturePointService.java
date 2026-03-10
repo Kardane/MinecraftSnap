@@ -65,7 +65,7 @@ public class CapturePointService {
 		int blueCount = 0;
 		for (var player : occupants) {
 			var playerState = matchManager.getPlayerState(player.getUuid());
-			if (!playerState.isUnit()) {
+			if (!playerState.isUnit() || player.isSpectator() || playerState.getCurrentUnitId() == null) {
 				continue;
 			}
 			if (playerState.getTeamId() == TeamId.RED) {
@@ -81,7 +81,7 @@ public class CapturePointService {
 		if (captured && occupyingTeam != null) {
 			for (var player : occupants) {
 				var playerState = matchManager.getPlayerState(player.getUuid());
-				if (playerState.isUnit() && playerState.getTeamId() == occupyingTeam) {
+				if (playerState.isUnit() && playerState.getCurrentUnitId() != null && playerState.getTeamId() == occupyingTeam && !player.isSpectator()) {
 					statsRepository.addCapture(player.getUuid(), player.getName().getString(), 1);
 				}
 			}
@@ -99,7 +99,7 @@ public class CapturePointService {
 		boolean ownerPresent = false;
 		for (var player : occupants) {
 			var playerState = matchManager.getPlayerState(player.getUuid());
-			if (!playerState.isUnit() || playerState.getTeamId() != ownerTeam) {
+			if (!playerState.isUnit() || player.isSpectator() || playerState.getCurrentUnitId() == null || playerState.getTeamId() != ownerTeam) {
 				continue;
 			}
 			ownerPresent = true;

@@ -5,6 +5,7 @@ public class PlayerMatchState {
 	private RoleType roleType = RoleType.NONE;
 	private FactionId factionId;
 	private String preferredUnitId;
+	private String currentUnitId;
 
 	public TeamId getTeamId() {
 		return teamId;
@@ -20,6 +21,7 @@ public class PlayerMatchState {
 		this.roleType = RoleType.NONE;
 		this.factionId = null;
 		this.preferredUnitId = null;
+		this.currentUnitId = null;
 	}
 
 	public RoleType getRoleType() {
@@ -32,6 +34,10 @@ public class PlayerMatchState {
 
 	public boolean isUnit() {
 		return teamId != null && roleType == RoleType.UNIT;
+	}
+
+	public boolean isCaptain() {
+		return teamId != null && roleType == RoleType.CAPTAIN;
 	}
 
 	public FactionId getFactionId() {
@@ -48,5 +54,13 @@ public class PlayerMatchState {
 
 	public void setPreferredUnitId(String preferredUnitId) {
 		this.preferredUnitId = preferredUnitId;
+	}
+
+	public String getCurrentUnitId() {
+		return currentUnitId;
+	}
+
+	public void setCurrentUnitId(String currentUnitId) {
+		this.currentUnitId = currentUnitId;
 	}
 }

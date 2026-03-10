@@ -20,13 +20,33 @@ public class InGameRuleService {
 	private final MatchManager matchManager;
 	private final StatsRepository statsRepository;
 	private final TextTemplateResolver textTemplateResolver;
+	private final UnitSpawnService unitSpawnService;
+	private final CaptainManaService captainManaService;
+	private final UnitRegistry unitRegistry;
+	private final UnitAbilityService unitAbilityService;
 	private final Set<UUID> pendingSpectators = new HashSet<>();
 	private final Map<UUID, Long> laneWarningTicks = new HashMap<>();
 
 	public InGameRuleService(MatchManager matchManager, StatsRepository statsRepository, TextTemplateResolver textTemplateResolver) {
+		this(matchManager, statsRepository, textTemplateResolver, null, null, null, null);
+	}
+
+	public InGameRuleService(
+		MatchManager matchManager,
+		StatsRepository statsRepository,
+		TextTemplateResolver textTemplateResolver,
+		UnitSpawnService unitSpawnService,
+		CaptainManaService captainManaService,
+		UnitRegistry unitRegistry,
+		UnitAbilityService unitAbilityService
+	) {
 		this.matchManager = matchManager;
 		this.statsRepository = statsRepository;
 		this.textTemplateResolver = textTemplateResolver;
+		this.unitSpawnService = unitSpawnService;
+		this.captainManaService = captainManaService;
+		this.unitRegistry = unitRegistry;
+		this.unitAbilityService = unitAbilityService;
 	}
 
 	public void tick(MinecraftServer server, SystemConfig systemConfig) {
@@ -89,7 +109,14 @@ public class InGameRuleService {
 		}
 
 		var attacker = source.getAttacker() instanceof ServerPlayerEntity attackerPlayer ? attackerPlayer : null;
+		if (unitAbilityService != null && unitRegistry != null) {
+			unitAbilityService.handleUnitDeath(player, matchManager, unitRegistry);
+		}
 		recordKillAndDeath(player.getUuid(), player.getName().getString(), attacker == null ? null : attacker.getUuid(), attacker == null ? null : attacker.getName().getString());
+		matchManager.clearCurrentUnit(player.getUuid());
+		if (unitSpawnService != null) {
+			unitSpawnService.resetPlayer(player);
+		}
 		pendingSpectators.add(player.getUuid());
 		player.setHealth(player.getMaxHealth());
 		player.clearStatusEffects();
@@ -105,6 +132,9 @@ public class InGameRuleService {
 			if (victimState.getTeamId() != null && killerState.getTeamId() != null && victimState.getTeamId() != killerState.getTeamId()) {
 				statsRepository.addKill(killerId, killerName, 1);
 				statsRepository.addLadder(killerId, killerName, 3);
+				if (unitAbilityService != null && captainManaService != null && unitRegistry != null) {
+					unitAbilityService.handleEnemyKill(killerId, matchManager, captainManaService, unitRegistry);
+				}
 			}
 		}
 	}
@@ -176,11 +206,17 @@ public class InGameRuleService {
 		for (var playerId : pendingSpectators) {
 			var player = server.getPlayerManager().getPlayer(playerId);
 			if (player == null) {
+				matchManager.clearCurrentUnit(playerId);
 				processed.add(playerId);
 				continue;
 			}
 
 			player.changeGameMode(GameMode.SPECTATOR);
+			if (unitSpawnService != null) {
+				unitSpawnService.resetPlayer(player);
+			}
+			player.getInventory().clear();
+			matchManager.clearCurrentUnit(playerId);
 			processed.add(playerId);
 		}
 		pendingSpectators.removeAll(processed);

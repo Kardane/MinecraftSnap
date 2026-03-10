@@ -3,6 +3,7 @@ package karn.minecraftsnap.command;
 import com.mojang.brigadier.Command;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import karn.minecraftsnap.MinecraftSnap;
+import karn.minecraftsnap.game.FactionId;
 import karn.minecraftsnap.game.LaneId;
 import karn.minecraftsnap.game.MatchPhase;
 import karn.minecraftsnap.game.TeamId;
@@ -73,9 +74,15 @@ public class McSnapCommandRegistrar {
 				.then(CommandManager.literal("opengui")
 					.then(CommandManager.argument("gui", StringArgumentType.word())
 						.executes(ctx -> send(ctx.getSource(), "&eGUI 열기 요청: &f" + StringArgumentType.getString(ctx, "gui")))))
-				.then(CommandManager.literal("manacharge").executes(ctx -> send(ctx.getSource(), "&e마나 충전 로직은 다음 단계에서 연결 예정")))
+				.then(CommandManager.literal("manacharge")
+					.executes(ctx -> chargeMana(ctx.getSource(), ctx.getSource().getPlayer()))
+					.then(CommandManager.argument("player", EntityArgumentType.player())
+						.executes(ctx -> chargeMana(ctx.getSource(), EntityArgumentType.getPlayer(ctx, "player")))))
 				.then(CommandManager.literal("advance").executes(ctx -> send(ctx.getSource(), "&e전직 강제 로직은 다음 단계에서 연결 예정")))
-				.then(CommandManager.literal("captainskill").executes(ctx -> send(ctx.getSource(), "&e사령관 스킬 강제 사용 로직은 다음 단계에서 연결 예정"))))
+				.then(CommandManager.literal("captainskill")
+					.then(CommandManager.literal("villager").executes(ctx -> triggerCaptainSkill(ctx.getSource(), FactionId.VILLAGER)))
+					.then(CommandManager.literal("monster").executes(ctx -> triggerCaptainSkill(ctx.getSource(), FactionId.MONSTER)))
+					.then(CommandManager.literal("nether").executes(ctx -> triggerCaptainSkill(ctx.getSource(), FactionId.NETHER)))))
 		);
 	}
 
@@ -119,6 +126,20 @@ public class McSnapCommandRegistrar {
 	private int setLaneState(ServerCommandSource source, LaneId laneId, boolean active) {
 		mod.setLaneRevealState(laneId, active);
 		return send(source, "&a" + laneLabel(laneId) + " 상태: &f" + (active ? "공개" : "비공개"));
+	}
+
+	private int chargeMana(ServerCommandSource source, ServerPlayerEntity player) {
+		if (player == null || !mod.chargeCaptainMana(player)) {
+			return send(source, "&c사령관이 아니라 마나 충전 불가");
+		}
+		return send(source, "&a사령관 마나 전충전: &f" + player.getName().getString());
+	}
+
+	private int triggerCaptainSkill(ServerCommandSource source, FactionId factionId) {
+		if (!mod.triggerCaptainSkill(factionId)) {
+			return send(source, "&c해당 팩션 사령관 스킬 발동 실패");
+		}
+		return send(source, "&a" + factionId.name().toLowerCase() + " 팩션 사령관 스킬 강제 발동");
 	}
 
 	private int send(ServerCommandSource source, String message) {
