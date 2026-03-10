@@ -13,6 +13,7 @@ public class SystemConfig {
 	public BiomeRevealConfig biomeReveal = new BiomeRevealConfig();
 	public InGameConfig inGame = new InGameConfig();
 	public AdvanceConfig advance = new AdvanceConfig();
+	public GameEndConfig gameEnd = new GameEndConfig();
 
 	public static class BossBarConfig {
 		public String template = "&c레드 {red_score} &8| &f남은 시간 {time} &8| &9블루 {blue_score}";
@@ -78,6 +79,18 @@ public class SystemConfig {
 		public int lane3RevealSecond = 360;
 		public String messageTemplate = "&a{lane}&f 라인 바이옴 공개";
 		public String hiddenWorldKey = "minecraft:the_void";
+		public String assignmentPolicy = "unique_random";
+		public boolean applyHiddenVoidBiome = true;
+		public boolean restoreOriginalBiomesOnEnd = true;
+	}
+
+	public static class GameEndConfig {
+		public int finalTickRate = 10;
+		public int restoreTickRate = 20;
+		public int returnToLobbyDelaySeconds = 5;
+		public int winnerGlowSeconds = 5;
+		public String titleTemplate = "&6승리: &f{winner}";
+		public String drawTitleTemplate = "&e무승부";
 	}
 
 	public static class PositionConfig {
@@ -191,6 +204,9 @@ public class SystemConfig {
 		}
 		if (advance == null) {
 			advance = new AdvanceConfig();
+		}
+		if (gameEnd == null) {
+			gameEnd = new GameEndConfig();
 		}
 		if (gameStart.captainSpawn == null) {
 			gameStart.captainSpawn = PositionConfig.create("minecraft:overworld", 0.0, 64.0, 10.0);

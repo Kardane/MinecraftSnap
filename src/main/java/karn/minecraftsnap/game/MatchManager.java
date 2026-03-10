@@ -16,6 +16,7 @@ public class MatchManager {
 	private final Map<LaneId, Boolean> laneActiveStates = new EnumMap<>(LaneId.class);
 	private final Map<LaneId, Boolean> laneRevealedStates = new EnumMap<>(LaneId.class);
 	private final Map<LaneId, Boolean> laneRevealOverrides = new EnumMap<>(LaneId.class);
+	private final Map<LaneId, String> laneAssignedBiomeIds = new EnumMap<>(LaneId.class);
 	private final Map<TeamId, FactionId> factionSelections = new EnumMap<>(TeamId.class);
 	private MatchPhase phase = MatchPhase.LOBBY;
 	private MatchClock clock = new MatchClock(9 * 60);
@@ -37,6 +38,10 @@ public class MatchManager {
 
 	public void bindServer(MinecraftServer server) {
 		this.server = server;
+	}
+
+	public MinecraftServer getServer() {
+		return server;
 	}
 
 	public void applyGameDuration(int seconds) {
@@ -98,11 +103,13 @@ public class MatchManager {
 			allPointsHeldTeam = null;
 			allPointsHeldSeconds = 0;
 			hideAllLanes();
+			clearAssignedBiomes();
 			factionSelections.clear();
 			playerStates.values().forEach(PlayerMatchState::clear);
 		} else if (phase == MatchPhase.TEAM_SELECT) {
 			factionSelections.clear();
 			hideAllLanes();
+			clearAssignedBiomes();
 			playerStates.values().forEach(state -> state.setFactionId(null));
 		} else if (phase == MatchPhase.GAME_END) {
 			deactivateAllLanes();
@@ -224,6 +231,22 @@ public class MatchManager {
 
 	public Boolean getLaneRevealOverride(LaneId laneId) {
 		return laneRevealOverrides.get(laneId);
+	}
+
+	public void setAssignedBiomeId(LaneId laneId, String biomeId) {
+		if (biomeId == null) {
+			laneAssignedBiomeIds.remove(laneId);
+			return;
+		}
+		laneAssignedBiomeIds.put(laneId, biomeId);
+	}
+
+	public String getAssignedBiomeId(LaneId laneId) {
+		return laneAssignedBiomeIds.get(laneId);
+	}
+
+	public Map<LaneId, String> getAssignedBiomeIdsSnapshot() {
+		return new EnumMap<>(laneAssignedBiomeIds);
 	}
 
 	public TeamId getWinnerTeam() {
@@ -400,6 +423,10 @@ public class MatchManager {
 			laneActiveStates.put(laneId, false);
 			laneRevealedStates.put(laneId, false);
 		}
+	}
+
+	private void clearAssignedBiomes() {
+		laneAssignedBiomeIds.clear();
 	}
 
 	private void fillMissingRoles() {

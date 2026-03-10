@@ -84,7 +84,8 @@ class AdvanceServiceTest {
 			UnitDefinition.UnitAbilityType.NONE,
 			UnitDefinition.UnitPassiveType.NONE,
 			UnitDefinition.AmmoType.NONE,
-			"slime"
+			"slime",
+			java.util.List.of()
 		));
 		var service = new AdvanceService(registry);
 		var state = new PlayerMatchState();

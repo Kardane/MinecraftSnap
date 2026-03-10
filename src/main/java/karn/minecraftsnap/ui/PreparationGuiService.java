@@ -29,13 +29,14 @@ public class PreparationGuiService {
 		for (int i = 0; i < units.size(); i++) {
 			var unit = units.get(i);
 			boolean selected = unit.id().equals(state.getPreferredUnitId());
+			var lore = new java.util.ArrayList<String>();
+			lore.add(state.getRoleType() == RoleType.UNIT ? "&7클릭해서 우선 배정 토글" : "&7사령관은 읽기 전용");
+			lore.add("&7코스트: &b" + unit.cost());
+			lore.addAll(unit.descriptionLines());
+			lore.add(selected ? "&a현재 우선 배정됨" : "&8미선택");
 			var builder = new GuiElementBuilder(unit.mainHandItem())
 				.setName(textTemplateResolver.format("&f" + unit.displayName()))
-				.setLore(List.of(
-					textTemplateResolver.format(state.getRoleType() == RoleType.UNIT ? "&7클릭해서 우선 배정 토글" : "&7사령관은 읽기 전용"),
-					textTemplateResolver.format("&7코스트: &b" + unit.cost()),
-					textTemplateResolver.format(selected ? "&a현재 우선 배정됨" : "&8미선택")
-				));
+				.setLore(lore.stream().map(textTemplateResolver::format).toList());
 			if (selected) {
 				builder.glow();
 			}

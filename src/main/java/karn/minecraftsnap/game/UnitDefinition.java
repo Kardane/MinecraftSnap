@@ -2,6 +2,8 @@ package karn.minecraftsnap.game;
 
 import net.minecraft.item.Item;
 
+import java.util.List;
+
 public record UnitDefinition(
 	String id,
 	String displayName,
@@ -23,7 +25,8 @@ public record UnitDefinition(
 	UnitAbilityType abilityType,
 	UnitPassiveType passiveType,
 	AmmoType ammoType,
-	String disguiseId
+	String disguiseId,
+	List<String> descriptionLines
 ) {
 	public enum UnitAbilityType {
 		NONE,

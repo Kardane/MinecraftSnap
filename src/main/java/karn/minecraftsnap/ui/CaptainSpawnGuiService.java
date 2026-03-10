@@ -28,14 +28,15 @@ public class CaptainSpawnGuiService {
 		int slot = 10;
 		for (var definition : unitRegistry.byFaction(factionId)) {
 			var blocked = captainState.getCurrentMana() < definition.cost() || captainState.getSpawnCooldownSeconds() > 0;
+			var lore = new java.util.ArrayList<String>();
+			lore.add("&7코스트: &b" + definition.cost());
+			lore.add("&7생성 쿨다운: &e" + definition.spawnCooldownSeconds() + "초");
+			lore.add("&7체력: &c" + (int) definition.maxHealth());
+			lore.addAll(definition.descriptionLines());
+			lore.add(blocked ? "&c현재 소환 불가" : "&a클릭해서 소환");
 			var builder = new GuiElementBuilder(definition.mainHandItem())
 				.setName(textTemplateResolver.format("&f" + definition.displayName()))
-				.setLore(List.of(
-					textTemplateResolver.format("&7코스트: &b" + definition.cost()),
-					textTemplateResolver.format("&7생성 쿨다운: &e" + definition.spawnCooldownSeconds() + "초"),
-					textTemplateResolver.format("&7체력: &c" + (int) definition.maxHealth()),
-					textTemplateResolver.format(blocked ? "&c현재 소환 불가" : "&a클릭해서 소환")
-				));
+				.setLore(lore.stream().map(textTemplateResolver::format).toList());
 			if (!blocked) {
 				builder.glow();
 				builder.setCallback((index, clickType, action, slotGui) -> {

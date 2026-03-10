@@ -13,6 +13,7 @@ import net.minecraft.server.command.ServerCommandSource;
 import net.minecraft.server.network.ServerPlayerEntity;
 
 public class McSnapCommandRegistrar {
+	static final java.util.Set<String> ADMIN_GUI_IDS = java.util.Set.of("wiki", "faction", "preparation", "captain_spawn", "trade", "advance");
 	private final MinecraftSnap mod;
 
 	public McSnapCommandRegistrar(MinecraftSnap mod) {
@@ -73,7 +74,7 @@ public class McSnapCommandRegistrar {
 					.then(CommandManager.literal("lane3").executes(ctx -> setLaneState(ctx.getSource(), LaneId.LANE_3, false))))
 				.then(CommandManager.literal("opengui")
 					.then(CommandManager.argument("gui", StringArgumentType.word())
-						.executes(ctx -> send(ctx.getSource(), "&eGUI 열기 요청: &f" + StringArgumentType.getString(ctx, "gui")))))
+						.executes(ctx -> openGui(ctx.getSource(), StringArgumentType.getString(ctx, "gui")))))
 				.then(CommandManager.literal("manacharge")
 					.executes(ctx -> chargeMana(ctx.getSource(), ctx.getSource().getPlayer()))
 					.then(CommandManager.argument("player", EntityArgumentType.player())
@@ -153,9 +154,30 @@ public class McSnapCommandRegistrar {
 		return send(source, "&a전직 가능 상태 강제 부여: &f" + player.getName().getString());
 	}
 
+	private int openGui(ServerCommandSource source, String guiId) {
+		var player = source.getPlayer();
+		var normalized = normalizeAdminGui(guiId);
+		if (player == null) {
+			return send(source, "&c플레이어만 GUI 오픈 가능");
+		}
+		if (normalized == null) {
+			return send(source, "&c지원하지 않는 GUI: &f" + guiId);
+		}
+		var result = mod.openAdminGui(player, normalized);
+		return send(source, result);
+	}
+
 	private int send(ServerCommandSource source, String message) {
 		source.sendFeedback(() -> mod.getTextTemplateResolver().format(message), false);
 		return Command.SINGLE_SUCCESS;
+	}
+
+	static String normalizeAdminGui(String input) {
+		if (input == null) {
+			return null;
+		}
+		var normalized = input.toLowerCase(java.util.Locale.ROOT);
+		return ADMIN_GUI_IDS.contains(normalized) ? normalized : null;
 	}
 
 	private String laneLabel(LaneId laneId) {

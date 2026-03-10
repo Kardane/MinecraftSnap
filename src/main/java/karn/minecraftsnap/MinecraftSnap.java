@@ -7,17 +7,21 @@ import karn.minecraftsnap.config.MinecraftSnapConfigManager;
 import karn.minecraftsnap.config.StatsRepository;
 import karn.minecraftsnap.config.SystemConfig;
 import karn.minecraftsnap.game.AdvanceService;
+import karn.minecraftsnap.game.FactionId;
 import karn.minecraftsnap.game.CaptainSelectionService;
 import karn.minecraftsnap.game.BiomeRevealService;
 import karn.minecraftsnap.game.CaptainManaService;
 import karn.minecraftsnap.game.CapturePointService;
 import karn.minecraftsnap.game.FactionSelectionService;
+import karn.minecraftsnap.game.GameEndService;
 import karn.minecraftsnap.game.InGameRuleService;
+import karn.minecraftsnap.game.LaneBiomeService;
 import karn.minecraftsnap.game.LobbyCoordinator;
 import karn.minecraftsnap.game.MatchManager;
 import karn.minecraftsnap.game.MatchPhase;
 import karn.minecraftsnap.game.PlayerMatchState;
 import karn.minecraftsnap.game.RoleType;
+import karn.minecraftsnap.game.TeamId;
 import karn.minecraftsnap.game.TeamAssignmentService;
 import karn.minecraftsnap.game.UnitAbilityService;
 import karn.minecraftsnap.game.UnitLoadoutService;
@@ -41,6 +45,8 @@ import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
 import net.fabricmc.fabric.api.event.player.UseItemCallback;
 import net.fabricmc.api.DedicatedServerModInitializer;
 import net.fabricmc.loader.api.FabricLoader;
+import net.minecraft.entity.effect.StatusEffectInstance;
+import net.minecraft.entity.effect.StatusEffects;
 import net.minecraft.util.ActionResult;
 import net.minecraft.server.network.ServerPlayerEntity;
 import org.slf4j.Logger;
@@ -71,19 +77,30 @@ public class MinecraftSnap implements DedicatedServerModInitializer {
 	private final CaptainSelectionService captainSelectionService = new CaptainSelectionService();
 	private final FactionSelectionService factionSelectionService = new FactionSelectionService();
 	private final CaptainManaService captainManaService = new CaptainManaService();
-	private final UnitRegistry unitRegistry = new UnitRegistry();
+	private final UnitRegistry unitRegistry = new UnitRegistry(false);
 	private final AdvanceService advanceService = new AdvanceService(unitRegistry);
 	private final UnitLoadoutService unitLoadoutService = new UnitLoadoutService();
 	private final UnitAbilityService unitAbilityService = new UnitAbilityService(textTemplateResolver);
 	private final UnitSpawnService unitSpawnService = new UnitSpawnService(captainManaService, unitRegistry, unitLoadoutService, unitAbilityService);
-	private final WikiGuiService wikiGuiService = new WikiGuiService(textTemplateResolver);
-	private final FactionSelectionGuiService factionSelectionGuiService = new FactionSelectionGuiService(textTemplateResolver);
+	private final WikiGuiService wikiGuiService = new WikiGuiService(textTemplateResolver, unitRegistry, configManager::getBiomeCatalog);
+	private final FactionSelectionGuiService factionSelectionGuiService = new FactionSelectionGuiService(textTemplateResolver, unitRegistry);
 	private final PreparationGuiService preparationGuiService = new PreparationGuiService(textTemplateResolver, unitRegistry);
 	private final CaptainSpawnGuiService captainSpawnGuiService = new CaptainSpawnGuiService(textTemplateResolver, unitRegistry);
 	private final TradeGuiService tradeGuiService = new TradeGuiService(textTemplateResolver);
 	private final AdvanceGuiService advanceGuiService = new AdvanceGuiService(textTemplateResolver);
 	private final LobbyScoreboardService lobbyScoreboardService = new LobbyScoreboardService(textTemplateResolver);
 	private final McSnapCommandRegistrar commandRegistrar = new McSnapCommandRegistrar(this);
+	private final LaneBiomeService laneBiomeService = new LaneBiomeService();
+	private final GameEndService gameEndService = new GameEndService(
+		matchManager,
+		textTemplateResolver,
+		this::broadcastGameMessage,
+		this::applyWinnerGlow,
+		this::clearWinnerGlow,
+		this::applyTickRate,
+		this::returnPlayersToLobby,
+		() -> laneBiomeService.restoreAll(matchManager.getServer())
+	);
 	private CapturePointService capturePointService;
 	private BiomeRevealService biomeRevealService;
 	private InGameRuleService inGameRuleService;
@@ -96,6 +113,7 @@ public class MinecraftSnap implements DedicatedServerModInitializer {
 		LOGGER.info("[{}] 서버사이드 모드 초기화 시작", MOD_ID);
 		StyledChatSupport.initialize();
 		configManager.load();
+		unitRegistry.loadFromFactionConfigs(configManager.getFactionConfigs());
 		matchManager.applyGameDuration(configManager.getSystemConfig().gameDurationSeconds);
 		capturePointService = new CapturePointService(matchManager, configManager.getStatsRepository());
 		biomeRevealService = new BiomeRevealService(matchManager, textTemplateResolver);
@@ -140,7 +158,7 @@ public class MinecraftSnap implements DedicatedServerModInitializer {
 			matchManager.tick();
 			handlePhaseTransition();
 			lobbyCoordinator.tick(server, configManager.getSystemConfig());
-			var revealed = biomeRevealService.tick(server, configManager.getSystemConfig());
+			var revealed = biomeRevealService.tick(server, configManager.getSystemConfig(), configManager.getBiomeCatalog(), laneBiomeService);
 			if (!revealed.isEmpty()) {
 				refillCaptainMana();
 			}
@@ -152,6 +170,7 @@ public class MinecraftSnap implements DedicatedServerModInitializer {
 			capturePointService.tick(server, configManager.getSystemConfig());
 			bossBarService.tick(server, configManager.getSystemConfig());
 			phaseMusicService.tick(server, configManager.getSystemConfig());
+			gameEndService.tick(configManager.getSystemConfig());
 			if (matchManager.getServerTicks() % 200L == 0L) {
 				configManager.getStatsRepository().saveIfDirty();
 			}
@@ -184,6 +203,7 @@ public class MinecraftSnap implements DedicatedServerModInitializer {
 	public void reload() {
 		configManager.getStatsRepository().saveIfDirty();
 		configManager.reload();
+		unitRegistry.loadFromFactionConfigs(configManager.getFactionConfigs());
 		matchManager.applyGameDuration(configManager.getSystemConfig().gameDurationSeconds);
 		capturePointService = new CapturePointService(matchManager, configManager.getStatsRepository());
 		biomeRevealService = new BiomeRevealService(matchManager, textTemplateResolver);
@@ -319,6 +339,52 @@ public class MinecraftSnap implements DedicatedServerModInitializer {
 		return player != null && advanceService.forceAdvance(matchManager.getPlayerState(player.getUuid()), configManager.getSystemConfig().advance);
 	}
 
+	public String openAdminGui(ServerPlayerEntity player, String guiId) {
+		var state = matchManager.getPlayerState(player.getUuid());
+		return switch (guiId) {
+			case "wiki" -> {
+				wikiGuiService.open(player, matchManager.getPhase());
+				yield "&a위키 GUI 오픈";
+			}
+			case "faction" -> {
+				if (matchManager.getPhase() != MatchPhase.FACTION_SELECT || state.getRoleType() != RoleType.CAPTAIN || state.getTeamId() == null) {
+					yield "&c팩션 GUI는 팩션 선택 페이즈의 사령관만 사용 가능";
+				}
+				factionSelectionGuiService.open(player, state.getTeamId(), matchManager.getFactionSelection(state.getTeamId()), factionId -> matchManager.setFactionSelection(state.getTeamId(), factionId));
+				yield "&a팩션 GUI 오픈";
+			}
+			case "preparation" -> {
+				if (matchManager.getPhase() != MatchPhase.GAME_START) {
+					yield "&c준비 GUI는 게임 준비 페이즈에서만 사용 가능";
+				}
+				preparationGuiService.open(player, state);
+				yield "&a준비 GUI 오픈";
+			}
+			case "captain_spawn" -> {
+				if (matchManager.getPhase() != MatchPhase.GAME_RUNNING || state.getRoleType() != RoleType.CAPTAIN) {
+					yield "&c사령관 소환 GUI는 게임 진행 중 사령관만 사용 가능";
+				}
+				openCaptainSpawnGui(player);
+				yield "&a사령관 소환 GUI 오픈";
+			}
+			case "trade" -> {
+				if (matchManager.getPhase() != MatchPhase.GAME_RUNNING || state.getRoleType() != RoleType.UNIT || state.getCurrentUnitId() == null || (state.getFactionId() != FactionId.VILLAGER && state.getFactionId() != FactionId.NETHER)) {
+					yield "&c거래 GUI는 게임 진행 중 주민/네더 유닛만 사용 가능";
+				}
+				tradeGuiService.open(player, state);
+				yield "&a거래 GUI 오픈";
+			}
+			case "advance" -> {
+				if (matchManager.getPhase() != MatchPhase.GAME_RUNNING || state.getRoleType() != RoleType.UNIT || state.getCurrentUnitId() == null || state.getFactionId() != FactionId.MONSTER) {
+					yield "&c전직 GUI는 게임 진행 중 몬스터 유닛만 사용 가능";
+				}
+				openAdvanceGui(player, state);
+				yield "&a전직 GUI 오픈";
+			}
+			default -> "&c지원하지 않는 GUI";
+		};
+	}
+
 	private LobbyCoordinator createLobbyCoordinator() {
 		return new LobbyCoordinator(
 			matchManager,
@@ -414,6 +480,7 @@ public class MinecraftSnap implements DedicatedServerModInitializer {
 			for (var captainId : matchManager.getCaptainIds()) {
 				captainManaService.initializeCaptain(captainId);
 			}
+			biomeRevealService.prepareForMatch(matchManager.getServer(), configManager.getSystemConfig(), configManager.getBiomeCatalog(), laneBiomeService);
 		}
 		if (phase == MatchPhase.LOBBY) {
 			captainManaService.clear();
@@ -456,5 +523,48 @@ public class MinecraftSnap implements DedicatedServerModInitializer {
 
 	private Path getConfigDirectory() {
 		return FabricLoader.getInstance().getConfigDir().resolve(MOD_ID);
+	}
+
+	private void broadcastGameMessage(String message) {
+		var server = matchManager.getServer();
+		if (server == null) {
+			return;
+		}
+		server.getPlayerManager().broadcast(textTemplateResolver.format(configManager.getSystemConfig().prefix + message), false);
+	}
+
+	private void applyWinnerGlow(TeamId winnerTeam, Integer seconds) {
+		if (winnerTeam == null) {
+			return;
+		}
+		for (var player : matchManager.getOnlineTeamPlayers(winnerTeam)) {
+			player.addStatusEffect(new StatusEffectInstance(StatusEffects.GLOWING, seconds * 20, 0, false, false, true));
+		}
+	}
+
+	private void clearWinnerGlow() {
+		for (var player : matchManager.getOnlinePlayers()) {
+			player.removeStatusEffect(StatusEffects.GLOWING);
+		}
+	}
+
+	private void applyTickRate(int tickRate) {
+		var server = matchManager.getServer();
+		if (server == null) {
+			return;
+		}
+		try {
+			server.getCommandManager().executeWithPrefix(server.getCommandSource().withLevel(4), "tick rate " + tickRate);
+		} catch (Exception exception) {
+			LOGGER.warn("[{}] tick rate 명령 실행 실패: {}", MOD_ID, tickRate, exception);
+		}
+	}
+
+	private void returnPlayersToLobby() {
+		var server = matchManager.getServer();
+		if (server == null) {
+			return;
+		}
+		lobbyCoordinator.forcePhase(MatchPhase.LOBBY, server, configManager.getSystemConfig());
 	}
 }
