@@ -11,6 +11,7 @@ public class SystemConfig {
 	public LobbyConfig lobby = new LobbyConfig();
 	public GameStartConfig gameStart = new GameStartConfig();
 	public BiomeRevealConfig biomeReveal = new BiomeRevealConfig();
+	public InGameConfig inGame = new InGameConfig();
 
 	public static class BossBarConfig {
 		public String template = "&c레드 {red_score} &8| &f남은 시간 {time} &8| &9블루 {blue_score}";
@@ -96,6 +97,36 @@ public class SystemConfig {
 		}
 	}
 
+	public static class LaneRegionConfig {
+		public String world = "minecraft:overworld";
+		public double minX;
+		public double minY;
+		public double minZ;
+		public double maxX;
+		public double maxY;
+		public double maxZ;
+
+		public static LaneRegionConfig create(String world, double minX, double minY, double minZ, double maxX, double maxY, double maxZ) {
+			var config = new LaneRegionConfig();
+			config.world = world;
+			config.minX = minX;
+			config.minY = minY;
+			config.minZ = minZ;
+			config.maxX = maxX;
+			config.maxY = maxY;
+			config.maxZ = maxZ;
+			return config;
+		}
+	}
+
+	public static class InGameConfig {
+		public String closedLaneMessage = "&c아직 공개되지 않은 라인임";
+		public int laneWarningCooldownTicks = 40;
+		public LaneRegionConfig lane1Region = LaneRegionConfig.create("minecraft:overworld", -8.0, 0.0, -8.0, 8.0, 320.0, 8.0);
+		public LaneRegionConfig lane2Region = LaneRegionConfig.create("minecraft:overworld", 12.0, 0.0, -8.0, 28.0, 320.0, 8.0);
+		public LaneRegionConfig lane3Region = LaneRegionConfig.create("minecraft:overworld", 32.0, 0.0, -8.0, 48.0, 320.0, 8.0);
+	}
+
 	public static class CapturePointConfig {
 		public boolean enabled = false;
 		public String world = "world";
@@ -140,11 +171,23 @@ public class SystemConfig {
 		if (biomeReveal == null) {
 			biomeReveal = new BiomeRevealConfig();
 		}
+		if (inGame == null) {
+			inGame = new InGameConfig();
+		}
 		if (gameStart.captainSpawn == null) {
 			gameStart.captainSpawn = PositionConfig.create("minecraft:overworld", 0.0, 64.0, 10.0);
 		}
 		if (gameStart.unitSpawn == null) {
 			gameStart.unitSpawn = PositionConfig.create("minecraft:overworld", 0.0, 64.0, -10.0);
+		}
+		if (inGame.lane1Region == null) {
+			inGame.lane1Region = LaneRegionConfig.create("minecraft:overworld", -8.0, 0.0, -8.0, 8.0, 320.0, 8.0);
+		}
+		if (inGame.lane2Region == null) {
+			inGame.lane2Region = LaneRegionConfig.create("minecraft:overworld", 12.0, 0.0, -8.0, 28.0, 320.0, 8.0);
+		}
+		if (inGame.lane3Region == null) {
+			inGame.lane3Region = LaneRegionConfig.create("minecraft:overworld", 32.0, 0.0, -8.0, 48.0, 320.0, 8.0);
 		}
 		if (capture.lane1 == null) {
 			capture.lane1 = CapturePointConfig.create("1번 라인", 0.0, 64.0, 0.0);

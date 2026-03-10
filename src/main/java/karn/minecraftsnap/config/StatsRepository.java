@@ -102,4 +102,16 @@ public class StatsRepository {
 		stats.captures += amount;
 		dirty = true;
 	}
+
+	public void addKill(UUID playerId, String name, int amount) {
+		var stats = getOrCreate(playerId, name);
+		stats.kills += amount;
+		dirty = true;
+	}
+
+	public void addDeath(UUID playerId, String name, int amount) {
+		var stats = getOrCreate(playerId, name);
+		stats.deaths += amount;
+		dirty = true;
+	}
 }

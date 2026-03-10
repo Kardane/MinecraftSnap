@@ -9,6 +9,7 @@ import karn.minecraftsnap.game.CaptainSelectionService;
 import karn.minecraftsnap.game.BiomeRevealService;
 import karn.minecraftsnap.game.CapturePointService;
 import karn.minecraftsnap.game.FactionSelectionService;
+import karn.minecraftsnap.game.InGameRuleService;
 import karn.minecraftsnap.game.LobbyCoordinator;
 import karn.minecraftsnap.game.MatchManager;
 import karn.minecraftsnap.game.MatchPhase;
@@ -61,6 +62,7 @@ public class MinecraftSnap implements DedicatedServerModInitializer {
 	private final McSnapCommandRegistrar commandRegistrar = new McSnapCommandRegistrar(this);
 	private CapturePointService capturePointService;
 	private BiomeRevealService biomeRevealService;
+	private InGameRuleService inGameRuleService;
 	private LobbyCoordinator lobbyCoordinator;
 
 	@Override
@@ -72,6 +74,7 @@ public class MinecraftSnap implements DedicatedServerModInitializer {
 		matchManager.applyGameDuration(configManager.getSystemConfig().gameDurationSeconds);
 		capturePointService = new CapturePointService(matchManager, configManager.getStatsRepository());
 		biomeRevealService = new BiomeRevealService(matchManager, textTemplateResolver);
+		inGameRuleService = new InGameRuleService(matchManager, configManager.getStatsRepository(), textTemplateResolver);
 		lobbyCoordinator = createLobbyCoordinator();
 
 		// 커맨드 등록
@@ -104,6 +107,7 @@ public class MinecraftSnap implements DedicatedServerModInitializer {
 			matchManager.tick();
 			lobbyCoordinator.tick(server, configManager.getSystemConfig());
 			biomeRevealService.tick(server, configManager.getSystemConfig());
+			inGameRuleService.tick(server, configManager.getSystemConfig());
 			capturePointService.tick(server, configManager.getSystemConfig());
 			bossBarService.tick(server, configManager.getSystemConfig());
 			phaseMusicService.tick(server, configManager.getSystemConfig());
@@ -124,7 +128,9 @@ public class MinecraftSnap implements DedicatedServerModInitializer {
 		ServerMessageEvents.ALLOW_CHAT_MESSAGE.register((message, sender, params) ->
 			teamChatService.handleChatMessage(message, sender, params, configManager.getSystemConfig()));
 		ServerLivingEntityEvents.ALLOW_DAMAGE.register((entity, source, amount) ->
-			lobbyCoordinator.allowDamage(entity, source));
+			inGameRuleService.allowDamage(entity, source));
+		ServerLivingEntityEvents.ALLOW_DEATH.register((entity, source, amount) ->
+			inGameRuleService.handlePotentialDeath(entity, source, amount));
 	}
 
 	public void reload() {
@@ -133,6 +139,7 @@ public class MinecraftSnap implements DedicatedServerModInitializer {
 		matchManager.applyGameDuration(configManager.getSystemConfig().gameDurationSeconds);
 		capturePointService = new CapturePointService(matchManager, configManager.getStatsRepository());
 		biomeRevealService = new BiomeRevealService(matchManager, textTemplateResolver);
+		inGameRuleService = new InGameRuleService(matchManager, configManager.getStatsRepository(), textTemplateResolver);
 		lobbyCoordinator = createLobbyCoordinator();
 	}
 

@@ -6,8 +6,6 @@ import karn.minecraftsnap.ui.FactionSelectionGuiService;
 import karn.minecraftsnap.ui.LobbyScoreboardService;
 import karn.minecraftsnap.ui.PreparationGuiService;
 import karn.minecraftsnap.ui.WikiGuiService;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.entity.damage.DamageSource;
 import net.minecraft.registry.RegistryKey;
 import net.minecraft.registry.RegistryKeys;
 import net.minecraft.server.MinecraftServer;
@@ -182,14 +180,6 @@ public class LobbyCoordinator {
 
 		wikiGuiService.open(player, matchManager.getPhase());
 		return true;
-	}
-
-	public boolean allowDamage(LivingEntity entity, DamageSource source) {
-		if (!matchManager.isPregameDamageBlocked()) {
-			return true;
-		}
-
-		return !(entity instanceof ServerPlayerEntity) || !(source.getAttacker() instanceof ServerPlayerEntity);
 	}
 
 	public void openCurrentGui(ServerPlayerEntity player, SystemConfig config) {
