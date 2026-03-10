@@ -27,6 +27,7 @@ public class MinecraftSnapConfigManager {
 		try {
 			Files.createDirectories(configDirectory);
 			systemConfig = loadOrCreate(configDirectory.resolve("system.json"), SystemConfig.class, new SystemConfig());
+			systemConfig.normalize();
 			writeIfMissing(configDirectory.resolve("biomes.json"), """
 				{
 				  "biomes": []

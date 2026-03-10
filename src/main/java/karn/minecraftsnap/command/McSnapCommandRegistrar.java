@@ -3,16 +3,13 @@ package karn.minecraftsnap.command;
 import com.mojang.brigadier.Command;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import karn.minecraftsnap.MinecraftSnap;
-import karn.minecraftsnap.config.PlayerStats;
+import karn.minecraftsnap.game.LaneId;
 import karn.minecraftsnap.game.MatchPhase;
-import karn.minecraftsnap.game.RoleType;
 import karn.minecraftsnap.game.TeamId;
-import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.minecraft.command.argument.EntityArgumentType;
 import net.minecraft.server.command.CommandManager;
 import net.minecraft.server.command.ServerCommandSource;
 import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.text.Text;
 
 public class McSnapCommandRegistrar {
 	private final MinecraftSnap mod;
@@ -62,8 +59,14 @@ public class McSnapCommandRegistrar {
 				.then(CommandManager.literal("teamsel").executes(ctx -> setPhase(ctx.getSource(), MatchPhase.TEAM_SELECT)))
 				.then(CommandManager.literal("gamestart").executes(ctx -> setPhase(ctx.getSource(), MatchPhase.GAME_RUNNING)))
 				.then(CommandManager.literal("gamestop").executes(ctx -> setPhase(ctx.getSource(), MatchPhase.GAME_END)))
-				.then(CommandManager.literal("biomeshow").executes(ctx -> send(ctx.getSource(), "&e바이옴 공개 로직은 다음 단계에서 연결 예정")))
-				.then(CommandManager.literal("biomehide").executes(ctx -> send(ctx.getSource(), "&e바이옴 비공개 로직은 다음 단계에서 연결 예정")))
+				.then(CommandManager.literal("biomeshow")
+					.then(CommandManager.literal("lane1").executes(ctx -> setLaneState(ctx.getSource(), LaneId.LANE_1, true)))
+					.then(CommandManager.literal("lane2").executes(ctx -> setLaneState(ctx.getSource(), LaneId.LANE_2, true)))
+					.then(CommandManager.literal("lane3").executes(ctx -> setLaneState(ctx.getSource(), LaneId.LANE_3, true))))
+				.then(CommandManager.literal("biomehide")
+					.then(CommandManager.literal("lane1").executes(ctx -> setLaneState(ctx.getSource(), LaneId.LANE_1, false)))
+					.then(CommandManager.literal("lane2").executes(ctx -> setLaneState(ctx.getSource(), LaneId.LANE_2, false)))
+					.then(CommandManager.literal("lane3").executes(ctx -> setLaneState(ctx.getSource(), LaneId.LANE_3, false))))
 				.then(CommandManager.literal("opengui")
 					.then(CommandManager.argument("gui", StringArgumentType.word())
 						.executes(ctx -> send(ctx.getSource(), "&eGUI 열기 요청: &f" + StringArgumentType.getString(ctx, "gui")))))
@@ -94,11 +97,31 @@ public class McSnapCommandRegistrar {
 
 	private int setPhase(ServerCommandSource source, MatchPhase phase) {
 		mod.getMatchManager().setPhase(phase);
+		if (phase == MatchPhase.LOBBY) {
+			mod.getCapturePointService().resetAll();
+		}
 		return send(source, "&a현재 페이즈: &f" + phase.getDisplayName());
+	}
+
+	private int setLaneState(ServerCommandSource source, LaneId laneId, boolean active) {
+		if (active) {
+			mod.getMatchManager().activateLane(laneId);
+		} else {
+			mod.getMatchManager().deactivateLane(laneId);
+		}
+		return send(source, "&a" + laneLabel(laneId) + " 상태: &f" + (active ? "활성" : "비활성"));
 	}
 
 	private int send(ServerCommandSource source, String message) {
 		source.sendFeedback(() -> mod.getTextTemplateResolver().format(message), false);
 		return Command.SINGLE_SUCCESS;
+	}
+
+	private String laneLabel(LaneId laneId) {
+		return switch (laneId) {
+			case LANE_1 -> "1번 라인";
+			case LANE_2 -> "2번 라인";
+			case LANE_3 -> "3번 라인";
+		};
 	}
 }

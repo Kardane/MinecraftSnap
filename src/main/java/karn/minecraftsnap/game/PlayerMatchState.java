@@ -25,4 +25,8 @@ public class PlayerMatchState {
 	public boolean canUseTeamChat() {
 		return teamId != null && roleType != RoleType.SPECTATOR && roleType != RoleType.NONE;
 	}
+
+	public boolean isUnit() {
+		return teamId != null && roleType == RoleType.UNIT;
+	}
 }

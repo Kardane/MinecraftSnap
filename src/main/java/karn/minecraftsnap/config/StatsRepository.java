@@ -17,6 +17,7 @@ public class StatsRepository {
 	private final Logger logger;
 	private final Path path;
 	private StatsFile statsFile = new StatsFile();
+	private boolean dirty;
 
 	public StatsRepository(Path path, Logger logger) {
 		this.path = path;
@@ -38,10 +39,12 @@ public class StatsRepository {
 				if (this.statsFile.players == null) {
 					this.statsFile.players = new java.util.LinkedHashMap<>();
 				}
+				this.dirty = false;
 			}
 		} catch (IOException exception) {
 			logger.error("stats.json 로드 실패", exception);
 			this.statsFile = new StatsFile();
+			this.dirty = false;
 		}
 	}
 
@@ -51,8 +54,15 @@ public class StatsRepository {
 			try (Writer writer = Files.newBufferedWriter(path, StandardCharsets.UTF_8)) {
 				gson.toJson(statsFile, writer);
 			}
+			dirty = false;
 		} catch (IOException exception) {
 			logger.error("stats.json 저장 실패", exception);
+		}
+	}
+
+	public void saveIfDirty() {
+		if (dirty) {
+			save();
 		}
 	}
 
@@ -60,16 +70,29 @@ public class StatsRepository {
 		var key = playerId.toString();
 		var stats = statsFile.players.computeIfAbsent(key, ignored -> new PlayerStats());
 		stats.lastKnownName = name;
+		dirty = true;
 		return stats;
 	}
 
 	public void setPreference(UUID playerId, String name, String preference) {
 		var stats = getOrCreate(playerId, name);
 		stats.preference = preference;
-		save();
+		dirty = true;
 	}
 
 	public int getLadder(UUID playerId, String name) {
 		return getOrCreate(playerId, name).ladder;
+	}
+
+	public void addLadder(UUID playerId, String name, int amount) {
+		var stats = getOrCreate(playerId, name);
+		stats.ladder += amount;
+		dirty = true;
+	}
+
+	public void addCapture(UUID playerId, String name, int amount) {
+		var stats = getOrCreate(playerId, name);
+		stats.captures += amount;
+		dirty = true;
 	}
 }

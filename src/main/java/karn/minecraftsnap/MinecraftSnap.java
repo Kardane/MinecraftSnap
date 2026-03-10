@@ -1,10 +1,12 @@
 package karn.minecraftsnap;
 
 import karn.minecraftsnap.audio.PhaseMusicService;
+import karn.minecraftsnap.command.TeamChatParser;
 import karn.minecraftsnap.command.McSnapCommandRegistrar;
 import karn.minecraftsnap.command.TeamChatService;
 import karn.minecraftsnap.config.MinecraftSnapConfigManager;
 import karn.minecraftsnap.config.StatsRepository;
+import karn.minecraftsnap.game.CapturePointService;
 import karn.minecraftsnap.game.MatchManager;
 import karn.minecraftsnap.ui.BossBarService;
 import karn.minecraftsnap.util.TextTemplateResolver;
@@ -39,6 +41,7 @@ public class MinecraftSnap implements DedicatedServerModInitializer {
 	private final TeamChatService teamChatService = new TeamChatService(matchManager, textTemplateResolver);
 	private final MinecraftSnapConfigManager configManager = new MinecraftSnapConfigManager(getConfigDirectory(), LOGGER);
 	private final McSnapCommandRegistrar commandRegistrar = new McSnapCommandRegistrar(this);
+	private CapturePointService capturePointService;
 
 	@Override
 	public void onInitializeServer() {
@@ -46,6 +49,7 @@ public class MinecraftSnap implements DedicatedServerModInitializer {
 		StyledChatSupport.initialize();
 		configManager.load();
 		matchManager.applyGameDuration(configManager.getSystemConfig().gameDurationSeconds);
+		capturePointService = new CapturePointService(matchManager, configManager.getStatsRepository());
 
 		// 커맨드 등록
 		registerCommands();
@@ -75,8 +79,12 @@ public class MinecraftSnap implements DedicatedServerModInitializer {
 		ServerLifecycleEvents.SERVER_STOPPING.register(server -> configManager.getStatsRepository().save());
 		ServerTickEvents.END_SERVER_TICK.register(server -> {
 			matchManager.tick();
+			capturePointService.tick(server, configManager.getSystemConfig());
 			bossBarService.tick(server, configManager.getSystemConfig());
 			phaseMusicService.tick(server, configManager.getSystemConfig());
+			if (matchManager.getServerTicks() % 200L == 0L) {
+				configManager.getStatsRepository().saveIfDirty();
+			}
 		});
 		ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> {
 			matchManager.handleJoin(handler.getPlayer());
@@ -89,8 +97,10 @@ public class MinecraftSnap implements DedicatedServerModInitializer {
 	}
 
 	public void reload() {
+		configManager.getStatsRepository().saveIfDirty();
 		configManager.reload();
 		matchManager.applyGameDuration(configManager.getSystemConfig().gameDurationSeconds);
+		capturePointService = new CapturePointService(matchManager, configManager.getStatsRepository());
 	}
 
 	public MatchManager getMatchManager() {
@@ -103,6 +113,10 @@ public class MinecraftSnap implements DedicatedServerModInitializer {
 
 	public TextTemplateResolver getTextTemplateResolver() {
 		return textTemplateResolver;
+	}
+
+	public CapturePointService getCapturePointService() {
+		return capturePointService;
 	}
 
 	private Path getConfigDirectory() {

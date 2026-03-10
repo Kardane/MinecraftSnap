@@ -7,6 +7,7 @@ public class SystemConfig {
 	public MusicLoopConfig lobbyMusic = MusicLoopConfig.create("&6로비 브금", "minecraft:music.menu", 20 * 70);
 	public MusicLoopConfig gameMusic = MusicLoopConfig.create("&c경기 브금", "minecraft:music.dragon", 20 * 110);
 	public TeamChatConfig teamChat = new TeamChatConfig();
+	public CaptureConfig capture = new CaptureConfig();
 
 	public static class BossBarConfig {
 		public String template = "&c레드 {red_score} &8| &f남은 시간 {time} &8| &9블루 {blue_score}";
@@ -36,5 +37,60 @@ public class SystemConfig {
 		public String format = "&8[&a팀&8] &7[{team} / {role}] &f{player}&7: {message}";
 		public String noTeamMessage = "&c팀 채팅은 팀 배정 이후에만 사용할 수 있음";
 		public String emptyMessage = "&c팀 채팅 내용이 비어있음";
+	}
+
+	public static class CaptureConfig {
+		public int captureStepSeconds = 5;
+		public int scoreIntervalTicks = 20;
+		public int allPointsHoldSeconds = 30;
+		public CapturePointConfig lane1 = CapturePointConfig.create("1번 라인", 0.0, 64.0, 0.0);
+		public CapturePointConfig lane2 = CapturePointConfig.create("2번 라인", 20.0, 64.0, 0.0);
+		public CapturePointConfig lane3 = CapturePointConfig.create("3번 라인", 40.0, 64.0, 0.0);
+	}
+
+	public static class CapturePointConfig {
+		public boolean enabled = false;
+		public String world = "world";
+		public String label = "";
+		public double x;
+		public double y;
+		public double z;
+		public double radius = 4.0;
+
+		public static CapturePointConfig create(String label, double x, double y, double z) {
+			var config = new CapturePointConfig();
+			config.label = label;
+			config.x = x;
+			config.y = y;
+			config.z = z;
+			return config;
+		}
+	}
+
+	public void normalize() {
+		if (bossBar == null) {
+			bossBar = new BossBarConfig();
+		}
+		if (lobbyMusic == null) {
+			lobbyMusic = MusicLoopConfig.create("&6로비 브금", "minecraft:music.menu", 20 * 70);
+		}
+		if (gameMusic == null) {
+			gameMusic = MusicLoopConfig.create("&c경기 브금", "minecraft:music.dragon", 20 * 110);
+		}
+		if (teamChat == null) {
+			teamChat = new TeamChatConfig();
+		}
+		if (capture == null) {
+			capture = new CaptureConfig();
+		}
+		if (capture.lane1 == null) {
+			capture.lane1 = CapturePointConfig.create("1번 라인", 0.0, 64.0, 0.0);
+		}
+		if (capture.lane2 == null) {
+			capture.lane2 = CapturePointConfig.create("2번 라인", 20.0, 64.0, 0.0);
+		}
+		if (capture.lane3 == null) {
+			capture.lane3 = CapturePointConfig.create("3번 라인", 40.0, 64.0, 0.0);
+		}
 	}
 }
