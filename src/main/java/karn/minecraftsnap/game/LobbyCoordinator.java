@@ -158,6 +158,8 @@ public class LobbyCoordinator {
 			var teamId = assignments.get(candidate.playerId());
 			var roleType = candidate.playerId().equals(captains.get(teamId)) ? RoleType.CAPTAIN : RoleType.UNIT;
 			matchManager.setRole(candidate.playerId(), teamId, roleType);
+			var state = matchManager.getPlayerState(candidate.playerId());
+			state.setPreferredUnitId(roleType == RoleType.UNIT ? preferredUnitId(candidate.preference()) : null);
 		}
 
 		for (var player : players) {
@@ -339,5 +341,13 @@ public class LobbyCoordinator {
 		} catch (Exception ignored) {
 			return server.getOverworld();
 		}
+	}
+
+	private String preferredUnitId(String preference) {
+		if (preference == null || !preference.startsWith("unit:")) {
+			return null;
+		}
+		var unitId = preference.substring("unit:".length()).trim();
+		return unitId.isBlank() ? null : unitId;
 	}
 }

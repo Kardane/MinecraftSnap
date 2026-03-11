@@ -20,6 +20,7 @@ public class UnitSpawnService {
 	private final UnitRegistry unitRegistry;
 	private final UnitLoadoutService unitLoadoutService;
 	private final UnitAbilityService unitAbilityService;
+	private UnitHookService unitHookService;
 
 	public UnitSpawnService() {
 		this(new CaptainManaService(), null, new UnitLoadoutService(), new UnitAbilityService());
@@ -94,7 +95,11 @@ public class UnitSpawnService {
 		matchManager.setCurrentUnit(target.getUuid(), definition.id());
 		target.changeGameMode(GameMode.SURVIVAL);
 		teleport(target, systemConfig.world, systemConfig.gameStart.unitSpawnFor(captainState.getTeamId()));
-		unitLoadoutService.applyUnitLoadout(target, definition, textTemplateResolver);
+		if (unitHookService != null) {
+			unitHookService.applyLoadout(target, definition, systemConfig);
+		} else {
+			unitLoadoutService.applyUnitLoadout(target, definition, textTemplateResolver);
+		}
 		DisguiseSupport.applyDisguise(target, definition.disguiseId());
 		target.sendMessage(textTemplateResolver.format("&a소환됨: &f" + definition.displayName()), false);
 		captain.sendMessage(textTemplateResolver.format("&a유닛 소환 완료: &f" + target.getName().getString() + " &7-> &f" + definition.displayName()), false);
@@ -136,6 +141,10 @@ public class UnitSpawnService {
 
 	public UnitAbilityService getUnitAbilityService() {
 		return unitAbilityService;
+	}
+
+	public void setUnitHookService(UnitHookService unitHookService) {
+		this.unitHookService = unitHookService;
 	}
 
 	private void teleport(ServerPlayerEntity player, String worldId, SystemConfig.PositionConfig position) {

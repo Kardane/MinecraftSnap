@@ -23,7 +23,7 @@ public class AdvanceGuiService {
 		PlayerMatchState state,
 		String biomeId,
 		String weather,
-		int requiredSeconds,
+		int requiredExp,
 		UnitDefinition targetDefinition,
 		Runnable onAdvance
 	) {
@@ -32,7 +32,7 @@ public class AdvanceGuiService {
 		gui.setSlot(11, new GuiElementBuilder(Items.COMPASS)
 			.setName(textTemplateResolver.format("&e현재 진행도"))
 			.setLore(lines(
-				"&f진행 시간: &b" + state.getAdvanceProgressSeconds() + "&7/&f" + requiredSeconds + "초",
+				"&f진행 EXP: &b" + state.getAdvanceExp() + "&7/&f" + requiredExp,
 				"&f현재 바이옴: &a" + biomeId,
 				"&f현재 날씨: &b" + weather
 			))

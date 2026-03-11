@@ -1,6 +1,9 @@
 package karn.minecraftsnap.command;
 
 import com.mojang.brigadier.Command;
+import com.mojang.brigadier.arguments.StringArgumentType;
+import com.mojang.brigadier.suggestion.Suggestions;
+import com.mojang.brigadier.suggestion.SuggestionsBuilder;
 import karn.minecraftsnap.MinecraftSnap;
 import karn.minecraftsnap.game.FactionId;
 import karn.minecraftsnap.game.LaneId;
@@ -10,6 +13,8 @@ import net.minecraft.command.argument.EntityArgumentType;
 import net.minecraft.server.command.CommandManager;
 import net.minecraft.server.command.ServerCommandSource;
 import net.minecraft.server.network.ServerPlayerEntity;
+
+import java.util.concurrent.CompletableFuture;
 
 public class McSnapCommandRegistrar {
 	static final java.util.List<String> ADMIN_GUI_IDS = java.util.List.of("wiki", "faction", "preparation", "captain_spawn", "trade", "advance");
@@ -43,7 +48,10 @@ public class McSnapCommandRegistrar {
 					.executes(ctx -> showStat(ctx.getSource(), EntityArgumentType.getPlayer(ctx, "player")))))
 			.then(CommandManager.literal("prefer")
 				.then(CommandManager.literal("captain").executes(ctx -> setPreference(ctx.getSource(), "captain")))
-				.then(CommandManager.literal("unit").executes(ctx -> setPreference(ctx.getSource(), "unit")))
+				.then(CommandManager.literal("role")
+					.then(CommandManager.argument("unit", StringArgumentType.word())
+						.suggests(this::suggestUnitIds)
+						.executes(ctx -> setPreference(ctx.getSource(), "unit:" + StringArgumentType.getString(ctx, "unit")))))
 				.then(CommandManager.literal("none").executes(ctx -> setPreference(ctx.getSource(), "none"))))
 			.then(CommandManager.literal("captain_red")
 				.then(CommandManager.argument("player", EntityArgumentType.player())
@@ -100,6 +108,18 @@ public class McSnapCommandRegistrar {
 		var player = source.getPlayer();
 		mod.getStatsRepository().setPreference(player.getUuid(), player.getName().getString(), preference);
 		return send(source, "&a선호 직업 갱신: &f" + preference);
+	}
+
+	private CompletableFuture<Suggestions> suggestUnitIds(com.mojang.brigadier.context.CommandContext<ServerCommandSource> context, SuggestionsBuilder builder) {
+		if (mod == null) {
+			return builder.buildFuture();
+		}
+		for (var unit : mod.getUnitRegistry().all()) {
+			if (unit.captainSpawnable()) {
+				builder.suggest(unit.id());
+			}
+		}
+		return builder.buildFuture();
 	}
 
 	private int assignCaptain(ServerCommandSource source, TeamId teamId, ServerPlayerEntity target) {

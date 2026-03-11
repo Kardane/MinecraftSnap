@@ -399,6 +399,9 @@ public class MinecraftSnapConfigManager {
 		entry.spawnCooldownSeconds = spawnCooldownSeconds;
 		entry.maxHealth = maxHealth;
 		entry.moveSpeedScale = moveSpeedScale;
+		entry.mainHand = UnitItemEntry.create(mainHandItemId);
+		entry.offHand = UnitItemEntry.create(offHandItemId);
+		entry.abilityItem = UnitItemEntry.create(abilityItemId);
 		entry.mainHandItemId = mainHandItemId;
 		entry.offHandItemId = offHandItemId;
 		entry.helmetItemId = helmetItemId;
@@ -408,6 +411,10 @@ public class MinecraftSnapConfigManager {
 		entry.abilityItemId = abilityItemId;
 		entry.abilityName = abilityName;
 		entry.abilityCooldownSeconds = abilityCooldownSeconds;
+		if (abilityItemId != null && !abilityItemId.isBlank() && abilityName != null && !abilityName.isBlank()) {
+			entry.abilityItem.displayName = "&b" + abilityName;
+			entry.abilityItem.loreLines = List.of("&7유닛 스킬 발동", "&8쿨다운: &f" + abilityCooldownSeconds + "초");
+		}
 		entry.abilityType = abilityType;
 		entry.passiveType = passiveType;
 		entry.ammoType = ammoType;

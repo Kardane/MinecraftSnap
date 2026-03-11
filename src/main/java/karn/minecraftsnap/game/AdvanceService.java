@@ -43,10 +43,10 @@ public class AdvanceService {
 		}
 
 		state.setAdvanceTargetUnitId(condition.resultUnitId);
-		state.setAdvanceProgressSeconds(state.getAdvanceProgressSeconds() + 1);
-		if (state.getAdvanceProgressSeconds() >= condition.requiredSeconds) {
+		state.setAdvanceExp(state.getAdvanceExp() + 1);
+		if (state.getAdvanceExp() >= condition.requiredExp) {
 			state.setAdvanceAvailable(true);
-			state.setAdvanceProgressSeconds(condition.requiredSeconds);
+			state.setAdvanceExp(condition.requiredExp);
 		}
 	}
 
@@ -56,7 +56,7 @@ public class AdvanceService {
 			return false;
 		}
 		state.setAdvanceTargetUnitId(condition.resultUnitId);
-		state.setAdvanceProgressSeconds(condition.requiredSeconds);
+		state.setAdvanceExp(condition.requiredExp);
 		state.setAdvanceAvailable(true);
 		return true;
 	}

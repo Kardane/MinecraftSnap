@@ -16,6 +16,7 @@ public class CapturePointService {
 	private final MatchManager matchManager;
 	private final StatsRepository statsRepository;
 	private final Map<LaneId, CapturePointState> states = new EnumMap<>(LaneId.class);
+	private UnitHookService unitHookService;
 
 	public CapturePointService(MatchManager matchManager, StatsRepository statsRepository) {
 		this.matchManager = matchManager;
@@ -31,9 +32,9 @@ public class CapturePointService {
 		}
 
 		var captureConfig = systemConfig.capture;
-		processLane(server, systemConfig.world, systemConfig.inGame.lane1Region, captureConfig.lane1, LaneId.LANE_1, captureConfig.captureStepSeconds, captureConfig.scoreIntervalTicks);
-		processLane(server, systemConfig.world, systemConfig.inGame.lane2Region, captureConfig.lane2, LaneId.LANE_2, captureConfig.captureStepSeconds, captureConfig.scoreIntervalTicks);
-		processLane(server, systemConfig.world, systemConfig.inGame.lane3Region, captureConfig.lane3, LaneId.LANE_3, captureConfig.captureStepSeconds, captureConfig.scoreIntervalTicks);
+		processLane(server, systemConfig, systemConfig.world, systemConfig.inGame.lane1Region, captureConfig.lane1, LaneId.LANE_1, captureConfig.captureStepSeconds, captureConfig.scoreIntervalTicks);
+		processLane(server, systemConfig, systemConfig.world, systemConfig.inGame.lane2Region, captureConfig.lane2, LaneId.LANE_2, captureConfig.captureStepSeconds, captureConfig.scoreIntervalTicks);
+		processLane(server, systemConfig, systemConfig.world, systemConfig.inGame.lane3Region, captureConfig.lane3, LaneId.LANE_3, captureConfig.captureStepSeconds, captureConfig.scoreIntervalTicks);
 
 		if (matchManager.getServerTicks() % 20L == 0L) {
 			var heldBy = allPointsHeldBySingleTeam();
@@ -49,8 +50,13 @@ public class CapturePointService {
 		states.values().forEach(CapturePointState::reset);
 	}
 
+	public void setUnitHookService(UnitHookService unitHookService) {
+		this.unitHookService = unitHookService;
+	}
+
 	private void processLane(
 		MinecraftServer server,
+		SystemConfig systemConfig,
 		String worldId,
 		SystemConfig.LaneRegionConfig laneRegion,
 		SystemConfig.CaptureRegionConfig pointConfig,
@@ -115,7 +121,7 @@ public class CapturePointService {
 
 		if (ownerPresent) {
 			matchManager.addScore(ownerTeam, 1);
-			rewardVillagerCurrency(occupants, ownerTeam);
+			rewardCaptureScore(occupants, ownerTeam, systemConfig);
 		}
 	}
 
@@ -150,18 +156,21 @@ public class CapturePointService {
 		};
 	}
 
-	private void rewardVillagerCurrency(List<ServerPlayerEntity> occupants, TeamId ownerTeam) {
+	private void rewardCaptureScore(List<ServerPlayerEntity> occupants, TeamId ownerTeam, SystemConfig systemConfig) {
 		for (var player : occupants) {
 			var playerState = matchManager.getPlayerState(player.getUuid());
 			if (!playerState.isUnit()
 				|| player.isSpectator()
 				|| playerState.getCurrentUnitId() == null
-				|| playerState.getTeamId() != ownerTeam
-				|| playerState.getFactionId() != FactionId.VILLAGER) {
+				|| playerState.getTeamId() != ownerTeam) {
 				continue;
 			}
-			playerState.addEmeralds(1);
-			statsRepository.addEmeralds(player.getUuid(), player.getName().getString(), 1);
+			if (unitHookService != null) {
+				unitHookService.handleCaptureScore(player, systemConfig);
+			} else if (playerState.getFactionId() == FactionId.VILLAGER) {
+				playerState.addEmeralds(1);
+				statsRepository.addEmeralds(player.getUuid(), player.getName().getString(), 1);
+			}
 		}
 	}
 

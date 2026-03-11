@@ -29,11 +29,13 @@ public class InGameRuleService {
 	private final UnitRegistry unitRegistry;
 	private final UnitAbilityService unitAbilityService;
 	private final LaneRuntimeRegistry laneRuntimeRegistry;
+	private final UnitHookService unitHookService;
+	private SystemConfig lastSystemConfig = new SystemConfig();
 	private final Set<UUID> pendingSpectators = new HashSet<>();
 	private final Map<UUID, Long> laneWarningTicks = new HashMap<>();
 
 	public InGameRuleService(MatchManager matchManager, StatsRepository statsRepository, TextTemplateResolver textTemplateResolver) {
-		this(matchManager, statsRepository, textTemplateResolver, null, null, null, null, null);
+		this(matchManager, statsRepository, textTemplateResolver, null, null, null, null, null, null);
 	}
 
 	public InGameRuleService(
@@ -44,7 +46,8 @@ public class InGameRuleService {
 		CaptainManaService captainManaService,
 		UnitRegistry unitRegistry,
 		UnitAbilityService unitAbilityService,
-		LaneRuntimeRegistry laneRuntimeRegistry
+		LaneRuntimeRegistry laneRuntimeRegistry,
+		UnitHookService unitHookService
 	) {
 		this.matchManager = matchManager;
 		this.statsRepository = statsRepository;
@@ -54,9 +57,11 @@ public class InGameRuleService {
 		this.unitRegistry = unitRegistry;
 		this.unitAbilityService = unitAbilityService;
 		this.laneRuntimeRegistry = laneRuntimeRegistry;
+		this.unitHookService = unitHookService;
 	}
 
 	public void tick(MinecraftServer server, SystemConfig systemConfig) {
+		lastSystemConfig = systemConfig;
 		server.getGameRules().get(GameRules.NATURAL_REGENERATION).set(matchManager.getPhase() != MatchPhase.GAME_RUNNING, server);
 		enforceCaptainFlight(server, systemConfig);
 		enforceCaptainInvisibility(server);
@@ -83,8 +88,14 @@ public class InGameRuleService {
 		if (!(entity instanceof ServerPlayerEntity victim)) {
 			return true;
 		}
+		if (unitHookService != null) {
+			unitHookService.handleDamaged(victim, source, amount, nullSafeSystemConfig());
+		}
 		notifyDamagedHook(victim, source, amount);
 		if (source.getAttacker() instanceof ServerPlayerEntity attacker) {
+			if (unitHookService != null) {
+				unitHookService.handleAttack(attacker, victim, amount, nullSafeSystemConfig());
+			}
 			notifyAttackHook(attacker, victim, amount);
 		}
 		if (matchManager.getPlayerState(victim.getUuid()).isCaptain()) {
@@ -133,13 +144,19 @@ public class InGameRuleService {
 		if (pendingSpectators.contains(player.getUuid())) {
 			return false;
 		}
-		notifyDeathHook(player, source);
+		if (unitHookService != null) {
+			unitHookService.handleDeath(player, source, nullSafeSystemConfig());
+		}
 
 		var attacker = source.getAttacker() instanceof ServerPlayerEntity attackerPlayer ? attackerPlayer : null;
-		if (unitAbilityService != null && unitRegistry != null) {
+		if (unitHookService == null && unitAbilityService != null && unitRegistry != null) {
 			unitAbilityService.handleUnitDeath(player, matchManager, unitRegistry);
 		}
 		recordKillAndDeath(player.getUuid(), player.getName().getString(), attacker == null ? null : attacker.getUuid(), attacker == null ? null : attacker.getName().getString());
+		if (attacker != null && unitHookService != null) {
+			unitHookService.handleKill(attacker, player, nullSafeSystemConfig());
+		}
+		notifyDeathHook(player, source);
 		matchManager.clearCurrentUnit(player.getUuid());
 		if (unitSpawnService != null) {
 			unitSpawnService.resetPlayer(player);
@@ -159,8 +176,10 @@ public class InGameRuleService {
 			if (victimState.getTeamId() != null && killerState.getTeamId() != null && victimState.getTeamId() != killerState.getTeamId()) {
 				statsRepository.addKill(killerId, killerName, 1);
 				statsRepository.addLadder(killerId, killerName, 3);
-				rewardKillCurrency(killerId, killerName, killerState);
-				if (unitAbilityService != null && captainManaService != null && unitRegistry != null) {
+				if (unitHookService == null) {
+					rewardKillCurrency(killerId, killerName, killerState);
+				}
+				if (unitHookService == null && unitAbilityService != null && captainManaService != null && unitRegistry != null) {
 					unitAbilityService.handleEnemyKill(killerId, matchManager, captainManaService, unitRegistry);
 				}
 			}
@@ -245,6 +264,19 @@ public class InGameRuleService {
 		pendingSpectators.removeAll(processed);
 	}
 
+	private void rewardKillCurrency(UUID playerId, String playerName, PlayerMatchState state) {
+		if (state.getRoleType() != RoleType.UNIT || state.getCurrentUnitId() == null) {
+			return;
+		}
+		if (state.getFactionId() == FactionId.VILLAGER) {
+			state.addEmeralds(1);
+			statsRepository.addEmeralds(playerId, playerName, 1);
+		} else if (state.getFactionId() == FactionId.NETHER) {
+			state.addGoldIngots(1);
+			statsRepository.addGoldIngots(playerId, playerName, 1);
+		}
+	}
+
 	private boolean contains(SystemConfig.LaneRegionConfig region, double x, double y, double z) {
 		return region != null
 			&& x >= region.minX && x <= region.maxX
@@ -259,19 +291,6 @@ public class InGameRuleService {
 			return world != null ? world : server.getOverworld();
 		} catch (Exception ignored) {
 			return server.getOverworld();
-		}
-	}
-
-	private void rewardKillCurrency(UUID playerId, String playerName, PlayerMatchState state) {
-		if (state.getRoleType() != RoleType.UNIT || state.getCurrentUnitId() == null) {
-			return;
-		}
-		if (state.getFactionId() == FactionId.VILLAGER) {
-			state.addEmeralds(1);
-			statsRepository.addEmeralds(playerId, playerName, 1);
-		} else if (state.getFactionId() == FactionId.NETHER) {
-			state.addGoldIngots(1);
-			statsRepository.addGoldIngots(playerId, playerName, 1);
 		}
 	}
 
@@ -423,6 +442,10 @@ public class InGameRuleService {
 			matchManager.getServerTicks(),
 			elapsedSeconds
 		);
+	}
+
+	private SystemConfig nullSafeSystemConfig() {
+		return lastSystemConfig == null ? new SystemConfig() : lastSystemConfig;
 	}
 
 }

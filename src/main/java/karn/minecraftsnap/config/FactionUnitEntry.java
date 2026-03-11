@@ -18,6 +18,9 @@ public class FactionUnitEntry {
 	public int spawnCooldownSeconds;
 	public double maxHealth = 20.0;
 	public double moveSpeedScale = 1.0;
+	public UnitItemEntry mainHand = UnitItemEntry.create("minecraft:wooden_sword");
+	public UnitItemEntry offHand = new UnitItemEntry();
+	public UnitItemEntry abilityItem = new UnitItemEntry();
 	public String mainHandItemId = "minecraft:wooden_sword";
 	public String offHandItemId = "";
 	public String helmetItemId = "";
@@ -37,9 +40,30 @@ public class FactionUnitEntry {
 		if (descriptionLines == null) {
 			descriptionLines = new ArrayList<>();
 		}
+		if (mainHand == null) {
+			mainHand = UnitItemEntry.create(mainHandItemId);
+		}
+		if (offHand == null) {
+			offHand = UnitItemEntry.create(offHandItemId);
+		}
+		if (abilityItem == null) {
+			abilityItem = UnitItemEntry.create(abilityItemId);
+		}
 		if (mainHandItemId == null || mainHandItemId.isBlank()) {
 			mainHandItemId = "minecraft:air";
 		}
+		if (mainHand.itemId == null || mainHand.itemId.isBlank()) {
+			mainHand.itemId = mainHandItemId;
+		}
+		if (offHand.itemId == null || offHand.itemId.isBlank()) {
+			offHand.itemId = offHandItemId;
+		}
+		if (abilityItem.itemId == null || abilityItem.itemId.isBlank()) {
+			abilityItem.itemId = abilityItemId;
+		}
+		mainHand.normalize();
+		offHand.normalize();
+		abilityItem.normalize();
 		if (abilityType == null || abilityType.isBlank()) {
 			abilityType = UnitDefinition.UnitAbilityType.NONE.name();
 		}
@@ -65,13 +89,13 @@ public class FactionUnitEntry {
 			spawnCooldownSeconds,
 			maxHealth,
 			moveSpeedScale,
-			itemResolver.apply(mainHandItemId),
-			itemResolver.apply(offHandItemId),
+			mainHand.resolve(itemResolver),
+			offHand.resolve(itemResolver),
 			itemResolver.apply(helmetItemId),
 			itemResolver.apply(chestItemId),
 			itemResolver.apply(legsItemId),
 			itemResolver.apply(bootsItemId),
-			itemResolver.apply(abilityItemId),
+			abilityItem.resolve(itemResolver),
 			abilityName,
 			abilityCooldownSeconds,
 			parseAbilityType(abilityType),

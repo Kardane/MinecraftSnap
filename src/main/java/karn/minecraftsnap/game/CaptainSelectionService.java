@@ -41,9 +41,6 @@ public class CaptainSelectionService {
 		if ("captain".equalsIgnoreCase(preference)) {
 			return 0;
 		}
-		if ("unit".equalsIgnoreCase(preference)) {
-			return 2;
-		}
 		return 1;
 	}
 }

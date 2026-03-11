@@ -1,5 +1,6 @@
 package karn.minecraftsnap.game;
 
+import karn.minecraftsnap.config.FactionUnitEntry;
 import karn.minecraftsnap.util.TextTemplateResolver;
 import net.minecraft.component.DataComponentTypes;
 import net.minecraft.component.type.LoreComponent;
@@ -25,18 +26,39 @@ public class UnitLoadoutService {
 	public static final String KIND_CAPTAIN_SKILL = "captain_skill";
 
 	public void applyUnitLoadout(ServerPlayerEntity player, UnitDefinition definition, TextTemplateResolver textTemplateResolver) {
+		applyBaseLoadout(player, definition, null, textTemplateResolver);
+		applyBaseAttributes(player, definition);
+	}
+
+	public void applyBaseLoadout(ServerPlayerEntity player, UnitDefinition definition, FactionUnitEntry unitEntry, TextTemplateResolver textTemplateResolver) {
 		player.getInventory().clear();
 		resetCombatState(player);
 		player.equipStack(EquipmentSlot.HEAD, createEquipment(definition.helmetItem()));
 		player.equipStack(EquipmentSlot.CHEST, createEquipment(definition.chestItem()));
 		player.equipStack(EquipmentSlot.LEGS, createEquipment(definition.legsItem()));
 		player.equipStack(EquipmentSlot.FEET, createEquipment(definition.bootsItem()));
-		player.equipStack(EquipmentSlot.MAINHAND, createEquipment(definition.mainHandItem()));
-		player.equipStack(EquipmentSlot.OFFHAND, createEquipment(definition.offHandItem()));
+		player.equipStack(EquipmentSlot.MAINHAND, createEquipment(
+			definition.mainHandItem(),
+			unitEntry == null ? "" : unitEntry.mainHand.displayName,
+			unitEntry == null ? List.of() : unitEntry.mainHand.loreLines,
+			textTemplateResolver
+		));
+		player.equipStack(EquipmentSlot.OFFHAND, createEquipment(
+			definition.offHandItem(),
+			unitEntry == null ? "" : unitEntry.offHand.displayName,
+			unitEntry == null ? List.of() : unitEntry.offHand.loreLines,
+			textTemplateResolver
+		));
 		if (definition.abilityItem() != null) {
-			player.getInventory().insertStack(createAbilityItem(definition, textTemplateResolver));
+			player.getInventory().insertStack(createAbilityItem(definition, unitEntry, textTemplateResolver));
 		}
 		restockAmmo(player, definition);
+		player.setHealth((float) definition.maxHealth());
+		player.getHungerManager().setFoodLevel(20);
+		player.getHungerManager().setSaturationLevel(20.0f);
+	}
+
+	public void applyBaseAttributes(ServerPlayerEntity player, UnitDefinition definition) {
 		var maxHealth = player.getAttributeInstance(EntityAttributes.MAX_HEALTH);
 		if (maxHealth != null) {
 			maxHealth.setBaseValue(definition.maxHealth());
@@ -46,8 +68,6 @@ public class UnitLoadoutService {
 			moveSpeed.setBaseValue(0.1D * definition.moveSpeedScale());
 		}
 		player.setHealth((float) definition.maxHealth());
-		player.getHungerManager().setFoodLevel(20);
-		player.getHungerManager().setSaturationLevel(20.0f);
 	}
 
 	public void giveCaptainItems(ServerPlayerEntity player, FactionId factionId, TextTemplateResolver textTemplateResolver) {
@@ -126,22 +146,35 @@ public class UnitLoadoutService {
 		return stack;
 	}
 
-	private ItemStack createAbilityItem(UnitDefinition definition, TextTemplateResolver textTemplateResolver) {
+	private ItemStack createAbilityItem(UnitDefinition definition, FactionUnitEntry unitEntry, TextTemplateResolver textTemplateResolver) {
 		var stack = createTaggedStack(definition.abilityItem(), KIND_UNIT_ABILITY, definition.factionId(), definition.id());
-		stack.set(DataComponentTypes.CUSTOM_NAME, textTemplateResolver.format("&b" + definition.abilityName()));
-		stack.set(DataComponentTypes.LORE, new LoreComponent(List.of(
-			textTemplateResolver.format("&7유닛 스킬 발동"),
-			textTemplateResolver.format("&8쿨다운: &f" + definition.abilityCooldownSeconds() + "초")
-		)));
+		var abilityName = unitEntry != null && unitEntry.abilityItem != null && !unitEntry.abilityItem.displayName.isBlank()
+			? unitEntry.abilityItem.displayName
+			: "&b" + definition.abilityName();
+		var loreLines = unitEntry != null && unitEntry.abilityItem != null && !unitEntry.abilityItem.loreLines.isEmpty()
+			? unitEntry.abilityItem.loreLines
+			: List.of("&7유닛 스킬 발동", "&8쿨다운: &f" + definition.abilityCooldownSeconds() + "초");
+		stack.set(DataComponentTypes.CUSTOM_NAME, textTemplateResolver.format(abilityName));
+		stack.set(DataComponentTypes.LORE, new LoreComponent(loreLines.stream().map(textTemplateResolver::format).toList()));
 		return stack;
 	}
 
 	private ItemStack createEquipment(Item item) {
+		return createEquipment(item, "", List.of(), null);
+	}
+
+	private ItemStack createEquipment(Item item, String displayName, List<String> loreLines, TextTemplateResolver textTemplateResolver) {
 		if (item == null) {
 			return ItemStack.EMPTY;
 		}
 		var stack = new ItemStack(item);
 		markUnbreakable(stack);
+		if (textTemplateResolver != null && displayName != null && !displayName.isBlank()) {
+			stack.set(DataComponentTypes.CUSTOM_NAME, textTemplateResolver.format(displayName));
+		}
+		if (textTemplateResolver != null && loreLines != null && !loreLines.isEmpty()) {
+			stack.set(DataComponentTypes.LORE, new LoreComponent(loreLines.stream().map(textTemplateResolver::format).toList()));
+		}
 		return stack;
 	}
 

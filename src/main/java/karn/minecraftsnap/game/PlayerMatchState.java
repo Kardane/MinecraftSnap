@@ -9,8 +9,9 @@ public class PlayerMatchState {
 	private int emeralds;
 	private int goldIngots;
 	private boolean advanceAvailable;
-	private int advanceProgressSeconds;
+	private int advanceExp;
 	private String advanceTargetUnitId;
+	private LaneId lastLaneId;
 
 	public TeamId getTeamId() {
 		return teamId;
@@ -28,8 +29,9 @@ public class PlayerMatchState {
 		this.preferredUnitId = null;
 		this.currentUnitId = null;
 		this.advanceAvailable = false;
-		this.advanceProgressSeconds = 0;
+		this.advanceExp = 0;
 		this.advanceTargetUnitId = null;
+		this.lastLaneId = null;
 	}
 
 	public RoleType getRoleType() {
@@ -69,7 +71,15 @@ public class PlayerMatchState {
 	}
 
 	public void setCurrentUnitId(String currentUnitId) {
+		if ((this.currentUnitId == null && currentUnitId != null)
+			|| (this.currentUnitId != null && !this.currentUnitId.equals(currentUnitId))) {
+			resetAdvanceState();
+		}
 		this.currentUnitId = currentUnitId;
+		if (currentUnitId == null) {
+			this.lastLaneId = null;
+			resetAdvanceState();
+		}
 	}
 
 	public int getEmeralds() {
@@ -104,12 +114,12 @@ public class PlayerMatchState {
 		this.advanceAvailable = advanceAvailable;
 	}
 
-	public int getAdvanceProgressSeconds() {
-		return advanceProgressSeconds;
+	public int getAdvanceExp() {
+		return advanceExp;
 	}
 
-	public void setAdvanceProgressSeconds(int advanceProgressSeconds) {
-		this.advanceProgressSeconds = advanceProgressSeconds;
+	public void setAdvanceExp(int advanceExp) {
+		this.advanceExp = advanceExp;
 	}
 
 	public String getAdvanceTargetUnitId() {
@@ -122,7 +132,15 @@ public class PlayerMatchState {
 
 	public void resetAdvanceState() {
 		this.advanceAvailable = false;
-		this.advanceProgressSeconds = 0;
+		this.advanceExp = 0;
 		this.advanceTargetUnitId = null;
+	}
+
+	public LaneId getLastLaneId() {
+		return lastLaneId;
+	}
+
+	public void setLastLaneId(LaneId lastLaneId) {
+		this.lastLaneId = lastLaneId;
 	}
 }

@@ -39,7 +39,17 @@ public class StatsRepository {
 				if (this.statsFile.players == null) {
 					this.statsFile.players = new java.util.LinkedHashMap<>();
 				}
-				this.dirty = false;
+				boolean migrated = false;
+				for (var stats : this.statsFile.players.values()) {
+					if (stats == null) {
+						continue;
+					}
+					if ("unit".equalsIgnoreCase(stats.preference)) {
+						stats.preference = "none";
+						migrated = true;
+					}
+				}
+				this.dirty = migrated;
 			}
 		} catch (IOException exception) {
 			logger.error("stats.json 로드 실패", exception);

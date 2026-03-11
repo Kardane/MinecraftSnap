@@ -9,7 +9,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class AdvanceServiceTest {
 	@Test
-	void matchingBiomeAndWeatherBuildsAdvanceProgress() {
+	void matchingBiomeAndWeatherBuildsAdvanceExp() {
 		var service = new AdvanceService(new UnitRegistry(false));
 		var config = new SystemConfig();
 		config.normalize();
@@ -24,11 +24,11 @@ class AdvanceServiceTest {
 
 		assertTrue(state.isAdvanceAvailable());
 		assertEquals("zombie_veteran", state.getAdvanceTargetUnitId());
-		assertEquals(15, state.getAdvanceProgressSeconds());
+		assertEquals(15, state.getAdvanceExp());
 	}
 
 	@Test
-	void mismatchResetsAdvanceProgress() {
+	void mismatchResetsAdvanceExp() {
 		var service = new AdvanceService(new UnitRegistry(false));
 		var config = new SystemConfig();
 		config.normalize();
@@ -41,7 +41,7 @@ class AdvanceServiceTest {
 		service.updateProgress(state, "minecraft:plains", "clear", config.advance);
 
 		assertFalse(state.isAdvanceAvailable());
-		assertEquals(0, state.getAdvanceProgressSeconds());
+		assertEquals(0, state.getAdvanceExp());
 		assertEquals(null, state.getAdvanceTargetUnitId());
 	}
 
@@ -58,6 +58,11 @@ class AdvanceServiceTest {
 		assertTrue(service.forceAdvance(state, config.advance));
 		assertTrue(state.isAdvanceAvailable());
 		assertEquals("charged_creeper", state.getAdvanceTargetUnitId());
+		assertEquals(config.advance.conditions.stream()
+			.filter(condition -> "creeper".equals(condition.unitId))
+			.findFirst()
+			.orElseThrow()
+			.requiredExp, state.getAdvanceExp());
 	}
 
 	@Test
@@ -94,14 +99,14 @@ class AdvanceServiceTest {
 		state.setCurrentUnitId("slime");
 		state.setAdvanceAvailable(true);
 		state.setAdvanceTargetUnitId("slime_brute");
-		state.setAdvanceProgressSeconds(12);
+		state.setAdvanceExp(12);
 
 		var result = service.applyAdvance(state);
 
 		assertEquals("slime_brute", result.id());
 		assertEquals("slime_brute", state.getCurrentUnitId());
 		assertFalse(state.isAdvanceAvailable());
-		assertEquals(0, state.getAdvanceProgressSeconds());
+		assertEquals(0, state.getAdvanceExp());
 		assertEquals(null, state.getAdvanceTargetUnitId());
 	}
 }

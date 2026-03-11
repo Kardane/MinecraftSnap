@@ -21,6 +21,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.function.BooleanSupplier;
 
 public class UnitAbilityService {
 	private static final int CAPTAIN_SKILL_COOLDOWN_SECONDS = 30;
@@ -160,6 +161,79 @@ public class UnitAbilityService {
 		unitCooldownTicks.put(player.getUuid(), matchManager.getServerTicks() + definition.abilityCooldownSeconds() * 20L);
 		player.getItemCooldownManager().set(player.getMainHandStack(), definition.abilityCooldownSeconds() * 20);
 		return true;
+	}
+
+	public boolean activateUnitSkill(ServerPlayerEntity player, MatchManager matchManager, UnitDefinition definition, BooleanSupplier action) {
+		if (player == null || matchManager == null || definition == null || action == null) {
+			return false;
+		}
+		var nextUseTick = unitCooldownTicks.getOrDefault(player.getUuid(), Long.MIN_VALUE);
+		if (matchManager.getServerTicks() < nextUseTick) {
+			var remaining = (int) Math.ceil((nextUseTick - matchManager.getServerTicks()) / 20.0D);
+			player.sendMessage(textTemplateResolver.format("&c유닛 스킬 쿨다운: &f" + remaining + "초"), true);
+			return false;
+		}
+		if (!action.getAsBoolean()) {
+			return false;
+		}
+		notifyActiveSkillHook(player, definition, matchManager);
+		unitCooldownTicks.put(player.getUuid(), matchManager.getServerTicks() + definition.abilityCooldownSeconds() * 20L);
+		player.getItemCooldownManager().set(player.getMainHandStack(), definition.abilityCooldownSeconds() * 20);
+		return true;
+	}
+
+	public boolean heal(ServerPlayerEntity player, float amount) {
+		player.heal(amount);
+		return true;
+	}
+
+	public boolean dash(ServerPlayerEntity player, double horizontalSpeed, double upwardSpeed) {
+		var dash = player.getRotationVec(1.0f).multiply(horizontalSpeed);
+		player.addVelocity(dash.x, upwardSpeed, dash.z);
+		return true;
+	}
+
+	public boolean giveFireworks(ServerPlayerEntity player, int count) {
+		player.getInventory().insertStack(new net.minecraft.item.ItemStack(net.minecraft.item.Items.FIREWORK_ROCKET, count));
+		return true;
+	}
+
+	public boolean boneBlast(ServerPlayerEntity player, MatchManager matchManager, double radius, float damage, int slowSeconds, int amplifier) {
+		for (var target : nearbyEnemyPlayers(player, matchManager, radius)) {
+			target.damage((ServerWorld) player.getWorld(), target.getDamageSources().mobAttack(player), damage);
+			target.addStatusEffect(new StatusEffectInstance(StatusEffects.SLOWNESS, 20 * slowSeconds, amplifier), player);
+		}
+		return true;
+	}
+
+	public boolean queueCreeperBomb(ServerPlayerEntity player, MatchManager matchManager, int warmupTicks, String message) {
+		pendingCreeperBombTicks.put(player.getUuid(), matchManager.getServerTicks() + warmupTicks);
+		if (message != null && !message.isBlank()) {
+			player.sendMessage(textTemplateResolver.format(message), true);
+		}
+		return true;
+	}
+
+	public boolean applyEffects(ServerPlayerEntity player, StatusEffectInstance... effects) {
+		for (var effect : effects) {
+			player.addStatusEffect(effect);
+		}
+		return true;
+	}
+
+	public boolean spawnFireballBurst(ServerPlayerEntity player) {
+		spawnFireballs(player);
+		return true;
+	}
+
+	public void spawnSlimeSplit(ServerPlayerEntity player) {
+		spawnSlimes(player);
+	}
+
+	public void trySpawnZombifiedPiglin(ServerPlayerEntity player, float chance) {
+		if (player.getRandom().nextFloat() < chance) {
+			spawnZombifiedPiglin(player);
+		}
 	}
 
 	public void handleEnemyKill(UUID killerId, MatchManager matchManager, CaptainManaService captainManaService, UnitRegistry unitRegistry) {

@@ -14,6 +14,7 @@ import karn.minecraftsnap.config.FactionConfigFile;
 
 public class UnitRegistry {
 	private final Map<String, UnitDefinition> units = new LinkedHashMap<>();
+	private final Map<String, karn.minecraftsnap.config.FactionUnitEntry> unitEntries = new LinkedHashMap<>();
 	private final Map<FactionId, FactionConfigFile> factionConfigs = new EnumMap<>(FactionId.class);
 
 	public UnitRegistry() {
@@ -76,6 +77,7 @@ public class UnitRegistry {
 
 	public void loadFromFactionConfigs(Map<FactionId, FactionConfigFile> configs, Function<String, net.minecraft.item.Item> itemResolver) {
 		units.clear();
+		unitEntries.clear();
 		factionConfigs.clear();
 		for (var entry : configs.entrySet()) {
 			var config = entry.getValue();
@@ -84,11 +86,16 @@ public class UnitRegistry {
 			}
 			factionConfigs.put(entry.getKey(), config);
 			for (var unit : config.units) {
+				unitEntries.put(unit.id, unit);
 				register(itemResolver == null
 					? unit.toUnitDefinition(entry.getKey())
 					: unit.toUnitDefinition(entry.getKey(), itemResolver));
 			}
 		}
+	}
+
+	public karn.minecraftsnap.config.FactionUnitEntry getEntry(String unitId) {
+		return unitEntries.get(unitId);
 	}
 
 	public FactionConfigFile getFactionConfig(FactionId factionId) {

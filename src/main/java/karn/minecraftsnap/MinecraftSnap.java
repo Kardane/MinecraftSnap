@@ -27,6 +27,7 @@ import karn.minecraftsnap.game.RoleType;
 import karn.minecraftsnap.game.TeamId;
 import karn.minecraftsnap.game.TeamAssignmentService;
 import karn.minecraftsnap.game.UnitAbilityService;
+import karn.minecraftsnap.game.UnitHookService;
 import karn.minecraftsnap.game.UnitLoadoutService;
 import karn.minecraftsnap.game.UnitRegistry;
 import karn.minecraftsnap.game.UnitSpawnService;
@@ -40,6 +41,7 @@ import karn.minecraftsnap.ui.PlayerDisplayNameService;
 import karn.minecraftsnap.ui.PreparationGuiService;
 import karn.minecraftsnap.ui.TradeGuiService;
 import karn.minecraftsnap.ui.WikiGuiService;
+import karn.minecraftsnap.unit.UnitClassRegistry;
 import karn.minecraftsnap.util.TextTemplateResolver;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents;
@@ -91,6 +93,7 @@ public class MinecraftSnap implements DedicatedServerModInitializer {
 	private final BiomeEffectRegistry biomeEffectRegistry = new BiomeEffectRegistry();
 	private final LaneStructureService laneStructureService = new LaneStructureService();
 	private final UnitRegistry unitRegistry = new UnitRegistry(false);
+	private final UnitClassRegistry unitClassRegistry = new UnitClassRegistry();
 	private final AdvanceService advanceService = new AdvanceService(unitRegistry);
 	private final UnitLoadoutService unitLoadoutService = new UnitLoadoutService();
 	private final UnitAbilityService unitAbilityService = new UnitAbilityService(textTemplateResolver, laneRuntimeRegistry);
@@ -101,6 +104,20 @@ public class MinecraftSnap implements DedicatedServerModInitializer {
 	private final CaptainSpawnGuiService captainSpawnGuiService = new CaptainSpawnGuiService(textTemplateResolver, unitRegistry);
 	private final TradeGuiService tradeGuiService = new TradeGuiService(textTemplateResolver);
 	private final AdvanceGuiService advanceGuiService = new AdvanceGuiService(textTemplateResolver);
+	private final UnitHookService unitHookService = new UnitHookService(
+		matchManager,
+		unitRegistry,
+		unitClassRegistry,
+		laneRuntimeRegistry,
+		configManager.getStatsRepository(),
+		textTemplateResolver,
+		unitAbilityService,
+		unitLoadoutService,
+		advanceService,
+		tradeGuiService,
+		advanceGuiService,
+		captainManaService
+	);
 	private final LobbyScoreboardService lobbyScoreboardService = new LobbyScoreboardService(textTemplateResolver);
 	private final PlayerDisplayNameService playerDisplayNameService = new PlayerDisplayNameService();
 	private final McSnapCommandRegistrar commandRegistrar = new McSnapCommandRegistrar(this);
@@ -128,8 +145,10 @@ public class MinecraftSnap implements DedicatedServerModInitializer {
 		StyledChatSupport.initialize();
 		configManager.load();
 		unitRegistry.loadFromFactionConfigs(configManager.getFactionConfigs());
+		unitClassRegistry.validateAgainst(unitRegistry);
 		matchManager.applyGameDuration(configManager.getSystemConfig().gameDurationSeconds);
 		capturePointService = new CapturePointService(matchManager, configManager.getStatsRepository());
+		capturePointService.setUnitHookService(unitHookService);
 		biomeRevealService = new BiomeRevealService(
 			matchManager,
 			textTemplateResolver,
@@ -146,8 +165,10 @@ public class MinecraftSnap implements DedicatedServerModInitializer {
 			captainManaService,
 			unitRegistry,
 			unitAbilityService,
-			laneRuntimeRegistry
+			laneRuntimeRegistry,
+			unitHookService
 		);
+		unitSpawnService.setUnitHookService(unitHookService);
 		lobbyCoordinator = createLobbyCoordinator();
 
 		// 커맨드 등록
@@ -187,7 +208,7 @@ public class MinecraftSnap implements DedicatedServerModInitializer {
 				refillCaptainMana();
 			}
 			tickCaptainMana(server);
-			advanceService.tick(server, matchManager, configManager.getSystemConfig().advance);
+			unitHookService.tick(server, configManager.getSystemConfig());
 			unitAbilityService.tick(server, matchManager);
 			unitSpawnService.maintainActiveUnits(matchManager);
 			inGameRuleService.tick(server, configManager.getSystemConfig());
@@ -231,8 +252,10 @@ public class MinecraftSnap implements DedicatedServerModInitializer {
 		configManager.getStatsRepository().saveIfDirty();
 		configManager.reload();
 		unitRegistry.loadFromFactionConfigs(configManager.getFactionConfigs());
+		unitClassRegistry.validateAgainst(unitRegistry);
 		matchManager.applyGameDuration(configManager.getSystemConfig().gameDurationSeconds);
 		capturePointService = new CapturePointService(matchManager, configManager.getStatsRepository());
+		capturePointService.setUnitHookService(unitHookService);
 		laneStructureService.reset();
 		laneRuntimeRegistry.reset();
 		biomeRevealService = new BiomeRevealService(
@@ -251,8 +274,10 @@ public class MinecraftSnap implements DedicatedServerModInitializer {
 			captainManaService,
 			unitRegistry,
 			unitAbilityService,
-			laneRuntimeRegistry
+			laneRuntimeRegistry,
+			unitHookService
 		);
+		unitSpawnService.setUnitHookService(unitHookService);
 		lobbyCoordinator = createLobbyCoordinator();
 		for (var player : matchManager.getOnlinePlayers()) {
 			var stats = getStatsRepository().getOrCreate(player.getUuid(), player.getName().getString());
@@ -316,15 +341,7 @@ public class MinecraftSnap implements DedicatedServerModInitializer {
 				return true;
 			}
 			if (state.getRoleType() == RoleType.UNIT && state.getCurrentUnitId() != null) {
-				if (state.getFactionId() == karn.minecraftsnap.game.FactionId.VILLAGER
-					|| state.getFactionId() == karn.minecraftsnap.game.FactionId.NETHER) {
-					tradeGuiService.open(player, state);
-					return true;
-				}
-				if (state.getFactionId() == karn.minecraftsnap.game.FactionId.MONSTER) {
-					openAdvanceGui(player, state);
-					return true;
-				}
+				return unitHookService.handleShiftF(player, configManager.getSystemConfig());
 			}
 		}
 		return lobbyCoordinator.handleShortcut(player, configManager.getSystemConfig());
@@ -363,6 +380,10 @@ public class MinecraftSnap implements DedicatedServerModInitializer {
 
 	public UnitSpawnService getUnitSpawnService() {
 		return unitSpawnService;
+	}
+
+	public UnitRegistry getUnitRegistry() {
+		return unitRegistry;
 	}
 
 	public CaptainManaService getCaptainManaService() {
@@ -449,7 +470,7 @@ public class MinecraftSnap implements DedicatedServerModInitializer {
 		}
 
 		if (state.getCurrentUnitId() != null && unitLoadoutService.isUnitAbilityItem(stack, state.getCurrentUnitId())) {
-			return unitAbilityService.useUnitAbility(player, matchManager, unitRegistry);
+			return unitHookService.handleSkillUse(player, configManager.getSystemConfig());
 		}
 		return false;
 	}
@@ -475,27 +496,7 @@ public class MinecraftSnap implements DedicatedServerModInitializer {
 	}
 
 	private void openAdvanceGui(net.minecraft.server.network.ServerPlayerEntity player, PlayerMatchState state) {
-		var condition = advanceService.findCondition(state.getCurrentUnitId(), configManager.getSystemConfig().advance);
-		var biomeId = player.getWorld().getBiome(player.getBlockPos()).getKey()
-			.map(key -> key.getValue().toString())
-			.orElse("minecraft:plains");
-		var weather = advanceService.currentWeather(player);
-		var targetDefinition = state.getAdvanceTargetUnitId() == null ? null : unitRegistry.get(state.getAdvanceTargetUnitId());
-		if (targetDefinition == null && condition != null) {
-			targetDefinition = unitRegistry.get(condition.resultUnitId);
-		}
-		var requiredSeconds = condition == null ? 0 : condition.requiredSeconds;
-
-		advanceGuiService.open(player, state, biomeId, weather, requiredSeconds, targetDefinition, () -> {
-			var definition = advanceService.applyAdvance(state);
-			if (definition == null) {
-				player.sendMessage(textTemplateResolver.format(configManager.getSystemConfig().advance.notAvailableMessage), false);
-				return;
-			}
-			unitLoadoutService.applyUnitLoadout(player, definition, textTemplateResolver);
-			karn.minecraftsnap.integration.DisguiseSupport.applyDisguise(player, definition.disguiseId());
-			player.sendMessage(textTemplateResolver.format("&a전직 완료: &f" + definition.displayName()), false);
-		});
+		unitHookService.openAdvanceGui(player, configManager.getSystemConfig());
 	}
 
 	private void handlePhaseTransition() {
