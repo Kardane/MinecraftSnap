@@ -23,13 +23,35 @@ public class BossBarService {
 	}
 
 	public void tick(MinecraftServer server, SystemConfig systemConfig) {
-		if (matchManager.getPhase() != MatchPhase.GAME_RUNNING) {
-			if (lastRenderedPhase == MatchPhase.GAME_RUNNING) {
+		if (matchManager.getPhase() != MatchPhase.GAME_RUNNING && matchManager.getPhase() != MatchPhase.FACTION_SELECT) {
+			if (lastRenderedPhase == MatchPhase.GAME_RUNNING || lastRenderedPhase == MatchPhase.FACTION_SELECT) {
 				bossBar.clearPlayers();
 				bossBar.setVisible(false);
 				lastRenderedText = "";
 			}
 			lastRenderedPhase = matchManager.getPhase();
+			return;
+		}
+
+		if (matchManager.getPhase() == MatchPhase.FACTION_SELECT) {
+			var rendered = factionSelectText(
+				factionSelectRemainingSeconds(matchManager.getPhaseTicks(), systemConfig.lobby.factionSelectDurationSeconds),
+				systemConfig.lobby.factionSelectBossBarTemplate
+			);
+			if (!rendered.equals(lastRenderedText) || lastRenderedPhase != MatchPhase.FACTION_SELECT) {
+				bossBar.setName(textTemplateResolver.format(rendered));
+				lastRenderedText = rendered;
+			}
+			bossBar.setPercent(factionSelectPercent(matchManager.getPhaseTicks(), systemConfig.lobby.factionSelectDurationSeconds));
+			bossBar.setColor(BossBar.Color.YELLOW);
+			bossBar.setStyle(BossBar.Style.PROGRESS);
+			bossBar.setVisible(true);
+			for (var player : server.getPlayerManager().getPlayerList()) {
+				if (!bossBar.getPlayers().contains(player)) {
+					bossBar.addPlayer(player);
+				}
+			}
+			lastRenderedPhase = MatchPhase.FACTION_SELECT;
 			return;
 		}
 
@@ -58,6 +80,22 @@ public class BossBarService {
 		}
 
 		lastRenderedPhase = MatchPhase.GAME_RUNNING;
+	}
+
+	static String factionSelectText(int remainingSeconds, String template) {
+		return template.replace("{time}", BossBarFormatter.formatTime(Math.max(remainingSeconds, 0)));
+	}
+
+	static int factionSelectRemainingSeconds(long phaseTicks, int durationSeconds) {
+		return Math.max(0, durationSeconds - (int) (phaseTicks / 20L));
+	}
+
+	static float factionSelectPercent(long phaseTicks, int durationSeconds) {
+		if (durationSeconds <= 0) {
+			return 0.0f;
+		}
+		var remaining = factionSelectRemainingSeconds(phaseTicks, durationSeconds);
+		return Math.max(0.0f, Math.min(1.0f, remaining / (float) durationSeconds));
 	}
 
 	private BossBar.Color parseColor(String color) {

@@ -18,6 +18,7 @@ import net.minecraft.world.GameMode;
 import net.minecraft.world.TeleportTarget;
 
 public class LobbyCoordinator {
+	private final java.util.EnumMap<TeamId, Long> factionGuiOpenTicks = new java.util.EnumMap<>(TeamId.class);
 	private final MatchManager matchManager;
 	private final StatsRepository statsRepository;
 	private final TeamAssignmentService teamAssignmentService;
@@ -29,6 +30,7 @@ public class LobbyCoordinator {
 	private final PreparationGuiService preparationGuiService;
 	private final UnitSpawnService unitSpawnService;
 	private final TextTemplateResolver textTemplateResolver;
+	private final java.util.function.BiConsumer<TeamId, FactionId> factionSelectionHandler;
 
 	public LobbyCoordinator(
 		MatchManager matchManager,
@@ -41,7 +43,8 @@ public class LobbyCoordinator {
 		LobbyScoreboardService lobbyScoreboardService,
 		PreparationGuiService preparationGuiService,
 		UnitSpawnService unitSpawnService,
-		TextTemplateResolver textTemplateResolver
+		TextTemplateResolver textTemplateResolver,
+		java.util.function.BiConsumer<TeamId, FactionId> factionSelectionHandler
 	) {
 		this.matchManager = matchManager;
 		this.statsRepository = statsRepository;
@@ -54,6 +57,7 @@ public class LobbyCoordinator {
 		this.preparationGuiService = preparationGuiService;
 		this.unitSpawnService = unitSpawnService;
 		this.textTemplateResolver = textTemplateResolver;
+		this.factionSelectionHandler = factionSelectionHandler;
 	}
 
 	public void handleJoin(ServerPlayerEntity player, SystemConfig config) {
@@ -83,6 +87,7 @@ public class LobbyCoordinator {
 		}
 
 		if (matchManager.getPhase() == MatchPhase.FACTION_SELECT) {
+			reopenUnselectedCaptainFactionGuis(server, config);
 			if (matchManager.isFactionSelectionComplete()
 				|| matchManager.getPhaseTicks() >= config.lobby.factionSelectDurationSeconds * 20L) {
 				enterGameStart(server, config, false);
@@ -208,6 +213,7 @@ public class LobbyCoordinator {
 			fillMissingFactions();
 		}
 
+		factionGuiOpenTicks.clear();
 		matchManager.enterGameStart();
 		for (var player : server.getPlayerManager().getPlayerList()) {
 			preparePlayerForGameStart(player, config);
@@ -238,6 +244,30 @@ public class LobbyCoordinator {
 		}
 	}
 
+	private void reopenUnselectedCaptainFactionGuis(MinecraftServer server, SystemConfig config) {
+		if (matchManager.getServerTicks() % 20L != 0L) {
+			return;
+		}
+		for (var teamId : TeamId.values()) {
+			if (matchManager.getFactionSelection(teamId) != null) {
+				continue;
+			}
+			var captainId = matchManager.getCaptainId(teamId);
+			if (captainId == null) {
+				continue;
+			}
+			var player = server.getPlayerManager().getPlayer(captainId);
+			if (player == null) {
+				continue;
+			}
+			var lastOpened = factionGuiOpenTicks.getOrDefault(teamId, Long.MIN_VALUE);
+			if (matchManager.getServerTicks() - lastOpened < 20L) {
+				continue;
+			}
+			openFactionGui(player, config);
+		}
+	}
+
 	private void openFactionGui(ServerPlayerEntity player, SystemConfig config) {
 		var state = matchManager.getPlayerState(player.getUuid());
 		var teamId = state.getTeamId();
@@ -246,8 +276,10 @@ public class LobbyCoordinator {
 			return;
 		}
 
+		factionGuiOpenTicks.put(teamId, matchManager.getServerTicks());
 		factionSelectionGuiService.open(player, teamId, matchManager.getFactionSelection(teamId), factionId -> {
-			matchManager.setFactionSelection(teamId, factionId);
+			factionSelectionHandler.accept(teamId, factionId);
+			factionGuiOpenTicks.remove(teamId);
 			if (matchManager.isFactionSelectionComplete()) {
 				enterGameStart(player.getServer(), config, false);
 			}
@@ -264,10 +296,10 @@ public class LobbyCoordinator {
 		if (state.getRoleType() == RoleType.UNIT) {
 			matchManager.clearCurrentUnit(player.getUuid());
 			player.changeGameMode(GameMode.SPECTATOR);
-			teleport(player, config.gameStart.unitSpawn);
+			teleport(player, config.world, config.gameStart.unitSpawnFor(state.getTeamId()));
 		} else {
 			player.changeGameMode(GameMode.ADVENTURE);
-			teleport(player, config.gameStart.captainSpawn);
+			teleport(player, config.world, config.gameStart.captainSpawnFor(state.getTeamId()));
 			unitSpawnService.getUnitLoadoutService().giveCaptainItems(player, state.getFactionId(), textTemplateResolver);
 		}
 	}
@@ -278,17 +310,16 @@ public class LobbyCoordinator {
 		matchManager.clearCurrentUnit(player.getUuid());
 		player.changeGameMode(GameMode.ADVENTURE);
 		var position = new SystemConfig.PositionConfig();
-		position.world = config.lobby.world;
 		position.x = config.lobby.spawnX;
 		position.y = config.lobby.spawnY;
 		position.z = config.lobby.spawnZ;
 		position.yaw = config.lobby.spawnYaw;
 		position.pitch = config.lobby.spawnPitch;
-		teleport(player, position);
+		teleport(player, config.world, position);
 	}
 
-	private void teleport(ServerPlayerEntity player, SystemConfig.PositionConfig position) {
-		var world = resolveWorld(player.getServer(), position.world);
+	private void teleport(ServerPlayerEntity player, String worldId, SystemConfig.PositionConfig position) {
+		var world = resolveWorld(player.getServer(), worldId);
 		var teleportTarget = new TeleportTarget(
 			world,
 			new Vec3d(position.x, position.y, position.z),

@@ -9,9 +9,12 @@ import java.util.function.Consumer;
 import java.util.function.IntConsumer;
 
 public class GameEndService {
+	public static final int TITLE_FADE_IN_TICKS = 10;
+	public static final int TITLE_STAY_TICKS = 60;
+	public static final int TITLE_FADE_OUT_TICKS = 20;
 	private final MatchManager matchManager;
 	private final TextTemplateResolver textTemplateResolver;
-	private final Consumer<String> broadcaster;
+	private final Consumer<String> titleSender;
 	private final BiConsumer<TeamId, Integer> winnerGlowApplier;
 	private final Runnable glowClearer;
 	private final IntConsumer tickRateController;
@@ -22,7 +25,7 @@ public class GameEndService {
 	public GameEndService(
 		MatchManager matchManager,
 		TextTemplateResolver textTemplateResolver,
-		Consumer<String> broadcaster,
+		Consumer<String> titleSender,
 		BiConsumer<TeamId, Integer> winnerGlowApplier,
 		Runnable glowClearer,
 		IntConsumer tickRateController,
@@ -31,7 +34,7 @@ public class GameEndService {
 	) {
 		this.matchManager = matchManager;
 		this.textTemplateResolver = textTemplateResolver;
-		this.broadcaster = broadcaster;
+		this.titleSender = titleSender;
 		this.winnerGlowApplier = winnerGlowApplier;
 		this.glowClearer = glowClearer;
 		this.tickRateController = tickRateController;
@@ -67,10 +70,10 @@ public class GameEndService {
 
 	private void announce(SystemConfig.GameEndConfig config) {
 		if (matchManager.getWinnerTeam() == null) {
-			broadcaster.accept(config.drawTitleTemplate);
+			titleSender.accept(config.drawTitleTemplate);
 			return;
 		}
 
-		broadcaster.accept(config.titleTemplate.replace("{winner}", matchManager.getWinnerTeam().getDisplayName()));
+		titleSender.accept(config.titleTemplate.replace("{winner}", matchManager.getWinnerTeam().getDisplayName()));
 	}
 }

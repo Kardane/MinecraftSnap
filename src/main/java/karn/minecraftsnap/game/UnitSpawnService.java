@@ -93,7 +93,7 @@ public class UnitSpawnService {
 		unitAbilityService.clearPlayerState(target.getUuid());
 		matchManager.setCurrentUnit(target.getUuid(), definition.id());
 		target.changeGameMode(GameMode.SURVIVAL);
-		teleport(target, systemConfig.gameStart.unitSpawn);
+		teleport(target, systemConfig.world, systemConfig.gameStart.unitSpawnFor(captainState.getTeamId()));
 		unitLoadoutService.applyUnitLoadout(target, definition, textTemplateResolver);
 		DisguiseSupport.applyDisguise(target, definition.disguiseId());
 		target.sendMessage(textTemplateResolver.format("&a소환됨: &f" + definition.displayName()), false);
@@ -138,8 +138,8 @@ public class UnitSpawnService {
 		return unitAbilityService;
 	}
 
-	private void teleport(ServerPlayerEntity player, SystemConfig.PositionConfig position) {
-		var world = resolveWorld(player, position.world);
+	private void teleport(ServerPlayerEntity player, String worldId, SystemConfig.PositionConfig position) {
+		var world = resolveWorld(player, worldId);
 		player.teleportTo(new TeleportTarget(
 			world,
 			new Vec3d(position.x, position.y, position.z),

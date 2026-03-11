@@ -5,6 +5,8 @@ import karn.minecraftsnap.config.SystemConfig;
 import karn.minecraftsnap.util.TextTemplateResolver;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.damage.DamageSource;
+import net.minecraft.entity.effect.StatusEffectInstance;
+import net.minecraft.entity.effect.StatusEffects;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.world.GameRules;
@@ -51,6 +53,14 @@ public class InGameRuleService {
 
 	public void tick(MinecraftServer server, SystemConfig systemConfig) {
 		server.getGameRules().get(GameRules.NATURAL_REGENERATION).set(matchManager.getPhase() != MatchPhase.GAME_RUNNING, server);
+		enforceCaptainFlight(server, systemConfig);
+		enforceCaptainInvisibility(server);
+		disableNonOperatorFlightOnGameEnd(server);
+		if (isCaptainFlightPhase(matchManager.getPhase())) {
+			for (var player : server.getPlayerManager().getPlayerList()) {
+				applyCaptainFloor(player, systemConfig);
+			}
+		}
 		if (matchManager.getPhase() != MatchPhase.GAME_RUNNING) {
 			return;
 		}
@@ -67,6 +77,9 @@ public class InGameRuleService {
 	public boolean allowDamage(LivingEntity entity, DamageSource source) {
 		if (!(entity instanceof ServerPlayerEntity victim)) {
 			return true;
+		}
+		if (matchManager.getPlayerState(victim.getUuid()).isCaptain()) {
+			return false;
 		}
 
 		if (!(source.getAttacker() instanceof ServerPlayerEntity attacker)) {
@@ -97,10 +110,14 @@ public class InGameRuleService {
 		}
 
 		if (matchManager.getPhase() != MatchPhase.GAME_RUNNING) {
-			return true;
+			return !matchManager.getPlayerState(player.getUuid()).isCaptain() || !isCaptainProtectedPhase(matchManager.getPhase());
 		}
 
 		var state = matchManager.getPlayerState(player.getUuid());
+		if (state.isCaptain()) {
+			player.setHealth(player.getMaxHealth());
+			return false;
+		}
 		if (state.getRoleType() != RoleType.UNIT) {
 			return true;
 		}
@@ -144,14 +161,17 @@ public class InGameRuleService {
 		return state.getRoleType() == RoleType.UNIT && !matchManager.isLaneRevealed(laneId);
 	}
 
-	public LaneId findContainingLane(String worldId, double x, double y, double z, SystemConfig.InGameConfig config) {
-		if (contains(config.lane1Region, worldId, x, y, z)) {
+	public LaneId findContainingLane(String configuredWorldId, String worldId, double x, double y, double z, SystemConfig.InGameConfig config) {
+		if (!configuredWorldId.equals(worldId)) {
+			return null;
+		}
+		if (contains(config.lane1Region, x, y, z)) {
 			return LaneId.LANE_1;
 		}
-		if (contains(config.lane2Region, worldId, x, y, z)) {
+		if (contains(config.lane2Region, x, y, z)) {
 			return LaneId.LANE_2;
 		}
-		if (contains(config.lane3Region, worldId, x, y, z)) {
+		if (contains(config.lane3Region, x, y, z)) {
 			return LaneId.LANE_3;
 		}
 		return null;
@@ -167,7 +187,7 @@ public class InGameRuleService {
 
 	private void applyLaneRestriction(ServerPlayerEntity player, SystemConfig systemConfig) {
 		var state = matchManager.getPlayerState(player.getUuid());
-		var laneId = findContainingLane(player.getWorld().getRegistryKey().getValue().toString(), player.getX(), player.getY(), player.getZ(), systemConfig.inGame);
+		var laneId = findContainingLane(systemConfig.world, player.getWorld().getRegistryKey().getValue().toString(), player.getX(), player.getY(), player.getZ(), systemConfig.inGame);
 		if (laneId == null || !shouldBlockClosedLane(state, laneId)) {
 			return;
 		}
@@ -178,16 +198,8 @@ public class InGameRuleService {
 			laneWarningTicks.put(player.getUuid(), matchManager.getServerTicks());
 		}
 
-		var spawn = systemConfig.gameStart.unitSpawn;
-		net.minecraft.server.world.ServerWorld world;
-		try {
-			world = player.getServer().getWorld(net.minecraft.registry.RegistryKey.of(net.minecraft.registry.RegistryKeys.WORLD, net.minecraft.util.Identifier.of(spawn.world)));
-		} catch (Exception ignored) {
-			world = null;
-		}
-		if (world == null) {
-			world = player.getServer().getOverworld();
-		}
+		var spawn = systemConfig.gameStart.unitSpawnFor(state.getTeamId());
+		var world = resolveWorld(player.getServer(), systemConfig.world);
 		player.teleportTo(new net.minecraft.world.TeleportTarget(
 			world,
 			new net.minecraft.util.math.Vec3d(spawn.x, spawn.y, spawn.z),
@@ -223,12 +235,21 @@ public class InGameRuleService {
 		pendingSpectators.removeAll(processed);
 	}
 
-	private boolean contains(SystemConfig.LaneRegionConfig region, String worldId, double x, double y, double z) {
+	private boolean contains(SystemConfig.LaneRegionConfig region, double x, double y, double z) {
 		return region != null
-			&& region.world.equals(worldId)
 			&& x >= region.minX && x <= region.maxX
 			&& y >= region.minY && y <= region.maxY
 			&& z >= region.minZ && z <= region.maxZ;
+	}
+
+	private net.minecraft.server.world.ServerWorld resolveWorld(MinecraftServer server, String worldId) {
+		try {
+			var key = net.minecraft.registry.RegistryKey.of(net.minecraft.registry.RegistryKeys.WORLD, net.minecraft.util.Identifier.of(worldId));
+			var world = server.getWorld(key);
+			return world != null ? world : server.getOverworld();
+		} catch (Exception ignored) {
+			return server.getOverworld();
+		}
 	}
 
 	private void rewardKillCurrency(UUID playerId, String playerName, PlayerMatchState state) {
@@ -242,5 +263,114 @@ public class InGameRuleService {
 			state.addGoldIngots(1);
 			statsRepository.addGoldIngots(playerId, playerName, 1);
 		}
+	}
+
+	private void enforceCaptainFlight(MinecraftServer server, SystemConfig systemConfig) {
+		for (var player : server.getPlayerManager().getPlayerList()) {
+			var state = matchManager.getPlayerState(player.getUuid());
+			if (!state.isCaptain()) {
+				continue;
+			}
+			boolean changed = false;
+			if (isCaptainFlightPhase(matchManager.getPhase())) {
+				if (!player.getAbilities().allowFlying) {
+					player.getAbilities().allowFlying = true;
+					player.getAbilities().flying = true;
+					changed = true;
+				}
+				if (player.getAbilities().getFlySpeed() != systemConfig.inGame.captainFlySpeed) {
+					player.getAbilities().setFlySpeed(systemConfig.inGame.captainFlySpeed);
+					changed = true;
+				}
+				player.fallDistance = 0.0f;
+			} else {
+				if (player.getAbilities().flying) {
+					player.getAbilities().flying = false;
+					changed = true;
+				}
+				if (player.getAbilities().allowFlying) {
+					player.getAbilities().allowFlying = false;
+					changed = true;
+				}
+				if (player.getAbilities().getFlySpeed() != systemConfig.inGame.defaultFlySpeed) {
+					player.getAbilities().setFlySpeed(systemConfig.inGame.defaultFlySpeed);
+					changed = true;
+				}
+			}
+			if (changed) {
+				player.sendAbilitiesUpdate();
+			}
+		}
+	}
+
+	private void enforceCaptainInvisibility(MinecraftServer server) {
+		for (var player : server.getPlayerManager().getPlayerList()) {
+			var state = matchManager.getPlayerState(player.getUuid());
+			if (!state.isCaptain()) {
+				continue;
+			}
+			if (isCaptainGamePhase(matchManager.getPhase())) {
+				var effect = player.getStatusEffect(StatusEffects.INVISIBILITY);
+				if (effect == null || effect.getDuration() <= 40) {
+					player.addStatusEffect(new StatusEffectInstance(StatusEffects.INVISIBILITY, 200, 0, false, false, false));
+				}
+			} else {
+				player.removeStatusEffect(StatusEffects.INVISIBILITY);
+			}
+		}
+	}
+
+	private void disableNonOperatorFlightOnGameEnd(MinecraftServer server) {
+		if (matchManager.getPhase() != MatchPhase.GAME_END) {
+			return;
+		}
+		for (var player : server.getPlayerManager().getPlayerList()) {
+			if (player.hasPermissionLevel(2)) {
+				continue;
+			}
+			boolean changed = false;
+			if (player.getAbilities().flying) {
+				player.getAbilities().flying = false;
+				changed = true;
+			}
+			if (player.getAbilities().allowFlying) {
+				player.getAbilities().allowFlying = false;
+				changed = true;
+			}
+			if (changed) {
+				player.sendAbilitiesUpdate();
+			}
+		}
+	}
+
+	private void applyCaptainFloor(ServerPlayerEntity player, SystemConfig systemConfig) {
+		var state = matchManager.getPlayerState(player.getUuid());
+		if (!state.isCaptain() || state.getTeamId() == null || !isCaptainFlightPhase(matchManager.getPhase()) || player.getY() >= systemConfig.inGame.captainMinY) {
+			return;
+		}
+		var spawn = systemConfig.gameStart.captainSpawnFor(state.getTeamId());
+		var world = resolveWorld(player.getServer(), systemConfig.world);
+		player.teleportTo(new net.minecraft.world.TeleportTarget(
+			world,
+			new net.minecraft.util.math.Vec3d(spawn.x, spawn.y, spawn.z),
+			net.minecraft.util.math.Vec3d.ZERO,
+			spawn.yaw,
+			spawn.pitch,
+			net.minecraft.world.TeleportTarget.NO_OP
+		));
+		player.setVelocity(net.minecraft.util.math.Vec3d.ZERO);
+		player.fallDistance = 0.0f;
+	}
+
+	static boolean isCaptainFlightPhase(MatchPhase phase) {
+		return phase == MatchPhase.GAME_START || phase == MatchPhase.GAME_RUNNING;
+	}
+
+	static boolean isCaptainProtectedPhase(MatchPhase phase) {
+		return isCaptainGamePhase(phase);
+	}
+
+	static boolean isCaptainGamePhase(MatchPhase phase) {
+		return phase == MatchPhase.GAME_START || phase == MatchPhase.GAME_RUNNING || phase == MatchPhase.GAME_END;
 	}
 }

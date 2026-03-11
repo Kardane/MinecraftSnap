@@ -2,6 +2,8 @@ package karn.minecraftsnap.config;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import karn.minecraftsnap.game.FactionId;
 import org.slf4j.Logger;
 
@@ -32,8 +34,7 @@ public class MinecraftSnapConfigManager {
 	public void load() {
 		try {
 			Files.createDirectories(configDirectory);
-			systemConfig = loadOrCreate(configDirectory.resolve("system.json"), SystemConfig.class, new SystemConfig());
-			systemConfig.normalize();
+			systemConfig = loadSystemConfig(configDirectory.resolve("system.json"));
 			biomeCatalog = loadOrCreate(configDirectory.resolve("biomes.json"), BiomeCatalog.class, createDefaultBiomeCatalog());
 			biomeCatalog.normalize();
 			factionConfigs.clear();
@@ -81,11 +82,33 @@ public class MinecraftSnapConfigManager {
 		return factionConfigs.get(factionId);
 	}
 
+	private SystemConfig loadSystemConfig(Path path) throws IOException {
+		if (Files.notExists(path)) {
+			var defaults = new SystemConfig();
+			defaults.normalize();
+			writeJson(path, defaults);
+			return defaults;
+		}
+
+		JsonObject rawJson;
+		try (Reader reader = Files.newBufferedReader(path, StandardCharsets.UTF_8)) {
+			rawJson = JsonParser.parseReader(reader).getAsJsonObject();
+		}
+
+		var loaded = gson.fromJson(rawJson, SystemConfig.class);
+		if (loaded == null) {
+			loaded = new SystemConfig();
+		}
+		migrateLegacySystemConfig(rawJson, loaded);
+		loaded.normalize();
+		validateCaptureRegions(loaded);
+		writeJson(path, loaded);
+		return loaded;
+	}
+
 	private <T> T loadOrCreate(Path path, Class<T> type, T defaultValue) throws IOException {
 		if (Files.notExists(path)) {
-			try (Writer writer = Files.newBufferedWriter(path, StandardCharsets.UTF_8)) {
-				gson.toJson(defaultValue, writer);
-			}
+			writeJson(path, defaultValue);
 			return defaultValue;
 		}
 
@@ -93,6 +116,167 @@ public class MinecraftSnapConfigManager {
 			var loaded = gson.fromJson(reader, type);
 			return loaded != null ? loaded : defaultValue;
 		}
+	}
+
+	private void writeJson(Path path, Object value) throws IOException {
+		try (Writer writer = Files.newBufferedWriter(path, StandardCharsets.UTF_8)) {
+			gson.toJson(value, writer);
+		}
+	}
+
+	private void migrateLegacySystemConfig(JsonObject rawJson, SystemConfig loaded) {
+		loaded.world = firstNonBlank(
+			legacyString(rawJson, "world"),
+			legacyString(rawJson, "lobby", "world"),
+			legacyString(rawJson, "gameStart", "captainSpawn", "world"),
+			legacyString(rawJson, "gameStart", "unitSpawn", "world"),
+			legacyString(rawJson, "inGame", "lane1Region", "world"),
+			legacyString(rawJson, "capture", "lane1", "world"),
+			loaded.world
+		);
+
+		var legacyCaptainSpawn = legacyPosition(rawJson, "gameStart", "captainSpawn");
+		if (legacyCaptainSpawn != null) {
+			if (loaded.gameStart == null) {
+				loaded.gameStart = new SystemConfig.GameStartConfig();
+			}
+			if (nestedObject(rawJson, "gameStart", "redCaptainSpawn") == null) {
+				loaded.gameStart.redCaptainSpawn = copyPosition(legacyCaptainSpawn);
+			}
+			if (nestedObject(rawJson, "gameStart", "blueCaptainSpawn") == null) {
+				loaded.gameStart.blueCaptainSpawn = copyPosition(legacyCaptainSpawn);
+			}
+		}
+
+		var legacyUnitSpawn = legacyPosition(rawJson, "gameStart", "unitSpawn");
+		if (legacyUnitSpawn != null) {
+			if (loaded.gameStart == null) {
+				loaded.gameStart = new SystemConfig.GameStartConfig();
+			}
+			if (nestedObject(rawJson, "gameStart", "redUnitSpawn") == null) {
+				loaded.gameStart.redUnitSpawn = copyPosition(legacyUnitSpawn);
+			}
+			if (nestedObject(rawJson, "gameStart", "blueUnitSpawn") == null) {
+				loaded.gameStart.blueUnitSpawn = copyPosition(legacyUnitSpawn);
+			}
+		}
+
+		if (loaded.capture == null) {
+			loaded.capture = new SystemConfig.CaptureConfig();
+		}
+		migrateLegacyCaptureRegion(rawJson, loaded.capture, "lane1");
+		migrateLegacyCaptureRegion(rawJson, loaded.capture, "lane2");
+		migrateLegacyCaptureRegion(rawJson, loaded.capture, "lane3");
+	}
+
+	private void migrateLegacyCaptureRegion(JsonObject rawJson, SystemConfig.CaptureConfig captureConfig, String laneKey) {
+		var laneJson = nestedObject(rawJson, "capture", laneKey);
+		if (laneJson == null || !laneJson.has("x") || !laneJson.has("y") || !laneJson.has("z")) {
+			return;
+		}
+		if (laneJson.has("minX") && laneJson.has("minY") && laneJson.has("minZ") && laneJson.has("maxX") && laneJson.has("maxY") && laneJson.has("maxZ")) {
+			return;
+		}
+
+		double x = laneJson.get("x").getAsDouble();
+		double y = laneJson.get("y").getAsDouble();
+		double z = laneJson.get("z").getAsDouble();
+		double radius = laneJson.has("radius") ? laneJson.get("radius").getAsDouble() : 4.0;
+		var migrated = SystemConfig.CaptureRegionConfig.create(
+			laneJson.has("label") ? laneJson.get("label").getAsString() : laneKey,
+			x - radius,
+			y - radius,
+			z - radius,
+			x + radius,
+			y + radius,
+			z + radius
+		);
+		migrated.enabled = laneJson.has("enabled") && laneJson.get("enabled").getAsBoolean();
+
+		switch (laneKey) {
+			case "lane1" -> captureConfig.lane1 = migrated;
+			case "lane2" -> captureConfig.lane2 = migrated;
+			case "lane3" -> captureConfig.lane3 = migrated;
+		}
+	}
+
+	private void validateCaptureRegions(SystemConfig config) {
+		validateCaptureRegion("lane1", config.capture.lane1, config.inGame.lane1Region);
+		validateCaptureRegion("lane2", config.capture.lane2, config.inGame.lane2Region);
+		validateCaptureRegion("lane3", config.capture.lane3, config.inGame.lane3Region);
+	}
+
+	private void validateCaptureRegion(String laneKey, SystemConfig.CaptureRegionConfig captureRegion, SystemConfig.LaneRegionConfig laneRegion) {
+		if (captureRegion == null || laneRegion == null) {
+			return;
+		}
+		if (captureRegion.minX >= laneRegion.minX
+			&& captureRegion.maxX <= laneRegion.maxX
+			&& captureRegion.minY >= laneRegion.minY
+			&& captureRegion.maxY <= laneRegion.maxY
+			&& captureRegion.minZ >= laneRegion.minZ
+			&& captureRegion.maxZ <= laneRegion.maxZ) {
+			return;
+		}
+		logger.warn("MCsnap 점령 구역 {} 설정이 라인 구역을 벗어나 비활성화됨", laneKey);
+		captureRegion.enabled = false;
+	}
+
+	private SystemConfig.PositionConfig legacyPosition(JsonObject rawJson, String... path) {
+		var object = nestedObject(rawJson, path);
+		if (object == null || !object.has("x") || !object.has("y") || !object.has("z")) {
+			return null;
+		}
+		var position = SystemConfig.PositionConfig.create(
+			object.get("x").getAsDouble(),
+			object.get("y").getAsDouble(),
+			object.get("z").getAsDouble()
+		);
+		position.yaw = object.has("yaw") ? object.get("yaw").getAsFloat() : 0.0f;
+		position.pitch = object.has("pitch") ? object.get("pitch").getAsFloat() : 0.0f;
+		return position;
+	}
+
+	private SystemConfig.PositionConfig copyPosition(SystemConfig.PositionConfig source) {
+		var copy = SystemConfig.PositionConfig.create(source.x, source.y, source.z);
+		copy.yaw = source.yaw;
+		copy.pitch = source.pitch;
+		return copy;
+	}
+
+	private JsonObject nestedObject(JsonObject root, String... path) {
+		JsonObject current = root;
+		for (var key : path) {
+			if (current == null || !current.has(key) || !current.get(key).isJsonObject()) {
+				return null;
+			}
+			current = current.getAsJsonObject(key);
+		}
+		return current;
+	}
+
+	private String legacyString(JsonObject root, String... path) {
+		var current = root;
+		for (int i = 0; i < path.length - 1; i++) {
+			if (current == null || !current.has(path[i]) || !current.get(path[i]).isJsonObject()) {
+				return null;
+			}
+			current = current.getAsJsonObject(path[i]);
+		}
+		var leaf = path[path.length - 1];
+		if (current == null || !current.has(leaf) || current.get(leaf).isJsonNull()) {
+			return null;
+		}
+		return current.get(leaf).getAsString();
+	}
+
+	private String firstNonBlank(String... values) {
+		for (var value : values) {
+			if (value != null && !value.isBlank()) {
+				return value;
+			}
+		}
+		return "minecraft:overworld";
 	}
 
 	private BiomeCatalog createDefaultBiomeCatalog() {

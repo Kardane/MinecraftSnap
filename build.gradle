@@ -34,6 +34,7 @@ loom {
     runs {
         server {
             ideConfigGenerated = true
+            vmArgs "-Xms1G", "-Xmx4G"
         }
         // 클라이언트 런 비활성화 (서버사이드 모드)
         remove client

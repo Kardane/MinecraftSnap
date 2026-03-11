@@ -31,7 +31,16 @@ class BiomeRevealServiceTest {
 		var manager = new MatchManager();
 		var service = new BiomeRevealService(manager, new TextTemplateResolver(), new Random(1));
 		var config = new SystemConfig();
-		var laneBiomeService = new LaneBiomeService((server, command) -> true);
+		var laneBiomeService = new LaneBiomeService(new LaneBiomeService.BiomeApplier() {
+			@Override
+			public List<LaneBiomeService.BiomeCellSnapshot> snapshot(net.minecraft.server.MinecraftServer server, String worldId, SystemConfig.LaneRegionConfig region) {
+				return List.of();
+			}
+
+			@Override
+			public void apply(net.minecraft.server.MinecraftServer server, List<LaneBiomeService.BiomeCellSnapshot> snapshots) {
+			}
+		});
 		manager.setAssignedBiomeId(LaneId.LANE_1, "forest");
 		manager.setAssignedBiomeId(LaneId.LANE_2, "desert");
 		manager.setAssignedBiomeId(LaneId.LANE_3, "swamp");

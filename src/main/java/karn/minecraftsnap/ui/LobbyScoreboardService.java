@@ -3,18 +3,14 @@ package karn.minecraftsnap.ui;
 import karn.minecraftsnap.config.StatsRepository;
 import karn.minecraftsnap.game.MatchManager;
 import karn.minecraftsnap.game.MatchPhase;
-import karn.minecraftsnap.game.RoleType;
-import karn.minecraftsnap.game.TeamId;
 import karn.minecraftsnap.util.TextTemplateResolver;
 import net.minecraft.scoreboard.ScoreHolder;
 import net.minecraft.scoreboard.Scoreboard;
 import net.minecraft.scoreboard.ScoreboardCriterion;
 import net.minecraft.scoreboard.ScoreboardDisplaySlot;
-import net.minecraft.scoreboard.Team;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.text.Text;
-import net.minecraft.util.Formatting;
 
 import java.util.Comparator;
 
@@ -38,9 +34,9 @@ public class LobbyScoreboardService {
 
 	public void sync(MinecraftServer server, MatchManager matchManager, StatsRepository statsRepository) {
 		var scoreboard = server.getScoreboard();
-		syncPlayerTeams(scoreboard, matchManager, statsRepository, server);
+		clearPlayerTeams(scoreboard, server);
 
-		if (matchManager.getPhase() == MatchPhase.GAME_RUNNING || matchManager.getPhase() == MatchPhase.GAME_END) {
+		if (shouldHideSidebar(matchManager.getPhase())) {
 			scoreboard.setObjectiveSlot(ScoreboardDisplaySlot.SIDEBAR, null);
 			return;
 		}
@@ -82,27 +78,18 @@ public class LobbyScoreboardService {
 		updateLine(scoreboard, objective, 6, textTemplateResolver.format("&7/mcsnap wiki 로 안내 확인"));
 	}
 
-	private void syncPlayerTeams(Scoreboard scoreboard, MatchManager matchManager, StatsRepository statsRepository, MinecraftServer server) {
+	private void clearPlayerTeams(Scoreboard scoreboard, MinecraftServer server) {
 		for (var player : server.getPlayerManager().getPlayerList()) {
 			var entryName = player.getNameForScoreboard();
 			var currentTeam = scoreboard.getScoreHolderTeam(entryName);
 			if (currentTeam != null && currentTeam.getName().startsWith("mcsnap_p_")) {
 				scoreboard.removeScoreHolderFromTeam(entryName, currentTeam);
 			}
-
-			var teamName = "mcsnap_p_" + player.getUuidAsString().replace("-", "").substring(0, 12);
-			var team = scoreboard.getTeam(teamName);
-			if (team == null) {
-				team = scoreboard.addTeam(teamName);
-			}
-
-			var state = matchManager.getPlayerState(player.getUuid());
-			var ladder = statsRepository.getLadder(player.getUuid(), player.getName().getString());
-			team.setPrefix(textTemplateResolver.format("&7[" + ladder + "] "));
-			team.setSuffix(textTemplateResolver.format(state.getRoleType() == RoleType.CAPTAIN ? " &6[대장]" : ""));
-			team.setColor(colorFor(state.getTeamId()));
-			scoreboard.addScoreHolderToTeam(entryName, team);
 		}
+	}
+
+	static boolean shouldHideSidebar(MatchPhase phase) {
+		return phase == MatchPhase.GAME_START || phase == MatchPhase.GAME_RUNNING || phase == MatchPhase.GAME_END;
 	}
 
 	private void updateLine(Scoreboard scoreboard, net.minecraft.scoreboard.ScoreboardObjective objective, int index, Text displayText) {
@@ -112,13 +99,4 @@ public class LobbyScoreboardService {
 		score.setDisplayText(displayText);
 	}
 
-	private Formatting colorFor(TeamId teamId) {
-		if (teamId == TeamId.RED) {
-			return Formatting.RED;
-		}
-		if (teamId == TeamId.BLUE) {
-			return Formatting.BLUE;
-		}
-		return Formatting.GRAY;
-	}
 }

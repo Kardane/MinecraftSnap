@@ -107,7 +107,7 @@ public class UnitLoadoutService {
 	}
 
 	private ItemStack createCaptainMenuItem(FactionId factionId, TextTemplateResolver textTemplateResolver) {
-		var stack = createTaggedStack(Items.COMPASS, KIND_CAPTAIN_MENU, factionId, null);
+		var stack = createTaggedStack(Items.BELL, KIND_CAPTAIN_MENU, factionId, null);
 		stack.set(DataComponentTypes.CUSTOM_NAME, textTemplateResolver.format("&e유닛 소환"));
 		stack.set(DataComponentTypes.LORE, new LoreComponent(List.of(
 			textTemplateResolver.format("&7우클릭 또는 Shift+F로 소환 GUI 열기"),

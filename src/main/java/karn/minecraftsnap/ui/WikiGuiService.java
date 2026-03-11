@@ -23,11 +23,13 @@ public class WikiGuiService {
 	private final TextTemplateResolver textTemplateResolver;
 	private final UnitRegistry unitRegistry;
 	private final Supplier<BiomeCatalog> biomeCatalogSupplier;
+	private final Supplier<MatchPhase> phaseSupplier;
 
-	public WikiGuiService(TextTemplateResolver textTemplateResolver, UnitRegistry unitRegistry, Supplier<BiomeCatalog> biomeCatalogSupplier) {
+	public WikiGuiService(TextTemplateResolver textTemplateResolver, UnitRegistry unitRegistry, Supplier<BiomeCatalog> biomeCatalogSupplier, Supplier<MatchPhase> phaseSupplier) {
 		this.textTemplateResolver = textTemplateResolver;
 		this.unitRegistry = unitRegistry;
 		this.biomeCatalogSupplier = biomeCatalogSupplier;
+		this.phaseSupplier = phaseSupplier;
 	}
 
 	public void open(ServerPlayerEntity player, MatchPhase phase) {
@@ -59,6 +61,7 @@ public class WikiGuiService {
 		gui.setSlot(11, factionAction(player, FactionId.VILLAGER, Items.EMERALD));
 		gui.setSlot(13, factionAction(player, FactionId.MONSTER, Items.IRON_SWORD));
 		gui.setSlot(15, factionAction(player, FactionId.NETHER, Items.BLAZE_ROD));
+		gui.setSlot(18, homeAction(player));
 		gui.open();
 	}
 
@@ -73,6 +76,7 @@ public class WikiGuiService {
 			lines.addAll(config.captainSkill.descriptionLines);
 		}
 		gui.setSlot(13, action(iconOf(factionId), "&f개요", lines, null));
+		gui.setSlot(18, homeAction(player));
 		gui.setSlot(22, action(Items.ARROW, "&e뒤로", List.of("&7팩션 목록으로 복귀"), () -> openFactionIndex(player)));
 		gui.open();
 	}
@@ -83,6 +87,7 @@ public class WikiGuiService {
 		gui.setSlot(11, action(Items.EMERALD, "&a주민&우민", List.of("&7주민 계열 유닛 보기"), () -> openUnitList(player, FactionId.VILLAGER)));
 		gui.setSlot(13, action(Items.IRON_SWORD, "&c몬스터", List.of("&7몬스터 및 전직 유닛 보기"), () -> openUnitList(player, FactionId.MONSTER)));
 		gui.setSlot(15, action(Items.BLAZE_ROD, "&6네더", List.of("&7네더 유닛 보기"), () -> openUnitList(player, FactionId.NETHER)));
+		gui.setSlot(18, homeAction(player));
 		gui.open();
 	}
 
@@ -96,6 +101,7 @@ public class WikiGuiService {
 			}
 			gui.setSlot(slot++, action(unit.mainHandItem(), "&f" + unit.displayName(), unitLore(unit), () -> openUnitDetail(player, factionId, unit)));
 		}
+		gui.setSlot(18, homeAction(player));
 		gui.setSlot(22, action(Items.ARROW, "&e뒤로", List.of("&7유닛 분류로 복귀"), () -> openUnitFactionIndex(player)));
 		gui.open();
 	}
@@ -104,6 +110,7 @@ public class WikiGuiService {
 		var gui = new SimpleGui(ScreenHandlerType.GENERIC_9X3, player, false);
 		gui.setTitle(textTemplateResolver.format("&f" + unit.displayName()));
 		gui.setSlot(13, action(unit.mainHandItem(), "&f" + unit.displayName(), unitDetailLore(unit), null));
+		gui.setSlot(18, homeAction(player));
 		gui.setSlot(22, action(Items.ARROW, "&e뒤로", List.of("&7이전 유닛 목록으로 복귀"), () -> openUnitList(player, factionId)));
 		gui.open();
 	}
@@ -118,6 +125,7 @@ public class WikiGuiService {
 			}
 			gui.setSlot(slot++, action(Items.GRASS_BLOCK, "&a" + biome.displayName, biomeSummaryLore(biome), () -> openBiomeDetail(player, biome)));
 		}
+		gui.setSlot(18, homeAction(player));
 		gui.open();
 	}
 
@@ -125,8 +133,13 @@ public class WikiGuiService {
 		var gui = new SimpleGui(ScreenHandlerType.GENERIC_9X3, player, false);
 		gui.setTitle(textTemplateResolver.format("&a" + biome.displayName));
 		gui.setSlot(13, action(Items.GRASS_BLOCK, "&a" + biome.displayName, biomeDetailLore(biome), null));
+		gui.setSlot(18, homeAction(player));
 		gui.setSlot(22, action(Items.ARROW, "&e뒤로", List.of("&7바이옴 목록으로 복귀"), () -> openBiomeIndex(player)));
 		gui.open();
+	}
+
+	private eu.pb4.sgui.api.elements.GuiElementInterface homeAction(ServerPlayerEntity player) {
+		return action(Items.COMPASS, "&6위키 메인", List.of("&7위키 첫 화면으로 복귀"), () -> open(player, phaseSupplier.get()));
 	}
 
 	private eu.pb4.sgui.api.elements.GuiElementInterface factionAction(ServerPlayerEntity player, FactionId factionId, Item item) {

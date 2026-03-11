@@ -2,6 +2,7 @@ package karn.minecraftsnap.config;
 
 public class SystemConfig {
 	public String prefix = "&7[&6!&7]&f ";
+	public String world = "minecraft:overworld";
 	public int gameDurationSeconds = 9 * 60;
 	public BossBarConfig bossBar = new BossBarConfig();
 	public MusicLoopConfig lobbyMusic = MusicLoopConfig.create("&6로비 브금", "minecraft:music.menu", 20 * 70);
@@ -14,6 +15,8 @@ public class SystemConfig {
 	public InGameConfig inGame = new InGameConfig();
 	public AdvanceConfig advance = new AdvanceConfig();
 	public GameEndConfig gameEnd = new GameEndConfig();
+	public DisplayConfig display = new DisplayConfig();
+	public AnnouncementConfig announcements = new AnnouncementConfig();
 
 	public static class BossBarConfig {
 		public String template = "&c레드 {red_score} &8| &f남은 시간 {time} &8| &9블루 {blue_score}";
@@ -49,13 +52,12 @@ public class SystemConfig {
 		public int captureStepSeconds = 5;
 		public int scoreIntervalTicks = 20;
 		public int allPointsHoldSeconds = 30;
-		public CapturePointConfig lane1 = CapturePointConfig.create("1번 라인", 0.0, 64.0, 0.0);
-		public CapturePointConfig lane2 = CapturePointConfig.create("2번 라인", 20.0, 64.0, 0.0);
-		public CapturePointConfig lane3 = CapturePointConfig.create("3번 라인", 40.0, 64.0, 0.0);
+		public CaptureRegionConfig lane1 = CaptureRegionConfig.create("1번 라인", -4.0, 60.0, -4.0, 4.0, 68.0, 4.0);
+		public CaptureRegionConfig lane2 = CaptureRegionConfig.create("2번 라인", 16.0, 60.0, -4.0, 24.0, 68.0, 4.0);
+		public CaptureRegionConfig lane3 = CaptureRegionConfig.create("3번 라인", 36.0, 60.0, -4.0, 44.0, 68.0, 4.0);
 	}
 
 	public static class LobbyConfig {
-		public String world = "minecraft:overworld";
 		public double spawnX = 0.0;
 		public double spawnY = 64.0;
 		public double spawnZ = 0.0;
@@ -64,13 +66,24 @@ public class SystemConfig {
 		public int factionSelectDelaySeconds = 5;
 		public int factionSelectDurationSeconds = 15;
 		public int gameStartDelaySeconds = 0;
+		public String factionSelectBossBarTemplate = "&6팩션 선택 남은 시간 &f{time}";
 	}
 
 	public static class GameStartConfig {
 		public int waitSeconds = 15;
 		public boolean allowShiftF = true;
-		public PositionConfig captainSpawn = PositionConfig.create("minecraft:overworld", 0.0, 64.0, 10.0);
-		public PositionConfig unitSpawn = PositionConfig.create("minecraft:overworld", 0.0, 64.0, -10.0);
+		public PositionConfig redCaptainSpawn = PositionConfig.create(-10.0, 64.0, 10.0);
+		public PositionConfig blueCaptainSpawn = PositionConfig.create(10.0, 64.0, 10.0);
+		public PositionConfig redUnitSpawn = PositionConfig.create(-10.0, 64.0, -10.0);
+		public PositionConfig blueUnitSpawn = PositionConfig.create(10.0, 64.0, -10.0);
+
+		public PositionConfig captainSpawnFor(karn.minecraftsnap.game.TeamId teamId) {
+			return teamId == karn.minecraftsnap.game.TeamId.BLUE ? blueCaptainSpawn : redCaptainSpawn;
+		}
+
+		public PositionConfig unitSpawnFor(karn.minecraftsnap.game.TeamId teamId) {
+			return teamId == karn.minecraftsnap.game.TeamId.BLUE ? blueUnitSpawn : redUnitSpawn;
+		}
 	}
 
 	public static class BiomeRevealConfig {
@@ -94,16 +107,14 @@ public class SystemConfig {
 	}
 
 	public static class PositionConfig {
-		public String world = "minecraft:overworld";
 		public double x;
 		public double y;
 		public double z;
 		public float yaw;
 		public float pitch;
 
-		public static PositionConfig create(String world, double x, double y, double z) {
+		public static PositionConfig create(double x, double y, double z) {
 			var config = new PositionConfig();
-			config.world = world;
 			config.x = x;
 			config.y = y;
 			config.z = z;
@@ -112,7 +123,6 @@ public class SystemConfig {
 	}
 
 	public static class LaneRegionConfig {
-		public String world = "minecraft:overworld";
 		public double minX;
 		public double minY;
 		public double minZ;
@@ -120,9 +130,8 @@ public class SystemConfig {
 		public double maxY;
 		public double maxZ;
 
-		public static LaneRegionConfig create(String world, double minX, double minY, double minZ, double maxX, double maxY, double maxZ) {
+		public static LaneRegionConfig create(double minX, double minY, double minZ, double maxX, double maxY, double maxZ) {
 			var config = new LaneRegionConfig();
-			config.world = world;
 			config.minX = minX;
 			config.minY = minY;
 			config.minZ = minZ;
@@ -136,9 +145,30 @@ public class SystemConfig {
 	public static class InGameConfig {
 		public String closedLaneMessage = "&c아직 공개되지 않은 라인임";
 		public int laneWarningCooldownTicks = 40;
-		public LaneRegionConfig lane1Region = LaneRegionConfig.create("minecraft:overworld", -8.0, 0.0, -8.0, 8.0, 320.0, 8.0);
-		public LaneRegionConfig lane2Region = LaneRegionConfig.create("minecraft:overworld", 12.0, 0.0, -8.0, 28.0, 320.0, 8.0);
-		public LaneRegionConfig lane3Region = LaneRegionConfig.create("minecraft:overworld", 32.0, 0.0, -8.0, 48.0, 320.0, 8.0);
+		public double captainMinY = 0.0;
+		public float captainFlySpeed = 3.0f;
+		public float defaultFlySpeed = 0.05f;
+		public LaneRegionConfig lane1Region = LaneRegionConfig.create(-8.0, 0.0, -8.0, 8.0, 320.0, 8.0);
+		public LaneRegionConfig lane2Region = LaneRegionConfig.create(12.0, 0.0, -8.0, 28.0, 320.0, 8.0);
+		public LaneRegionConfig lane3Region = LaneRegionConfig.create(32.0, 0.0, -8.0, 48.0, 320.0, 8.0);
+	}
+
+	public static class DisplayConfig {
+		public String ladderPrefixFormat = "[{ladder}] ";
+		public String captainStar = "★ ";
+	}
+
+	public static class AnnouncementConfig {
+		public String lobbyPhaseMessage = "&e로비로 복귀";
+		public String teamSelectPhaseMessage = "&a팀 배정 시작";
+		public String factionSelectPhaseMessage = "&6팩션 선택 시작";
+		public String gameStartPhaseMessage = "&b게임 준비 시작";
+		public String gameRunningPhaseMessage = "&c게임 시작";
+		public String gameEndPhaseMessage = "&d게임 종료";
+		public String factionSelectionMessage = "&f{team} 팀 사령관이 &6{faction} &f팩션 선택";
+		public String villagerFactionName = "주민";
+		public String monsterFactionName = "몬스터";
+		public String netherFactionName = "네더";
 	}
 
 	public static class AdvanceConfig {
@@ -155,21 +185,25 @@ public class SystemConfig {
 		public String resultUnitId = "";
 	}
 
-	public static class CapturePointConfig {
+	public static class CaptureRegionConfig {
 		public boolean enabled = false;
-		public String world = "world";
 		public String label = "";
-		public double x;
-		public double y;
-		public double z;
-		public double radius = 4.0;
+		public double minX;
+		public double minY;
+		public double minZ;
+		public double maxX;
+		public double maxY;
+		public double maxZ;
 
-		public static CapturePointConfig create(String label, double x, double y, double z) {
-			var config = new CapturePointConfig();
+		public static CaptureRegionConfig create(String label, double minX, double minY, double minZ, double maxX, double maxY, double maxZ) {
+			var config = new CaptureRegionConfig();
 			config.label = label;
-			config.x = x;
-			config.y = y;
-			config.z = z;
+			config.minX = minX;
+			config.minY = minY;
+			config.minZ = minZ;
+			config.maxX = maxX;
+			config.maxY = maxY;
+			config.maxZ = maxZ;
 			return config;
 		}
 	}
@@ -208,29 +242,41 @@ public class SystemConfig {
 		if (gameEnd == null) {
 			gameEnd = new GameEndConfig();
 		}
-		if (gameStart.captainSpawn == null) {
-			gameStart.captainSpawn = PositionConfig.create("minecraft:overworld", 0.0, 64.0, 10.0);
+		if (display == null) {
+			display = new DisplayConfig();
 		}
-		if (gameStart.unitSpawn == null) {
-			gameStart.unitSpawn = PositionConfig.create("minecraft:overworld", 0.0, 64.0, -10.0);
+		if (announcements == null) {
+			announcements = new AnnouncementConfig();
+		}
+		if (gameStart.redCaptainSpawn == null) {
+			gameStart.redCaptainSpawn = PositionConfig.create(-10.0, 64.0, 10.0);
+		}
+		if (gameStart.blueCaptainSpawn == null) {
+			gameStart.blueCaptainSpawn = PositionConfig.create(10.0, 64.0, 10.0);
+		}
+		if (gameStart.redUnitSpawn == null) {
+			gameStart.redUnitSpawn = PositionConfig.create(-10.0, 64.0, -10.0);
+		}
+		if (gameStart.blueUnitSpawn == null) {
+			gameStart.blueUnitSpawn = PositionConfig.create(10.0, 64.0, -10.0);
 		}
 		if (inGame.lane1Region == null) {
-			inGame.lane1Region = LaneRegionConfig.create("minecraft:overworld", -8.0, 0.0, -8.0, 8.0, 320.0, 8.0);
+			inGame.lane1Region = LaneRegionConfig.create(-8.0, 0.0, -8.0, 8.0, 320.0, 8.0);
 		}
 		if (inGame.lane2Region == null) {
-			inGame.lane2Region = LaneRegionConfig.create("minecraft:overworld", 12.0, 0.0, -8.0, 28.0, 320.0, 8.0);
+			inGame.lane2Region = LaneRegionConfig.create(12.0, 0.0, -8.0, 28.0, 320.0, 8.0);
 		}
 		if (inGame.lane3Region == null) {
-			inGame.lane3Region = LaneRegionConfig.create("minecraft:overworld", 32.0, 0.0, -8.0, 48.0, 320.0, 8.0);
+			inGame.lane3Region = LaneRegionConfig.create(32.0, 0.0, -8.0, 48.0, 320.0, 8.0);
 		}
 		if (capture.lane1 == null) {
-			capture.lane1 = CapturePointConfig.create("1번 라인", 0.0, 64.0, 0.0);
+			capture.lane1 = CaptureRegionConfig.create("1번 라인", -4.0, 60.0, -4.0, 4.0, 68.0, 4.0);
 		}
 		if (capture.lane2 == null) {
-			capture.lane2 = CapturePointConfig.create("2번 라인", 20.0, 64.0, 0.0);
+			capture.lane2 = CaptureRegionConfig.create("2번 라인", 16.0, 60.0, -4.0, 24.0, 68.0, 4.0);
 		}
 		if (capture.lane3 == null) {
-			capture.lane3 = CapturePointConfig.create("3번 라인", 40.0, 64.0, 0.0);
+			capture.lane3 = CaptureRegionConfig.create("3번 라인", 36.0, 60.0, -4.0, 44.0, 68.0, 4.0);
 		}
 		if (advance.conditions == null || advance.conditions.isEmpty()) {
 			advance.conditions = defaultAdvanceConditions();

@@ -114,9 +114,33 @@ class InGameRuleServiceTest {
 		var service = createService(manager);
 		var config = new SystemConfig();
 
-		assertEquals(LaneId.LANE_1, service.findContainingLane("minecraft:overworld", 0.0, 64.0, 0.0, config.inGame));
-		assertEquals(LaneId.LANE_2, service.findContainingLane("minecraft:overworld", 20.0, 64.0, 0.0, config.inGame));
-		assertNull(service.findContainingLane("minecraft:the_nether", 0.0, 64.0, 0.0, config.inGame));
+		assertEquals(LaneId.LANE_1, service.findContainingLane(config.world, "minecraft:overworld", 0.0, 64.0, 0.0, config.inGame));
+		assertEquals(LaneId.LANE_2, service.findContainingLane(config.world, "minecraft:overworld", 20.0, 64.0, 0.0, config.inGame));
+		assertNull(service.findContainingLane(config.world, "minecraft:the_nether", 0.0, 64.0, 0.0, config.inGame));
+	}
+
+	@Test
+	void gameStartConfigReturnsTeamSpecificUnitSpawn() {
+		var config = new SystemConfig();
+
+		assertEquals(config.gameStart.redUnitSpawn, config.gameStart.unitSpawnFor(TeamId.RED));
+		assertEquals(config.gameStart.blueUnitSpawn, config.gameStart.unitSpawnFor(TeamId.BLUE));
+		assertEquals(config.gameStart.redCaptainSpawn, config.gameStart.captainSpawnFor(TeamId.RED));
+		assertEquals(config.gameStart.blueCaptainSpawn, config.gameStart.captainSpawnFor(TeamId.BLUE));
+		assertEquals(0.0, config.inGame.captainMinY);
+	}
+
+	@Test
+	void captainFlightAndProtectionIncludeGameStartAndEnd() {
+		var config = new SystemConfig();
+		assertTrue(InGameRuleService.isCaptainFlightPhase(MatchPhase.GAME_START));
+		assertTrue(InGameRuleService.isCaptainFlightPhase(MatchPhase.GAME_RUNNING));
+		assertFalse(InGameRuleService.isCaptainFlightPhase(MatchPhase.GAME_END));
+		assertFalse(InGameRuleService.isCaptainFlightPhase(MatchPhase.LOBBY));
+		assertTrue(InGameRuleService.isCaptainProtectedPhase(MatchPhase.GAME_END));
+		assertTrue(InGameRuleService.isCaptainGamePhase(MatchPhase.GAME_END));
+		assertEquals(3.0f, config.inGame.captainFlySpeed);
+		assertEquals(0.05f, config.inGame.defaultFlySpeed);
 	}
 
 	private InGameRuleService createService(MatchManager manager) {

@@ -1,7 +1,6 @@
 package karn.minecraftsnap.command;
 
 import com.mojang.brigadier.Command;
-import com.mojang.brigadier.arguments.StringArgumentType;
 import karn.minecraftsnap.MinecraftSnap;
 import karn.minecraftsnap.game.FactionId;
 import karn.minecraftsnap.game.LaneId;
@@ -13,7 +12,7 @@ import net.minecraft.server.command.ServerCommandSource;
 import net.minecraft.server.network.ServerPlayerEntity;
 
 public class McSnapCommandRegistrar {
-	static final java.util.Set<String> ADMIN_GUI_IDS = java.util.Set.of("wiki", "faction", "preparation", "captain_spawn", "trade", "advance");
+	static final java.util.List<String> ADMIN_GUI_IDS = java.util.List.of("wiki", "faction", "preparation", "captain_spawn", "trade", "advance");
 	private final MinecraftSnap mod;
 
 	public McSnapCommandRegistrar(MinecraftSnap mod) {
@@ -72,9 +71,7 @@ public class McSnapCommandRegistrar {
 					.then(CommandManager.literal("lane1").executes(ctx -> setLaneState(ctx.getSource(), LaneId.LANE_1, false)))
 					.then(CommandManager.literal("lane2").executes(ctx -> setLaneState(ctx.getSource(), LaneId.LANE_2, false)))
 					.then(CommandManager.literal("lane3").executes(ctx -> setLaneState(ctx.getSource(), LaneId.LANE_3, false))))
-				.then(CommandManager.literal("opengui")
-					.then(CommandManager.argument("gui", StringArgumentType.word())
-						.executes(ctx -> openGui(ctx.getSource(), StringArgumentType.getString(ctx, "gui")))))
+				.then(registerOpenGuiTree())
 				.then(CommandManager.literal("manacharge")
 					.executes(ctx -> chargeMana(ctx.getSource(), ctx.getSource().getPlayer()))
 					.then(CommandManager.argument("player", EntityArgumentType.player())
@@ -156,14 +153,10 @@ public class McSnapCommandRegistrar {
 
 	private int openGui(ServerCommandSource source, String guiId) {
 		var player = source.getPlayer();
-		var normalized = normalizeAdminGui(guiId);
 		if (player == null) {
 			return send(source, "&c플레이어만 GUI 오픈 가능");
 		}
-		if (normalized == null) {
-			return send(source, "&c지원하지 않는 GUI: &f" + guiId);
-		}
-		var result = mod.openAdminGui(player, normalized);
+		var result = mod.openAdminGui(player, guiId);
 		return send(source, result);
 	}
 
@@ -172,12 +165,12 @@ public class McSnapCommandRegistrar {
 		return Command.SINGLE_SUCCESS;
 	}
 
-	static String normalizeAdminGui(String input) {
-		if (input == null) {
-			return null;
+	private com.mojang.brigadier.builder.LiteralArgumentBuilder<ServerCommandSource> registerOpenGuiTree() {
+		var builder = CommandManager.literal("opengui");
+		for (var guiId : ADMIN_GUI_IDS) {
+			builder.then(CommandManager.literal(guiId).executes(ctx -> openGui(ctx.getSource(), guiId)));
 		}
-		var normalized = input.toLowerCase(java.util.Locale.ROOT);
-		return ADMIN_GUI_IDS.contains(normalized) ? normalized : null;
+		return builder;
 	}
 
 	private String laneLabel(LaneId laneId) {

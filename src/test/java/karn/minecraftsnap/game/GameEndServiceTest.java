@@ -16,7 +16,7 @@ class GameEndServiceTest {
 		var service = new GameEndService(
 			manager,
 			new TextTemplateResolver(),
-			message -> events.add("broadcast:" + message),
+			message -> events.add("title:" + message),
 			(team, seconds) -> events.add("glow:" + team + ":" + seconds),
 			() -> events.add("clear"),
 			rate -> events.add("tick:" + rate),
@@ -29,7 +29,7 @@ class GameEndServiceTest {
 		manager.recordAllPointsHeld(TeamId.RED, 1);
 
 		service.tick(config);
-		assertEquals("broadcast:&6승리: &f레드", events.get(0));
+		assertEquals("title:&6승리: &f레드", events.get(0));
 		assertEquals("glow:RED:5", events.get(1));
 		assertEquals("tick:10", events.get(2));
 
