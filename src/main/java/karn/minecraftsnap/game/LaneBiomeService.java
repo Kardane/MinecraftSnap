@@ -36,31 +36,54 @@ public class LaneBiomeService {
 	}
 
 	public void prepareHiddenBiomes(MinecraftServer server, SystemConfig systemConfig) {
-		if (server == null || !systemConfig.biomeReveal.applyHiddenVoidBiome) {
+		if (!systemConfig.biomeReveal.applyHiddenVoidBiome) {
 			return;
 		}
 
-		for (var laneId : LaneId.values()) {
-			var region = targetRegionOf(laneId, systemConfig);
-			if (region == null) {
+		prepareHiddenBiomes(server, systemConfig.world, Map.of(
+			LaneId.LANE_1, targetRegionOf(LaneId.LANE_1, systemConfig),
+			LaneId.LANE_2, targetRegionOf(LaneId.LANE_2, systemConfig),
+			LaneId.LANE_3, targetRegionOf(LaneId.LANE_3, systemConfig)
+		), systemConfig.biomeReveal.hiddenWorldKey);
+	}
+
+	public void prepareHiddenBiomes(
+		MinecraftServer server,
+		String worldId,
+		Map<LaneId, SystemConfig.LaneRegionConfig> laneRegions,
+		String biomeId
+	) {
+		if (biomeId == null || biomeId.isBlank()) {
+			return;
+		}
+		for (var entry : laneRegions.entrySet()) {
+			if (entry.getValue() == null) {
 				continue;
 			}
-			snapshotLane(server, laneId, systemConfig.world, region);
-			applyBiome(server, laneId, systemConfig.world, region, systemConfig.biomeReveal.hiddenWorldKey);
+			snapshotLane(server, entry.getKey(), worldId, entry.getValue());
+			applyBiome(server, entry.getKey(), worldId, entry.getValue(), biomeId);
 		}
 	}
 
 	public void applyAssignedBiome(MinecraftServer server, LaneId laneId, SystemConfig systemConfig, String biomeId) {
-		if (server == null || biomeId == null || biomeId.isBlank()) {
+		applyAssignedBiome(server, laneId, systemConfig.world, targetRegionOf(laneId, systemConfig), biomeId);
+	}
+
+	public void applyAssignedBiome(
+		MinecraftServer server,
+		LaneId laneId,
+		String worldId,
+		SystemConfig.LaneRegionConfig region,
+		String biomeId
+	) {
+		if (biomeId == null || biomeId.isBlank()) {
 			return;
 		}
-
-		var region = targetRegionOf(laneId, systemConfig);
 		if (region == null) {
 			return;
 		}
-		snapshotLane(server, laneId, systemConfig.world, region);
-		applyBiome(server, laneId, systemConfig.world, region, biomeId);
+		snapshotLane(server, laneId, worldId, region);
+		applyBiome(server, laneId, worldId, region, biomeId);
 	}
 
 	public void restoreAll(MinecraftServer server) {
@@ -137,14 +160,6 @@ public class LaneBiomeService {
 
 	private static long chunkKey(int chunkX, int chunkZ) {
 		return ((long) chunkX & 4294967295L) << 32 | ((long) chunkZ & 4294967295L);
-	}
-
-	private SystemConfig.LaneRegionConfig regionOf(LaneId laneId, SystemConfig systemConfig) {
-		return switch (laneId) {
-			case LANE_1 -> systemConfig.inGame.lane1Region;
-			case LANE_2 -> systemConfig.inGame.lane2Region;
-			case LANE_3 -> systemConfig.inGame.lane3Region;
-		};
 	}
 
 	static SystemConfig.LaneRegionConfig targetRegionOf(LaneId laneId, SystemConfig systemConfig) {

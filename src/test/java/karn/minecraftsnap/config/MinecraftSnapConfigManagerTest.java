@@ -28,6 +28,8 @@ class MinecraftSnapConfigManagerTest {
 		assertTrue(manager.getBiomeCatalog().biomes.size() >= 3);
 		assertEquals("unique_random", manager.getSystemConfig().biomeReveal.assignmentPolicy);
 		assertEquals("minecraft:overworld", manager.getSystemConfig().world);
+		assertEquals("forest", manager.getBiomeCatalog().biomes.getFirst().effectType);
+		assertEquals("", manager.getBiomeCatalog().biomes.getFirst().structureId);
 		assertNotNull(manager.getFactionConfig(FactionId.VILLAGER));
 		assertEquals("주민&우민", manager.getFactionConfig(FactionId.VILLAGER).displayName);
 	}

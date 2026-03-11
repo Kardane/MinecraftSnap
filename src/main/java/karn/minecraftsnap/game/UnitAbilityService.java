@@ -1,5 +1,7 @@
 package karn.minecraftsnap.game;
 
+import karn.minecraftsnap.biome.BiomeRuntimeContext;
+import karn.minecraftsnap.lane.LaneRuntimeRegistry;
 import karn.minecraftsnap.util.TextTemplateResolver;
 import net.minecraft.entity.EntityType;
 import net.minecraft.entity.SpawnReason;
@@ -24,15 +26,21 @@ public class UnitAbilityService {
 	private static final int CAPTAIN_SKILL_COOLDOWN_SECONDS = 30;
 
 	private final TextTemplateResolver textTemplateResolver;
+	private final LaneRuntimeRegistry laneRuntimeRegistry;
 	private final Map<UUID, Long> unitCooldownTicks = new HashMap<>();
 	private final Map<UUID, Long> pendingCreeperBombTicks = new HashMap<>();
 
 	public UnitAbilityService() {
-		this(new TextTemplateResolver());
+		this(new TextTemplateResolver(), null);
 	}
 
 	public UnitAbilityService(TextTemplateResolver textTemplateResolver) {
+		this(textTemplateResolver, null);
+	}
+
+	public UnitAbilityService(TextTemplateResolver textTemplateResolver, LaneRuntimeRegistry laneRuntimeRegistry) {
 		this.textTemplateResolver = textTemplateResolver;
+		this.laneRuntimeRegistry = laneRuntimeRegistry;
 	}
 
 	public void tick(MinecraftServer server, MatchManager matchManager) {
@@ -77,6 +85,7 @@ public class UnitAbilityService {
 		}
 
 		captainManaService.triggerSkillCooldown(captain.getUuid(), CAPTAIN_SKILL_COOLDOWN_SECONDS);
+		notifyActiveSkillHook(captain, null, matchManager);
 		captain.sendMessage(textTemplateResolver.format("&d사령관 스킬 발동"), true);
 		return true;
 	}
@@ -146,6 +155,7 @@ public class UnitAbilityService {
 		if (!success) {
 			return false;
 		}
+		notifyActiveSkillHook(player, definition, matchManager);
 
 		unitCooldownTicks.put(player.getUuid(), matchManager.getServerTicks() + definition.abilityCooldownSeconds() * 20L);
 		player.getItemCooldownManager().set(player.getMainHandStack(), definition.abilityCooldownSeconds() * 20);
@@ -260,5 +270,25 @@ public class UnitAbilityService {
 		}
 		piglin.refreshPositionAndAngles(new BlockPos((int) player.getX(), (int) player.getY(), (int) player.getZ()), player.getYaw(), player.getPitch());
 		world.spawnEntity(piglin);
+	}
+
+	private void notifyActiveSkillHook(ServerPlayerEntity player, UnitDefinition definition, MatchManager matchManager) {
+		if (laneRuntimeRegistry == null) {
+			return;
+		}
+		var runtime = laneRuntimeRegistry.findByPlayer(player);
+		if (runtime == null || !runtime.hasActiveBiome()) {
+			return;
+		}
+		var context = new BiomeRuntimeContext(
+			player.getServer(),
+			(ServerWorld) player.getWorld(),
+			runtime,
+			runtime.biomeEntry(),
+			textTemplateResolver,
+			matchManager.getServerTicks(),
+			matchManager.getTotalSeconds() - matchManager.getRemainingSeconds()
+		);
+		runtime.biomeEffect().onActiveSkill(context, player, definition);
 	}
 }

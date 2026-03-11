@@ -1,7 +1,9 @@
 package karn.minecraftsnap.game;
 
+import karn.minecraftsnap.biome.BiomeRuntimeContext;
 import karn.minecraftsnap.config.StatsRepository;
 import karn.minecraftsnap.config.SystemConfig;
+import karn.minecraftsnap.lane.LaneRuntimeRegistry;
 import karn.minecraftsnap.util.TextTemplateResolver;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.damage.DamageSource;
@@ -26,11 +28,12 @@ public class InGameRuleService {
 	private final CaptainManaService captainManaService;
 	private final UnitRegistry unitRegistry;
 	private final UnitAbilityService unitAbilityService;
+	private final LaneRuntimeRegistry laneRuntimeRegistry;
 	private final Set<UUID> pendingSpectators = new HashSet<>();
 	private final Map<UUID, Long> laneWarningTicks = new HashMap<>();
 
 	public InGameRuleService(MatchManager matchManager, StatsRepository statsRepository, TextTemplateResolver textTemplateResolver) {
-		this(matchManager, statsRepository, textTemplateResolver, null, null, null, null);
+		this(matchManager, statsRepository, textTemplateResolver, null, null, null, null, null);
 	}
 
 	public InGameRuleService(
@@ -40,7 +43,8 @@ public class InGameRuleService {
 		UnitSpawnService unitSpawnService,
 		CaptainManaService captainManaService,
 		UnitRegistry unitRegistry,
-		UnitAbilityService unitAbilityService
+		UnitAbilityService unitAbilityService,
+		LaneRuntimeRegistry laneRuntimeRegistry
 	) {
 		this.matchManager = matchManager;
 		this.statsRepository = statsRepository;
@@ -49,6 +53,7 @@ public class InGameRuleService {
 		this.captainManaService = captainManaService;
 		this.unitRegistry = unitRegistry;
 		this.unitAbilityService = unitAbilityService;
+		this.laneRuntimeRegistry = laneRuntimeRegistry;
 	}
 
 	public void tick(MinecraftServer server, SystemConfig systemConfig) {
@@ -74,9 +79,13 @@ public class InGameRuleService {
 		applyPendingSpectators(server);
 	}
 
-	public boolean allowDamage(LivingEntity entity, DamageSource source) {
+	public boolean allowDamage(LivingEntity entity, DamageSource source, float amount) {
 		if (!(entity instanceof ServerPlayerEntity victim)) {
 			return true;
+		}
+		notifyDamagedHook(victim, source, amount);
+		if (source.getAttacker() instanceof ServerPlayerEntity attacker) {
+			notifyAttackHook(attacker, victim, amount);
 		}
 		if (matchManager.getPlayerState(victim.getUuid()).isCaptain()) {
 			return false;
@@ -124,6 +133,7 @@ public class InGameRuleService {
 		if (pendingSpectators.contains(player.getUuid())) {
 			return false;
 		}
+		notifyDeathHook(player, source);
 
 		var attacker = source.getAttacker() instanceof ServerPlayerEntity attackerPlayer ? attackerPlayer : null;
 		if (unitAbilityService != null && unitRegistry != null) {
@@ -373,4 +383,46 @@ public class InGameRuleService {
 	static boolean isCaptainGamePhase(MatchPhase phase) {
 		return phase == MatchPhase.GAME_START || phase == MatchPhase.GAME_RUNNING || phase == MatchPhase.GAME_END;
 	}
+
+	private void notifyDamagedHook(ServerPlayerEntity victim, DamageSource source, float amount) {
+		var context = createContext(victim);
+		if (context != null) {
+			context.laneRuntime().biomeEffect().onDamaged(context, victim, source, amount);
+		}
+	}
+
+	private void notifyAttackHook(ServerPlayerEntity attacker, ServerPlayerEntity victim, float amount) {
+		var context = createContext(attacker);
+		if (context != null) {
+			context.laneRuntime().biomeEffect().onAttack(context, attacker, victim, amount);
+		}
+	}
+
+	private void notifyDeathHook(ServerPlayerEntity victim, DamageSource source) {
+		var context = createContext(victim);
+		if (context != null) {
+			context.laneRuntime().biomeEffect().onDeath(context, victim, source);
+		}
+	}
+
+	private BiomeRuntimeContext createContext(ServerPlayerEntity player) {
+		if (laneRuntimeRegistry == null || player == null) {
+			return null;
+		}
+		var runtime = laneRuntimeRegistry.findByPlayer(player);
+		if (runtime == null || !runtime.hasActiveBiome()) {
+			return null;
+		}
+		var elapsedSeconds = matchManager.getTotalSeconds() - matchManager.getRemainingSeconds();
+		return new BiomeRuntimeContext(
+			player.getServer(),
+			(net.minecraft.server.world.ServerWorld) player.getWorld(),
+			runtime,
+			runtime.biomeEntry(),
+			textTemplateResolver,
+			matchManager.getServerTicks(),
+			elapsedSeconds
+		);
+	}
+
 }

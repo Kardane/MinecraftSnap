@@ -1,13 +1,15 @@
 package karn.minecraftsnap.game;
 
+import karn.minecraftsnap.biome.BiomeEffect;
+import karn.minecraftsnap.biome.BiomeEffectRegistry;
+import karn.minecraftsnap.biome.BiomeRuntimeContext;
 import karn.minecraftsnap.config.BiomeCatalog;
 import karn.minecraftsnap.config.BiomeEntry;
 import karn.minecraftsnap.config.SystemConfig;
+import karn.minecraftsnap.lane.LaneRuntime;
+import karn.minecraftsnap.lane.LaneRuntimeRegistry;
 import karn.minecraftsnap.util.TextTemplateResolver;
 import net.minecraft.server.MinecraftServer;
-import net.minecraft.sound.SoundCategory;
-import net.minecraft.sound.SoundEvent;
-import net.minecraft.util.Identifier;
 
 import java.util.ArrayList;
 import java.util.EnumMap;
@@ -19,15 +21,32 @@ public class BiomeRevealService {
 	private final MatchManager matchManager;
 	private final TextTemplateResolver textTemplateResolver;
 	private final Random random;
+	private final LaneRuntimeRegistry laneRuntimeRegistry;
+	private final LaneStructureService laneStructureService;
+	private final BiomeEffectRegistry biomeEffectRegistry;
 
 	public BiomeRevealService(MatchManager matchManager, TextTemplateResolver textTemplateResolver) {
-		this(matchManager, textTemplateResolver, new Random());
+		this(matchManager, textTemplateResolver, new Random(), null, null, null);
 	}
 
 	public BiomeRevealService(MatchManager matchManager, TextTemplateResolver textTemplateResolver, Random random) {
+		this(matchManager, textTemplateResolver, random, null, null, null);
+	}
+
+	public BiomeRevealService(
+		MatchManager matchManager,
+		TextTemplateResolver textTemplateResolver,
+		Random random,
+		LaneRuntimeRegistry laneRuntimeRegistry,
+		LaneStructureService laneStructureService,
+		BiomeEffectRegistry biomeEffectRegistry
+	) {
 		this.matchManager = matchManager;
 		this.textTemplateResolver = textTemplateResolver;
 		this.random = random;
+		this.laneRuntimeRegistry = laneRuntimeRegistry;
+		this.laneStructureService = laneStructureService;
+		this.biomeEffectRegistry = biomeEffectRegistry;
 	}
 
 	public void prepareForMatch(MinecraftServer server, SystemConfig systemConfig, BiomeCatalog biomeCatalog, LaneBiomeService laneBiomeService) {
@@ -35,26 +54,28 @@ public class BiomeRevealService {
 		for (var entry : assignments.entrySet()) {
 			matchManager.setAssignedBiomeId(entry.getKey(), entry.getValue().id);
 		}
-		laneBiomeService.prepareHiddenBiomes(server, systemConfig);
+
+		laneBiomeService.prepareHiddenBiomes(server, systemConfig.world, laneRegions(systemConfig), systemConfig.biomeReveal.hiddenWorldKey);
+
 		if (systemConfig.biomeReveal.lane1RevealSecond == 0) {
 			var lane1 = assignments.get(LaneId.LANE_1);
 			if (lane1 != null) {
-				laneBiomeService.applyAssignedBiome(server, LaneId.LANE_1, systemConfig, lane1.minecraftBiomeId);
+				activateBiomeForLane(server, systemConfig, laneBiomeService, LaneId.LANE_1, lane1, 0, true);
 			}
 		}
 	}
 
 	public List<LaneId> tick(MinecraftServer server, SystemConfig systemConfig, BiomeCatalog biomeCatalog, LaneBiomeService laneBiomeService) {
-		if (matchManager.getPhase() != MatchPhase.GAME_RUNNING || matchManager.getServerTicks() % 20L != 0L) {
+		if (matchManager.getPhase() != MatchPhase.GAME_RUNNING) {
 			return List.of();
 		}
 
 		var elapsedSeconds = matchManager.getTotalSeconds() - matchManager.getRemainingSeconds();
-		var revealed = syncRevealState(elapsedSeconds, systemConfig, biomeCatalog, laneBiomeService, server);
-		for (var laneId : revealed) {
-			broadcastRevealMessages(server, laneId, biomeCatalog, systemConfig);
+		List<LaneId> revealed = List.of();
+		if (matchManager.getServerTicks() % 20L == 0L) {
+			revealed = syncRevealState(elapsedSeconds, systemConfig, biomeCatalog, laneBiomeService, server);
 		}
-		broadcastPulseMessages(server, elapsedSeconds, biomeCatalog, systemConfig);
+		tickActiveEffects(server, systemConfig.world, elapsedSeconds);
 		return revealed;
 	}
 
@@ -96,75 +117,155 @@ public class BiomeRevealService {
 		SystemConfig systemConfig
 	) {
 		var override = matchManager.getLaneRevealOverride(laneId);
-		if (override != null) {
-			if (override) {
-				matchManager.revealLane(laneId);
-			}
+		if (override != null && !override) {
+			return;
+		}
+		if (elapsedSeconds < revealSecond) {
 			return;
 		}
 
-		if (elapsedSeconds < revealSecond || matchManager.isLaneRevealed(laneId)) {
-			return;
-		}
-
-		matchManager.revealLane(laneId);
 		var biome = findBiomeEntry(laneId, biomeCatalog);
-		if (biome != null) {
-			laneBiomeService.applyAssignedBiome(server, laneId, systemConfig, biome.minecraftBiomeId);
+		if (biome == null) {
+			return;
 		}
+
+		var alreadyRevealed = matchManager.isLaneRevealed(laneId);
+		var runtime = runtimeFor(laneId);
+		var alreadyActivated = runtime != null && runtime.hasActiveBiome() && biome.id.equals(runtime.biomeEntry().id);
+
+		if (!alreadyRevealed) {
+			matchManager.revealLane(laneId);
+		}
+		if (alreadyActivated) {
+			return;
+		}
+
+		activateBiomeForLane(server, systemConfig, laneBiomeService, laneId, biome, elapsedSeconds, true);
 		revealed.add(laneId);
 	}
 
-	private void broadcastRevealMessages(MinecraftServer server, LaneId laneId, BiomeCatalog biomeCatalog, SystemConfig systemConfig) {
-		var biome = findBiomeEntry(laneId, biomeCatalog);
-		if (biome == null) {
+	private void activateBiomeForLane(
+		MinecraftServer server,
+		SystemConfig systemConfig,
+		LaneBiomeService laneBiomeService,
+		LaneId laneId,
+		BiomeEntry biomeEntry,
+		int elapsedSeconds,
+		boolean announce
+	) {
+		var laneRegion = laneRegionOf(laneId, systemConfig);
+		if (laneRegion == null) {
+			return;
+		}
+
+		laneBiomeService.applyAssignedBiome(server, laneId, systemConfig.world, laneRegion, biomeEntry.minecraftBiomeId);
+		var biomeEffect = biomeEffectRegistry == null ? null : biomeEffectRegistry.create(biomeEntry);
+		var runtime = runtimeFor(laneId);
+		if (runtime != null && biomeEffect != null) {
+			runtime.revealBiome(biomeEntry, biomeEffect, elapsedSeconds);
+			if (laneStructureService != null) {
+				laneStructureService.placeStructure(
+					server,
+					systemConfig.world,
+					laneId,
+					biomeEntry.structureId,
+					laneStructureService.originFor(laneRegion, biomeEntry)
+				);
+			}
+		}
+
+		var context = createContext(server, systemConfig.world, laneId, biomeEntry, elapsedSeconds);
+		if (announce) {
+			broadcastRevealMessages(server, laneId, biomeEntry, biomeEffect, context, systemConfig);
+		}
+		if (biomeEffect != null && context != null) {
+			biomeEffect.onReveal(context);
+		}
+	}
+
+	private void tickActiveEffects(MinecraftServer server, String worldId, int elapsedSeconds) {
+		if (laneRuntimeRegistry == null) {
+			return;
+		}
+		for (var runtime : laneRuntimeRegistry.all()) {
+			if (!matchManager.isLaneRevealed(runtime.laneId()) || !runtime.hasActiveBiome()) {
+				continue;
+			}
+			var context = createContext(server, worldId, runtime.laneId(), runtime.biomeEntry(), elapsedSeconds);
+			if (context != null) {
+				runtime.biomeEffect().onTick(context);
+			}
+		}
+	}
+
+	private void broadcastRevealMessages(
+		MinecraftServer server,
+		LaneId laneId,
+		BiomeEntry biomeEntry,
+		BiomeEffect biomeEffect,
+		BiomeRuntimeContext context,
+		SystemConfig systemConfig
+	) {
+		if (server == null) {
+			return;
+		}
+		var lines = biomeEffect == null || context == null ? biomeEntry.revealMessages : biomeEffect.revealMessages(context);
+		if (lines == null || lines.isEmpty()) {
 			server.getPlayerManager().broadcast(textTemplateResolver.format(
 				systemConfig.biomeReveal.messageTemplate,
 				Map.of("{lane}", laneLabel(laneId))
 			), false);
+			if (context != null) {
+				context.playSound(biomeEntry.revealSoundId);
+			}
 			return;
 		}
-		for (var line : biome.revealMessages) {
-			server.getPlayerManager().broadcast(textTemplateResolver.format(
-				line,
-				Map.of("{lane}", laneLabel(laneId), "{biome}", biome.displayName)
-			), false);
+		var placeholders = Map.of(
+			"{lane}", laneLabel(laneId),
+			"{biome}", biomeEntry.displayName
+		);
+		for (var line : lines) {
+			server.getPlayerManager().broadcast(textTemplateResolver.format(line, placeholders), false);
 		}
-		playSound(server, biome.revealSoundId);
-	}
-
-	private void broadcastPulseMessages(MinecraftServer server, int elapsedSeconds, BiomeCatalog biomeCatalog, SystemConfig systemConfig) {
-		for (var laneId : LaneId.values()) {
-			if (!matchManager.isLaneRevealed(laneId)) {
-				continue;
-			}
-			var revealSecond = revealSecond(laneId, systemConfig.biomeReveal);
-			var biome = findBiomeEntry(laneId, biomeCatalog);
-			if (biome == null || biome.pulseIntervalSeconds <= 0 || elapsedSeconds <= revealSecond) {
-				continue;
-			}
-			if ((elapsedSeconds - revealSecond) % biome.pulseIntervalSeconds != 0) {
-				continue;
-			}
-			for (var line : biome.pulseMessages) {
-				server.getPlayerManager().broadcast(textTemplateResolver.format(
-					line,
-					Map.of("{lane}", laneLabel(laneId), "{biome}", biome.displayName)
-				), false);
-			}
-			playSound(server, biome.pulseSoundId);
+		if (context != null) {
+			context.playSound(biomeEntry.revealSoundId);
 		}
 	}
 
-	private void playSound(MinecraftServer server, String soundId) {
-		var identifier = Identifier.tryParse(soundId);
-		if (identifier == null) {
-			return;
+	private BiomeRuntimeContext createContext(MinecraftServer server, String worldId, LaneId laneId, BiomeEntry biomeEntry, int elapsedSeconds) {
+		var runtime = runtimeFor(laneId);
+		if (runtime == null || !runtime.hasActiveBiome()) {
+			return null;
 		}
-		var soundEvent = SoundEvent.of(identifier);
-		for (var player : server.getPlayerManager().getPlayerList()) {
-			player.playSoundToPlayer(soundEvent, SoundCategory.MASTER, 1.0f, 1.0f);
+		return new BiomeRuntimeContext(
+			server,
+			resolveWorld(server, worldId),
+			runtime,
+			biomeEntry,
+			textTemplateResolver,
+			matchManager.getServerTicks(),
+			elapsedSeconds
+		);
+	}
+
+	private LaneRuntime runtimeFor(LaneId laneId) {
+		return laneRuntimeRegistry == null ? null : laneRuntimeRegistry.get(laneId);
+	}
+
+	private Map<LaneId, SystemConfig.LaneRegionConfig> laneRegions(SystemConfig systemConfig) {
+		return Map.of(
+			LaneId.LANE_1, laneRegionOf(LaneId.LANE_1, systemConfig),
+			LaneId.LANE_2, laneRegionOf(LaneId.LANE_2, systemConfig),
+			LaneId.LANE_3, laneRegionOf(LaneId.LANE_3, systemConfig)
+		);
+	}
+
+	private SystemConfig.LaneRegionConfig laneRegionOf(LaneId laneId, SystemConfig systemConfig) {
+		var runtime = runtimeFor(laneId);
+		if (runtime != null && runtime.laneRegion() != null) {
+			return runtime.laneRegion();
 		}
+		return LaneBiomeService.targetRegionOf(laneId, systemConfig);
 	}
 
 	private BiomeEntry findBiomeEntry(LaneId laneId, BiomeCatalog biomeCatalog) {
@@ -178,19 +279,24 @@ public class BiomeRevealService {
 			.orElse(null);
 	}
 
-	private int revealSecond(LaneId laneId, SystemConfig.BiomeRevealConfig config) {
-		return switch (laneId) {
-			case LANE_1 -> config.lane1RevealSecond;
-			case LANE_2 -> config.lane2RevealSecond;
-			case LANE_3 -> config.lane3RevealSecond;
-		};
-	}
-
 	private String laneLabel(LaneId laneId) {
 		return switch (laneId) {
 			case LANE_1 -> "1번";
 			case LANE_2 -> "2번";
 			case LANE_3 -> "3번";
 		};
+	}
+
+	private net.minecraft.server.world.ServerWorld resolveWorld(MinecraftServer server, String worldId) {
+		if (server == null) {
+			return null;
+		}
+		try {
+			var key = net.minecraft.registry.RegistryKey.of(net.minecraft.registry.RegistryKeys.WORLD, net.minecraft.util.Identifier.of(worldId));
+			var world = server.getWorld(key);
+			return world != null ? world : server.getOverworld();
+		} catch (Exception ignored) {
+			return server.getOverworld();
+		}
 	}
 }

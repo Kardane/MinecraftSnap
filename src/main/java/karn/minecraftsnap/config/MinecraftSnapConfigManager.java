@@ -296,6 +296,8 @@ public class MinecraftSnapConfigManager {
 		entry.id = id;
 		entry.displayName = name;
 		entry.minecraftBiomeId = minecraftBiomeId;
+		entry.effectType = id;
+		entry.structureId = "";
 		entry.descriptionLines = List.of("&7대표 바이옴: &f" + minecraftBiomeId, "&7공개 후 분위기 설명 표시");
 		entry.revealMessages = revealMessages;
 		entry.pulseIntervalSeconds = pulseIntervalSeconds;
