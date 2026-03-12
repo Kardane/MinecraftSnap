@@ -25,6 +25,8 @@ class MinecraftSnapConfigManagerTest {
 		assertTrue(Files.exists(tempDir.resolve("faction_villager.json")));
 		assertTrue(Files.exists(tempDir.resolve("faction_monster.json")));
 		assertTrue(Files.exists(tempDir.resolve("faction_nether.json")));
+		assertTrue(Files.exists(tempDir.resolve("villager_shop.json")));
+		assertTrue(Files.exists(tempDir.resolve("nether_shop.json")));
 		assertTrue(manager.getBiomeCatalog().biomes.size() >= 3);
 		assertEquals("unique_random", manager.getSystemConfig().biomeReveal.assignmentPolicy);
 		assertEquals("minecraft:overworld", manager.getSystemConfig().world);
@@ -32,6 +34,13 @@ class MinecraftSnapConfigManagerTest {
 		assertEquals("", manager.getBiomeCatalog().biomes.getFirst().structureId);
 		assertNotNull(manager.getFactionConfig(FactionId.VILLAGER));
 		assertEquals("주민&우민", manager.getFactionConfig(FactionId.VILLAGER).displayName);
+		assertTrue(manager.getShopConfig(FactionId.VILLAGER).entries.size() >= 1);
+		assertTrue(manager.getShopConfig(FactionId.NETHER).entries.size() >= 1);
+		assertTrue(manager.getFactionConfig(FactionId.MONSTER).units.stream()
+			.filter(unit -> "zombie".equals(unit.id))
+			.findFirst()
+			.orElseThrow()
+			.advanceOptions.size() >= 1);
 	}
 
 	@Test
@@ -106,5 +115,55 @@ class MinecraftSnapConfigManagerTest {
 
 		var stored = Files.readString(tempDir.resolve("system.json"));
 		assertEquals(1, stored.split("\"world\"").length - 1);
+	}
+
+	@Test
+	void loadMigratesLegacyAdvanceConditionsIntoMonsterUnitConfig(@TempDir Path tempDir) throws Exception {
+		Files.createDirectories(tempDir);
+		Files.writeString(tempDir.resolve("system.json"), """
+			{
+			  "advance": {
+			    "conditions": [
+			      {
+			        "unitId": "zombie",
+			        "biomes": ["minecraft:swamp"],
+			        "weathers": ["rain"],
+			        "requiredExp": 9,
+			        "resultUnitId": "zombie_veteran"
+			      }
+			    ]
+			  }
+			}
+			""");
+		Files.writeString(tempDir.resolve("faction_monster.json"), """
+			{
+			  "displayName": "몬스터",
+			  "units": [
+			    {
+			      "id": "zombie",
+			      "displayName": "좀비",
+			      "mainHand": {"itemId": "minecraft:iron_shovel"},
+			      "advanceOptions": []
+			    },
+			    {
+			      "id": "zombie_veteran",
+			      "displayName": "강화 좀비",
+			      "captainSpawnable": false,
+			      "mainHand": {"itemId": "minecraft:iron_shovel"}
+			    }
+			  ]
+			}
+			""");
+
+		var manager = new MinecraftSnapConfigManager(tempDir, LoggerFactory.getLogger("test"));
+		manager.load();
+
+		var zombie = manager.getFactionConfig(FactionId.MONSTER).units.stream()
+			.filter(unit -> "zombie".equals(unit.id))
+			.findFirst()
+			.orElseThrow();
+		assertEquals(1, zombie.advanceOptions.size());
+		assertEquals("zombie_veteran", zombie.advanceOptions.getFirst().resultUnitId);
+		assertEquals(9, zombie.advanceOptions.getFirst().requiredTicks);
 	}
 }

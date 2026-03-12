@@ -16,8 +16,11 @@ import karn.minecraftsnap.lane.LaneRuntime;
 import karn.minecraftsnap.ui.AdvanceGuiService;
 import karn.minecraftsnap.ui.TradeGuiService;
 import karn.minecraftsnap.util.TextTemplateResolver;
+import net.minecraft.entity.damage.DamageSource;
 import net.minecraft.entity.effect.StatusEffectInstance;
+import net.minecraft.server.world.ServerWorld;
 import net.minecraft.server.network.ServerPlayerEntity;
+import net.minecraft.text.Text;
 
 public class UnitContext {
 	private final MatchManager matchManager;
@@ -92,6 +95,18 @@ public class UnitContext {
 		return player;
 	}
 
+	public Text format(String template) {
+		return textTemplateResolver == null ? Text.literal(template) : textTemplateResolver.format(template);
+	}
+
+	public long serverTicks() {
+		return matchManager == null ? 0L : matchManager.getServerTicks();
+	}
+
+	public ServerWorld world() {
+		return player == null ? null : (ServerWorld) player.getWorld();
+	}
+
 	public LaneRuntime laneRuntime() {
 		return laneRuntime;
 	}
@@ -146,51 +161,9 @@ public class UnitContext {
 		}
 	}
 
-	public boolean heal(float amount) {
-		return player != null && unitAbilityService != null && unitAbilityService.heal(player, amount);
-	}
-
-	public boolean dash(double horizontalSpeed, double upwardSpeed) {
-		return player != null && unitAbilityService != null && unitAbilityService.dash(player, horizontalSpeed, upwardSpeed);
-	}
-
-	public boolean giveFireworks(int count) {
-		return player != null && unitAbilityService != null && unitAbilityService.giveFireworks(player, count);
-	}
-
-	public boolean boneBlast(double radius, float damage, int slowSeconds, int amplifier) {
-		return player != null && unitAbilityService != null && matchManager != null
-			&& unitAbilityService.boneBlast(player, matchManager, radius, damage, slowSeconds, amplifier);
-	}
-
-	public boolean queueCreeperBomb(int warmupTicks, String message) {
-		return player != null && unitAbilityService != null && matchManager != null
-			&& unitAbilityService.queueCreeperBomb(player, matchManager, warmupTicks, message);
-	}
-
-	public boolean applyEffects(StatusEffectInstance... effects) {
-		return player != null && unitAbilityService != null && unitAbilityService.applyEffects(player, effects);
-	}
-
-	public boolean spawnFireballBurst() {
-		return player != null && unitAbilityService != null && unitAbilityService.spawnFireballBurst(player);
-	}
-
-	public void spawnSlimeSplit() {
-		if (player != null && unitAbilityService != null) {
-			unitAbilityService.spawnSlimeSplit(player);
-		}
-	}
-
-	public void trySpawnZombifiedPiglin(float chance) {
-		if (player != null && unitAbilityService != null) {
-			unitAbilityService.trySpawnZombifiedPiglin(player, chance);
-		}
-	}
-
 	public void openTrade() {
-		if (player != null && tradeGuiService != null && state != null) {
-			tradeGuiService.open(player, state);
+		if (player != null && tradeGuiService != null && state != null && unitDefinition != null) {
+			tradeGuiService.open(player, state, unitDefinition.factionId());
 		}
 	}
 
@@ -220,18 +193,22 @@ public class UnitContext {
 		if (advanceService == null || state == null || systemConfig == null) {
 			return;
 		}
-		var wasReady = state.isAdvanceAvailable();
-		advanceService.updateProgress(state, currentBiomeId(), currentWeather(), systemConfig.advance);
-		if (!wasReady && state.isAdvanceAvailable() && player != null && textTemplateResolver != null) {
+		var wasReady = advanceService.hasReadyOption(state);
+		advanceService.updateProgress(state, currentBiomeId(), currentWeather());
+		if (!wasReady && advanceService.hasReadyOption(state) && player != null && textTemplateResolver != null) {
 			player.sendMessage(textTemplateResolver.format(systemConfig.advance.readyMessage), false);
 		}
 	}
 
 	public UnitDefinition targetAdvanceDefinition() {
-		if (unitRegistry == null || state == null) {
+		if (unitRegistry == null || state == null || advanceService == null) {
 			return null;
 		}
-		return state.getAdvanceTargetUnitId() == null ? null : unitRegistry.get(state.getAdvanceTargetUnitId());
+		return advanceService.describeOptions(state, currentBiomeId(), currentWeather()).stream()
+			.filter(karn.minecraftsnap.game.AdvanceService.AdvanceOptionState::ready)
+			.map(karn.minecraftsnap.game.AdvanceService.AdvanceOptionState::definition)
+			.findFirst()
+			.orElse(null);
 	}
 
 	public AdvanceService advanceService() {
@@ -240,5 +217,44 @@ public class UnitContext {
 
 	public AdvanceGuiService advanceGuiService() {
 		return advanceGuiService;
+	}
+
+	public Long getUnitRuntimeLong(String key) {
+		return state == null ? null : state.getUnitRuntimeLong(key);
+	}
+
+	public void setUnitRuntimeLong(String key, long value) {
+		if (state != null) {
+			state.setUnitRuntimeLong(key, value);
+		}
+	}
+
+	public void removeUnitRuntimeLong(String key) {
+		if (state != null) {
+			state.removeUnitRuntimeLong(key);
+		}
+	}
+
+	public void dealMobDamage(ServerPlayerEntity target, float amount) {
+		if (player != null && target != null && world() != null) {
+			target.damage(world(), target.getDamageSources().mobAttack(player), amount);
+		}
+	}
+
+	public void dealExplosionDamage(ServerPlayerEntity target, float amount) {
+		if (player != null && target != null && world() != null) {
+			target.damage(world(), target.getDamageSources().explosion(player, player), amount);
+		}
+	}
+
+	public boolean isEnemyUnit(ServerPlayerEntity target) {
+		if (matchManager == null || state == null || target == null) {
+			return false;
+		}
+		var targetState = matchManager.getPlayerState(target.getUuid());
+		return targetState.getTeamId() != null
+			&& state.getTeamId() != null
+			&& targetState.getTeamId() != state.getTeamId()
+			&& targetState.getRoleType() != karn.minecraftsnap.game.RoleType.SPECTATOR;
 	}
 }

@@ -5,11 +5,13 @@ import karn.minecraftsnap.unit.UnitContext;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class UnitHookServiceTest {
 	@Test
 	void dispatchesAllConfiguredHooks() {
-		var service = new UnitHookService(null, null, null, null, null, null, null, null, null, null, null, null);
+		var service = new UnitHookService(null, null, null, null, () -> null, null, null, null, null, null, null, null, null);
 		var unitClass = new RecordingUnitClass();
 		var context = new UnitContext(null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
 
@@ -32,6 +34,14 @@ class UnitHookServiceTest {
 		assertEquals(1, unitClass.deathCalls);
 		assertEquals(1, unitClass.killCalls);
 		assertEquals(1, unitClass.attackCalls);
+	}
+
+	@Test
+	void unitActionsAllowedOutsideGameWhenAssigned() {
+		assertTrue(UnitHookService.canUseUnitActions(RoleType.UNIT, "villager", false));
+		assertFalse(UnitHookService.canUseUnitActions(RoleType.CAPTAIN, "villager", false));
+		assertFalse(UnitHookService.canUseUnitActions(RoleType.UNIT, null, false));
+		assertFalse(UnitHookService.canUseUnitActions(RoleType.UNIT, "villager", true));
 	}
 
 	private static final class RecordingUnitClass implements UnitClass {

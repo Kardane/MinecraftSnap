@@ -7,6 +7,7 @@ import karn.minecraftsnap.lane.LaneCaptureStatus;
 import karn.minecraftsnap.lane.LaneRuntime;
 import karn.minecraftsnap.lane.LaneRuntimeRegistry;
 import karn.minecraftsnap.ui.AdvanceGuiService;
+import karn.minecraftsnap.ui.PlayerDisplayNameService;
 import karn.minecraftsnap.ui.TradeGuiService;
 import karn.minecraftsnap.unit.UnitClass;
 import karn.minecraftsnap.unit.UnitClassRegistry;
@@ -16,12 +17,14 @@ import net.minecraft.entity.damage.DamageSource;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.network.ServerPlayerEntity;
 
+import java.util.function.Supplier;
+
 public class UnitHookService {
 	private final MatchManager matchManager;
 	private final UnitRegistry unitRegistry;
 	private final UnitClassRegistry unitClassRegistry;
 	private final LaneRuntimeRegistry laneRuntimeRegistry;
-	private final StatsRepository statsRepository;
+	private final Supplier<StatsRepository> statsRepositorySupplier;
 	private final TextTemplateResolver textTemplateResolver;
 	private final UnitAbilityService unitAbilityService;
 	private final UnitLoadoutService unitLoadoutService;
@@ -29,26 +32,28 @@ public class UnitHookService {
 	private final TradeGuiService tradeGuiService;
 	private final AdvanceGuiService advanceGuiService;
 	private final CaptainManaService captainManaService;
+	private final PlayerDisplayNameService playerDisplayNameService;
 
 	public UnitHookService(
 		MatchManager matchManager,
 		UnitRegistry unitRegistry,
 		UnitClassRegistry unitClassRegistry,
 		LaneRuntimeRegistry laneRuntimeRegistry,
-		StatsRepository statsRepository,
+		Supplier<StatsRepository> statsRepositorySupplier,
 		TextTemplateResolver textTemplateResolver,
 		UnitAbilityService unitAbilityService,
 		UnitLoadoutService unitLoadoutService,
 		AdvanceService advanceService,
 		TradeGuiService tradeGuiService,
 		AdvanceGuiService advanceGuiService,
-		CaptainManaService captainManaService
+		CaptainManaService captainManaService,
+		PlayerDisplayNameService playerDisplayNameService
 	) {
 		this.matchManager = matchManager;
 		this.unitRegistry = unitRegistry;
 		this.unitClassRegistry = unitClassRegistry;
 		this.laneRuntimeRegistry = laneRuntimeRegistry;
-		this.statsRepository = statsRepository;
+		this.statsRepositorySupplier = statsRepositorySupplier;
 		this.textTemplateResolver = textTemplateResolver;
 		this.unitAbilityService = unitAbilityService;
 		this.unitLoadoutService = unitLoadoutService;
@@ -56,10 +61,11 @@ public class UnitHookService {
 		this.tradeGuiService = tradeGuiService;
 		this.advanceGuiService = advanceGuiService;
 		this.captainManaService = captainManaService;
+		this.playerDisplayNameService = playerDisplayNameService;
 	}
 
 	public void tick(MinecraftServer server, SystemConfig systemConfig) {
-		if (server == null || systemConfig == null || matchManager == null || matchManager.getPhase() != MatchPhase.GAME_RUNNING) {
+		if (server == null || systemConfig == null || matchManager == null) {
 			return;
 		}
 		for (var player : server.getPlayerManager().getPlayerList()) {
@@ -151,22 +157,32 @@ public class UnitHookService {
 			return;
 		}
 		var state = context.state();
-		var condition = advanceService.findCondition(state.getCurrentUnitId(), systemConfig.advance);
 		var biomeId = context.currentBiomeId();
 		var weather = context.currentWeather();
-		var targetDefinition = context.targetAdvanceDefinition();
-		if (targetDefinition == null && condition != null) {
-			targetDefinition = unitRegistry.get(condition.resultUnitId);
-		}
-		var requiredExp = condition == null ? 0 : condition.requiredExp;
-		advanceGuiService.open(player, state, biomeId, weather, requiredExp, targetDefinition, () -> {
-			var definition = advanceService.applyAdvance(state);
+		var options = advanceService.describeOptions(state, biomeId, weather).stream()
+			.limit(5)
+			.map(AdvanceGuiService.AdvanceOptionView::from)
+			.toList();
+		advanceGuiService.open(player, options, resultUnitId -> {
+			var definition = advanceService.applyAdvance(state, resultUnitId);
 			if (definition == null) {
 				player.sendMessage(textTemplateResolver.format(systemConfig.advance.notAvailableMessage), false);
 				return;
 			}
 			applyLoadout(player, definition, systemConfig);
-			DisguiseSupport.applyDisguise(player, definition.disguiseId());
+			DisguiseSupport.applyDisguise(player, definition.disguise());
+			player.setHealth((float) definition.maxHealth());
+			var statsRepository = currentStatsRepository();
+			if (statsRepository != null) {
+				statsRepository.addLadder(player.getUuid(), player.getName().getString(), 5);
+			}
+			if (playerDisplayNameService != null && matchManager != null && matchManager.getServer() != null) {
+				playerDisplayNameService.refreshAll(matchManager.getServer(), matchManager, currentStatsRepository(), systemConfig);
+				matchManager.getServer().getPlayerManager().broadcast(
+					textTemplateResolver.format("&d전직: &f" + player.getName().getString() + " &7-> &a" + definition.displayName()),
+					false
+				);
+			}
 			player.sendMessage(textTemplateResolver.format("&a전직 완료: &f" + definition.displayName()), false);
 		});
 	}
@@ -237,7 +253,7 @@ public class UnitHookService {
 		}
 		var state = matchManager.getPlayerState(player.getUuid());
 		var definition = overrideDefinition != null ? overrideDefinition : unitRegistry.get(state.getCurrentUnitId());
-		if (state.getRoleType() != RoleType.UNIT || definition == null) {
+		if (!canUseUnitActions(state.getRoleType(), state.getCurrentUnitId(), player.isSpectator()) || definition == null) {
 			return null;
 		}
 		LaneRuntime laneRuntime = laneRuntimeRegistry == null ? null : laneRuntimeRegistry.findByPlayer(player);
@@ -256,13 +272,21 @@ public class UnitHookService {
 			unitRegistry,
 			tradeGuiService,
 			advanceGuiService,
-			statsRepository,
+			currentStatsRepository(),
 			captainManaService,
 			this
 		);
 	}
 
+	private StatsRepository currentStatsRepository() {
+		return statsRepositorySupplier == null ? null : statsRepositorySupplier.get();
+	}
+
 	private UnitClass unitClassOf(String unitId) {
 		return unitClassRegistry == null ? null : unitClassRegistry.get(unitId);
+	}
+
+	public static boolean canUseUnitActions(RoleType roleType, String currentUnitId, boolean spectator) {
+		return roleType == RoleType.UNIT && currentUnitId != null && !currentUnitId.isBlank() && !spectator;
 	}
 }

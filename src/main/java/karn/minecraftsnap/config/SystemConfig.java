@@ -280,52 +280,20 @@ public class SystemConfig {
 			capture.lane3 = CaptureRegionConfig.create("3번 라인", 36.0, 60.0, -4.0, 44.0, 68.0, 4.0);
 		}
 		if (advance.conditions == null || advance.conditions.isEmpty()) {
-			advance.conditions = defaultAdvanceConditions();
-		} else {
-			for (var condition : advance.conditions) {
-				if (condition.biomes == null) {
-					condition.biomes = new java.util.ArrayList<>();
-				}
-				if (condition.weathers == null) {
-					condition.weathers = new java.util.ArrayList<>();
-				}
-				if (condition.requiredExp <= 0) {
-					condition.requiredExp = condition.requiredSeconds > 0 ? condition.requiredSeconds : 15;
-				}
-				condition.requiredSeconds = 0;
-			}
+			advance.conditions = new java.util.ArrayList<>();
+			return;
 		}
-	}
-
-	private java.util.List<AdvanceConditionConfig> defaultAdvanceConditions() {
-		var zombie = new AdvanceConditionConfig();
-		zombie.unitId = "zombie";
-		zombie.biomes = java.util.List.of("minecraft:swamp", "minecraft:mangrove_swamp");
-		zombie.weathers = java.util.List.of("rain", "thunder");
-		zombie.requiredExp = 15;
-		zombie.resultUnitId = "zombie_veteran";
-
-		var skeleton = new AdvanceConditionConfig();
-		skeleton.unitId = "skeleton";
-		skeleton.biomes = java.util.List.of("minecraft:snowy_plains", "minecraft:snowy_taiga");
-		skeleton.weathers = java.util.List.of("clear", "rain");
-		skeleton.requiredExp = 15;
-		skeleton.resultUnitId = "skeleton_sniper";
-
-		var slime = new AdvanceConditionConfig();
-		slime.unitId = "slime";
-		slime.biomes = java.util.List.of("minecraft:swamp", "minecraft:mangrove_swamp");
-		slime.weathers = java.util.List.of("clear", "rain", "thunder");
-		slime.requiredExp = 12;
-		slime.resultUnitId = "slime_brute";
-
-		var creeper = new AdvanceConditionConfig();
-		creeper.unitId = "creeper";
-		creeper.biomes = java.util.List.of("minecraft:plains", "minecraft:forest", "minecraft:dark_forest");
-		creeper.weathers = java.util.List.of("thunder");
-		creeper.requiredExp = 10;
-		creeper.resultUnitId = "charged_creeper";
-
-		return new java.util.ArrayList<>(java.util.List.of(zombie, skeleton, slime, creeper));
+		for (var condition : advance.conditions) {
+			if (condition.biomes == null) {
+				condition.biomes = new java.util.ArrayList<>();
+			}
+			if (condition.weathers == null) {
+				condition.weathers = new java.util.ArrayList<>();
+			}
+			if (condition.requiredExp <= 0) {
+				condition.requiredExp = condition.requiredSeconds > 0 ? condition.requiredSeconds : 15;
+			}
+			condition.requiredSeconds = 0;
+		}
 	}
 }

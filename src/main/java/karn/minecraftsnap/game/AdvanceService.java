@@ -1,8 +1,12 @@
 package karn.minecraftsnap.game;
 
-import karn.minecraftsnap.config.SystemConfig;
-import net.minecraft.server.MinecraftServer;
+import karn.minecraftsnap.config.AdvanceOptionEntry;
+import karn.minecraftsnap.config.FactionUnitEntry;
 import net.minecraft.server.network.ServerPlayerEntity;
+
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Set;
 
 public class AdvanceService {
 	private final UnitRegistry unitRegistry;
@@ -11,62 +15,48 @@ public class AdvanceService {
 		this.unitRegistry = unitRegistry;
 	}
 
-	public void tick(MinecraftServer server, MatchManager matchManager, SystemConfig.AdvanceConfig config) {
-		if (matchManager.getPhase() != MatchPhase.GAME_RUNNING || matchManager.getServerTicks() % 20L != 0L) {
-			return;
-		}
-
-		for (var player : server.getPlayerManager().getPlayerList()) {
-			var state = matchManager.getPlayerState(player.getUuid());
-			if (state.getRoleType() != RoleType.UNIT || state.getFactionId() != FactionId.MONSTER || player.isSpectator()) {
-				continue;
+	public void updateProgress(PlayerMatchState state, String biomeId, String weather) {
+		var options = findOptions(state == null ? null : state.getCurrentUnitId());
+		if (state == null || options.isEmpty()) {
+			if (state != null) {
+				state.resetAdvanceState();
 			}
-			var biomeId = player.getWorld().getBiome(player.getBlockPos()).getKey()
-				.map(key -> key.getValue().toString())
-				.orElse("minecraft:plains");
-			updateProgress(state, biomeId, currentWeather(player), config);
-		}
-	}
-
-	public void updateProgress(PlayerMatchState state, String biomeId, String weather, SystemConfig.AdvanceConfig config) {
-		var condition = findCondition(state.getCurrentUnitId(), config);
-		if (condition == null) {
-			state.resetAdvanceState();
 			return;
 		}
 
-		var biomeMatches = condition.biomes.contains(biomeId);
-		var weatherMatches = condition.weathers.contains(weather);
-		if (!biomeMatches || !weatherMatches) {
-			state.resetAdvanceState();
-			return;
+		Set<String> validResultIds = new LinkedHashSet<>();
+		for (var option : options) {
+			validResultIds.add(option.resultUnitId);
+			if (matches(option, biomeId, weather)) {
+				var nextTicks = Math.min(option.requiredTicks, state.getAdvanceOptionTicks(option.resultUnitId) + 1);
+				state.setAdvanceOptionTicks(option.resultUnitId, nextTicks);
+			} else {
+				state.setAdvanceOptionTicks(option.resultUnitId, 0);
+			}
 		}
-
-		state.setAdvanceTargetUnitId(condition.resultUnitId);
-		state.setAdvanceExp(state.getAdvanceExp() + 1);
-		if (state.getAdvanceExp() >= condition.requiredExp) {
-			state.setAdvanceAvailable(true);
-			state.setAdvanceExp(condition.requiredExp);
-		}
+		state.clearAdvanceOptionTicksExcept(validResultIds);
 	}
 
-	public boolean forceAdvance(PlayerMatchState state, SystemConfig.AdvanceConfig config) {
-		var condition = findCondition(state.getCurrentUnitId(), config);
-		if (condition == null) {
+	public boolean forceAdvance(PlayerMatchState state) {
+		var options = findOptions(state == null ? null : state.getCurrentUnitId());
+		if (state == null || options.isEmpty()) {
 			return false;
 		}
-		state.setAdvanceTargetUnitId(condition.resultUnitId);
-		state.setAdvanceExp(condition.requiredExp);
-		state.setAdvanceAvailable(true);
+		var first = options.getFirst();
+		state.setAdvanceOptionTicks(first.resultUnitId, first.requiredTicks);
 		return true;
 	}
 
-	public UnitDefinition applyAdvance(PlayerMatchState state) {
-		if (!state.isAdvanceAvailable() || state.getAdvanceTargetUnitId() == null) {
+	public UnitDefinition applyAdvance(PlayerMatchState state, String resultUnitId) {
+		if (state == null || resultUnitId == null || resultUnitId.isBlank()) {
+			return null;
+		}
+		var option = findOption(state.getCurrentUnitId(), resultUnitId);
+		if (option == null || !state.isAdvanceReady(option.resultUnitId, option.requiredTicks)) {
 			return null;
 		}
 
-		var definition = unitRegistry.get(state.getAdvanceTargetUnitId());
+		var definition = unitRegistry.get(option.resultUnitId);
 		if (definition == null) {
 			return null;
 		}
@@ -75,14 +65,42 @@ public class AdvanceService {
 		return definition;
 	}
 
-	public SystemConfig.AdvanceConditionConfig findCondition(String unitId, SystemConfig.AdvanceConfig config) {
-		if (unitId == null || config == null || config.conditions == null) {
-			return null;
+	public List<AdvanceOptionState> describeOptions(PlayerMatchState state, String biomeId, String weather) {
+		if (state == null) {
+			return List.of();
 		}
-		return config.conditions.stream()
-			.filter(condition -> unitId.equals(condition.unitId))
+		return findOptions(state.getCurrentUnitId()).stream()
+			.map(option -> new AdvanceOptionState(
+				option,
+				unitRegistry.get(option.resultUnitId),
+				state.getAdvanceOptionTicks(option.resultUnitId),
+				matches(option, biomeId, weather),
+				state.isAdvanceReady(option.resultUnitId, option.requiredTicks)
+			))
+			.toList();
+	}
+
+	public List<AdvanceOptionEntry> findOptions(String unitId) {
+		var entry = unitId == null ? null : unitRegistry.getEntry(unitId);
+		if (entry == null || entry.advanceOptions == null) {
+			return List.of();
+		}
+		return entry.advanceOptions;
+	}
+
+	public AdvanceOptionEntry findOption(String unitId, String resultUnitId) {
+		return findOptions(unitId).stream()
+			.filter(option -> resultUnitId.equals(option.resultUnitId))
 			.findFirst()
 			.orElse(null);
+	}
+
+	public boolean hasReadyOption(PlayerMatchState state) {
+		if (state == null) {
+			return false;
+		}
+		return findOptions(state.getCurrentUnitId()).stream()
+			.anyMatch(option -> state.isAdvanceReady(option.resultUnitId, option.requiredTicks));
 	}
 
 	public String currentWeather(ServerPlayerEntity player) {
@@ -93,5 +111,20 @@ public class AdvanceService {
 			return "rain";
 		}
 		return "clear";
+	}
+
+	private boolean matches(AdvanceOptionEntry option, String biomeId, String weather) {
+		var biomeMatches = option.biomes.isEmpty() || option.biomes.contains(biomeId);
+		var weatherMatches = option.weathers.isEmpty() || option.weathers.contains(weather);
+		return biomeMatches && weatherMatches;
+	}
+
+	public record AdvanceOptionState(
+		AdvanceOptionEntry option,
+		UnitDefinition definition,
+		int currentTicks,
+		boolean conditionsMet,
+		boolean ready
+	) {
 	}
 }

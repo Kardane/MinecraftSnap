@@ -149,9 +149,6 @@ public class InGameRuleService {
 		}
 
 		var attacker = source.getAttacker() instanceof ServerPlayerEntity attackerPlayer ? attackerPlayer : null;
-		if (unitHookService == null && unitAbilityService != null && unitRegistry != null) {
-			unitAbilityService.handleUnitDeath(player, matchManager, unitRegistry);
-		}
 		recordKillAndDeath(player.getUuid(), player.getName().getString(), attacker == null ? null : attacker.getUuid(), attacker == null ? null : attacker.getName().getString());
 		if (attacker != null && unitHookService != null) {
 			unitHookService.handleKill(attacker, player, nullSafeSystemConfig());
@@ -178,9 +175,6 @@ public class InGameRuleService {
 				statsRepository.addLadder(killerId, killerName, 3);
 				if (unitHookService == null) {
 					rewardKillCurrency(killerId, killerName, killerState);
-				}
-				if (unitHookService == null && unitAbilityService != null && captainManaService != null && unitRegistry != null) {
-					unitAbilityService.handleEnemyKill(killerId, matchManager, captainManaService, unitRegistry);
 				}
 			}
 		}

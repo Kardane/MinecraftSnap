@@ -102,24 +102,30 @@ public class MinecraftSnap implements DedicatedServerModInitializer {
 	private final FactionSelectionGuiService factionSelectionGuiService = new FactionSelectionGuiService(textTemplateResolver, unitRegistry);
 	private final PreparationGuiService preparationGuiService = new PreparationGuiService(textTemplateResolver, unitRegistry);
 	private final CaptainSpawnGuiService captainSpawnGuiService = new CaptainSpawnGuiService(textTemplateResolver, unitRegistry);
-	private final TradeGuiService tradeGuiService = new TradeGuiService(textTemplateResolver);
+	private final TradeGuiService tradeGuiService = new TradeGuiService(
+		textTemplateResolver,
+		unitLoadoutService,
+		configManager::getShopConfig,
+		configManager::getStatsRepository
+	);
 	private final AdvanceGuiService advanceGuiService = new AdvanceGuiService(textTemplateResolver);
+	private final PlayerDisplayNameService playerDisplayNameService = new PlayerDisplayNameService();
 	private final UnitHookService unitHookService = new UnitHookService(
 		matchManager,
 		unitRegistry,
 		unitClassRegistry,
 		laneRuntimeRegistry,
-		configManager.getStatsRepository(),
+		configManager::getStatsRepository,
 		textTemplateResolver,
 		unitAbilityService,
 		unitLoadoutService,
 		advanceService,
 		tradeGuiService,
 		advanceGuiService,
-		captainManaService
+		captainManaService,
+		playerDisplayNameService
 	);
 	private final LobbyScoreboardService lobbyScoreboardService = new LobbyScoreboardService(textTemplateResolver);
-	private final PlayerDisplayNameService playerDisplayNameService = new PlayerDisplayNameService();
 	private final McSnapCommandRegistrar commandRegistrar = new McSnapCommandRegistrar(this);
 	private final LaneBiomeService laneBiomeService = new LaneBiomeService();
 	private final GameEndService gameEndService = new GameEndService(
@@ -334,15 +340,13 @@ public class MinecraftSnap implements DedicatedServerModInitializer {
 	}
 
 	public boolean handleShortcut(net.minecraft.server.network.ServerPlayerEntity player) {
-		if (matchManager.getPhase() == MatchPhase.GAME_RUNNING) {
-			var state = matchManager.getPlayerState(player.getUuid());
-			if (state.getRoleType() == RoleType.CAPTAIN) {
+		var state = matchManager.getPlayerState(player.getUuid());
+		if (state.getRoleType() == RoleType.CAPTAIN && matchManager.getPhase() == MatchPhase.GAME_RUNNING) {
 				openCaptainSpawnGui(player);
 				return true;
-			}
-			if (state.getRoleType() == RoleType.UNIT && state.getCurrentUnitId() != null) {
-				return unitHookService.handleShiftF(player, configManager.getSystemConfig());
-			}
+		}
+		if (UnitHookService.canUseUnitActions(state.getRoleType(), state.getCurrentUnitId(), player.isSpectator())) {
+			return unitHookService.handleShiftF(player, configManager.getSystemConfig());
 		}
 		return lobbyCoordinator.handleShortcut(player, configManager.getSystemConfig());
 	}
@@ -395,7 +399,40 @@ public class MinecraftSnap implements DedicatedServerModInitializer {
 	}
 
 	public boolean forceAdvance(ServerPlayerEntity player) {
-		return player != null && advanceService.forceAdvance(matchManager.getPlayerState(player.getUuid()), configManager.getSystemConfig().advance);
+		return player != null && advanceService.forceAdvance(matchManager.getPlayerState(player.getUuid()));
+	}
+
+	public String forceAssignUnit(ServerPlayerEntity player, String unitId) {
+		if (player == null) {
+			return "&c플레이어를 찾지 못함";
+		}
+		var state = matchManager.getPlayerState(player.getUuid());
+		if (state.getTeamId() == null) {
+			return "&c팀이 없는 플레이어는 유닛 강제 배정 불가";
+		}
+		var definition = unitRegistry.get(unitId);
+		if (definition == null) {
+			return "&c알 수 없는 유닛";
+		}
+
+		var selectedFaction = state.getFactionId() != null ? state.getFactionId() : matchManager.getFactionSelection(state.getTeamId());
+		if (selectedFaction != null && selectedFaction != definition.factionId()) {
+			return "&c현재 팩션과 다른 유닛은 강제 배정 불가";
+		}
+
+		matchManager.setRole(player, state.getTeamId(), RoleType.UNIT);
+		if (state.getFactionId() == null) {
+			state.setFactionId(definition.factionId());
+		}
+		matchManager.setCurrentUnit(player.getUuid(), definition.id());
+		unitAbilityService.clearPlayerState(player.getUuid());
+		if (player.isSpectator()) {
+			player.changeGameMode(net.minecraft.world.GameMode.SURVIVAL);
+		}
+		unitHookService.applyLoadout(player, definition, configManager.getSystemConfig());
+		karn.minecraftsnap.integration.DisguiseSupport.applyDisguise(player, definition.disguise());
+		playerDisplayNameService.refreshAll(matchManager.getServer(), matchManager, configManager.getStatsRepository(), configManager.getSystemConfig());
+		return "&a유닛 강제 배정 완료: &f" + definition.displayName();
 	}
 
 	public String openAdminGui(ServerPlayerEntity player, String guiId) {
@@ -452,13 +489,12 @@ public class MinecraftSnap implements DedicatedServerModInitializer {
 	}
 
 	private boolean handleUseItem(net.minecraft.server.network.ServerPlayerEntity player, net.minecraft.util.Hand hand) {
-		if (matchManager.getPhase() != MatchPhase.GAME_RUNNING) {
-			return false;
-		}
-
 		var stack = player.getStackInHand(hand);
 		var state = matchManager.getPlayerState(player.getUuid());
 		if (state.getRoleType() == RoleType.CAPTAIN) {
+			if (matchManager.getPhase() != MatchPhase.GAME_RUNNING) {
+				return false;
+			}
 			if (unitLoadoutService.isCaptainMenuItem(stack)) {
 				openCaptainSpawnGui(player);
 				return true;
@@ -469,7 +505,8 @@ public class MinecraftSnap implements DedicatedServerModInitializer {
 			return false;
 		}
 
-		if (state.getCurrentUnitId() != null && unitLoadoutService.isUnitAbilityItem(stack, state.getCurrentUnitId())) {
+		if (UnitHookService.canUseUnitActions(state.getRoleType(), state.getCurrentUnitId(), player.isSpectator())
+			&& unitLoadoutService.isUnitAbilityItem(stack, state.getCurrentUnitId())) {
 			return unitHookService.handleSkillUse(player, configManager.getSystemConfig());
 		}
 		return false;

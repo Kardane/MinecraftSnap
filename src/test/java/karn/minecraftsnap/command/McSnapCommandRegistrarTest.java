@@ -34,4 +34,14 @@ class McSnapCommandRegistrarTest {
 		assertEquals("unit", prefer.getChild("role").getChildren().iterator().next().getName());
 		assertNull(prefer.getChild("unit"));
 	}
+
+	@Test
+	void adminRegistersUnitCommandTree() {
+		var dispatcher = new CommandDispatcher<ServerCommandSource>();
+		new McSnapCommandRegistrar(null).register(dispatcher, null, null);
+
+		var admin = dispatcher.getRoot().getChild("mcsnap").getChild("admin");
+		assertNotNull(admin.getChild("unit"));
+		assertEquals("player", admin.getChild("unit").getChildren().iterator().next().getName());
+	}
 }

@@ -24,6 +24,7 @@ public class MinecraftSnapConfigManager {
 	private SystemConfig systemConfig = new SystemConfig();
 	private BiomeCatalog biomeCatalog = new BiomeCatalog();
 	private final EnumMap<FactionId, FactionConfigFile> factionConfigs = new EnumMap<>(FactionId.class);
+	private final EnumMap<FactionId, ShopConfigFile> shopConfigs = new EnumMap<>(FactionId.class);
 	private StatsRepository statsRepository;
 
 	public MinecraftSnapConfigManager(Path configDirectory, Logger logger) {
@@ -42,6 +43,13 @@ public class MinecraftSnapConfigManager {
 			factionConfigs.put(FactionId.MONSTER, loadOrCreate(configDirectory.resolve("faction_monster.json"), FactionConfigFile.class, createDefaultFactionConfig(FactionId.MONSTER)));
 			factionConfigs.put(FactionId.NETHER, loadOrCreate(configDirectory.resolve("faction_nether.json"), FactionConfigFile.class, createDefaultFactionConfig(FactionId.NETHER)));
 			factionConfigs.values().forEach(FactionConfigFile::normalize);
+			if (migrateLegacyAdvanceOptions()) {
+				writeJson(configDirectory.resolve("faction_monster.json"), factionConfigs.get(FactionId.MONSTER));
+			}
+			shopConfigs.clear();
+			shopConfigs.put(FactionId.VILLAGER, loadOrCreate(configDirectory.resolve("villager_shop.json"), ShopConfigFile.class, createDefaultShopConfig(FactionId.VILLAGER)));
+			shopConfigs.put(FactionId.NETHER, loadOrCreate(configDirectory.resolve("nether_shop.json"), ShopConfigFile.class, createDefaultShopConfig(FactionId.NETHER)));
+			shopConfigs.values().forEach(ShopConfigFile::normalize);
 
 			statsRepository = new StatsRepository(configDirectory.resolve("stats.json"), logger);
 			statsRepository.load();
@@ -53,6 +61,9 @@ public class MinecraftSnapConfigManager {
 			factionConfigs.put(FactionId.VILLAGER, createDefaultFactionConfig(FactionId.VILLAGER));
 			factionConfigs.put(FactionId.MONSTER, createDefaultFactionConfig(FactionId.MONSTER));
 			factionConfigs.put(FactionId.NETHER, createDefaultFactionConfig(FactionId.NETHER));
+			shopConfigs.clear();
+			shopConfigs.put(FactionId.VILLAGER, createDefaultShopConfig(FactionId.VILLAGER));
+			shopConfigs.put(FactionId.NETHER, createDefaultShopConfig(FactionId.NETHER));
 			statsRepository = new StatsRepository(configDirectory.resolve("stats.json"), logger);
 			statsRepository.load();
 		}
@@ -80,6 +91,16 @@ public class MinecraftSnapConfigManager {
 
 	public FactionConfigFile getFactionConfig(FactionId factionId) {
 		return factionConfigs.get(factionId);
+	}
+
+	public ShopConfigFile getShopConfig(FactionId factionId) {
+		var config = shopConfigs.get(factionId);
+		if (config != null) {
+			return config;
+		}
+		var empty = new ShopConfigFile();
+		empty.normalize();
+		return empty;
 	}
 
 	private SystemConfig loadSystemConfig(Path path) throws IOException {
@@ -316,6 +337,25 @@ public class MinecraftSnapConfigManager {
 		};
 	}
 
+	private ShopConfigFile createDefaultShopConfig(FactionId factionId) {
+		var config = new ShopConfigFile();
+		config.entries = switch (factionId) {
+			case VILLAGER -> List.of(
+				shop("bread_bundle", 1, "minecraft:bread", 4),
+				shop("cooked_beef", 2, "minecraft:cooked_beef", 3),
+				shop("arrow_pack", 2, "minecraft:arrow", 8)
+			);
+			case NETHER -> List.of(
+				shop("fire_charge", 1, "minecraft:fire_charge", 2),
+				shop("cooked_porkchop", 2, "minecraft:cooked_porkchop", 3),
+				shop("golden_carrot", 2, "minecraft:golden_carrot", 2)
+			);
+			case MONSTER -> List.of();
+		};
+		config.normalize();
+		return config;
+	}
+
 	private FactionConfigFile createVillagerFactionConfig() {
 		var config = new FactionConfigFile();
 		config.displayName = "주민&우민";
@@ -323,10 +363,10 @@ public class MinecraftSnapConfigManager {
 		config.captainSkill.name = "습격 소집";
 		config.captainSkill.descriptionLines = List.of("&7실제 스킬 로직은 기존 구현 유지", "&7위키와 GUI 설명은 JSON 기준");
 		config.units = List.of(
-			unit("villager", "주민", true, 1, 5, 20.0, 0.8, "minecraft:wooden_sword", "", "", "", "", "", "minecraft:bread", "밥먹기", 10, "HEAL_SELF", "NONE", "NONE", "villager", List.of("&7체력 3 회복", "&7기본 유지력 유닛")),
-			unit("armorer_villager", "대장장이 주민", true, 2, 9, 30.0, 0.9, "minecraft:wooden_sword", "minecraft:shield", "", "minecraft:iron_chestplate", "", "", "", "", 0, "NONE", "NONE", "NONE", "villager", List.of("&7방패와 흉갑 보유", "&7전선 유지용")),
-			unit("vindicator", "변명자", true, 4, 18, 30.0, 1.0, "minecraft:iron_axe", "", "", "", "", "", "minecraft:iron_axe", "도약", 10, "DASH", "NONE", "NONE", "vindicator", List.of("&7짧은 돌진 스킬", "&7근접 압박용")),
-			unit("pillager", "약탈자", true, 3, 15, 16.0, 1.1, "minecraft:crossbow", "", "", "", "", "", "minecraft:firework_rocket", "폭죽 화살 지급", 15, "GIVE_FIREWORKS", "NONE", "FIREWORK", "pillager", List.of("&73발 폭죽 지급", "&7원거리 견제용"))
+			unit("villager", "주민", true, 1, 5, 20.0, 0.8, "minecraft:wooden_sword", "", "", "", "", "", "minecraft:bread", "밥먹기", 10, "NONE", "minecraft:villager", List.of("&7체력 3 회복", "&7기본 유지력 유닛")),
+			unit("armorer_villager", "대장장이 주민", true, 2, 9, 30.0, 0.9, "minecraft:wooden_sword", "minecraft:shield", "", "minecraft:iron_chestplate", "", "", "", "", 0, "NONE", "minecraft:villager", List.of("&7방패와 흉갑 보유", "&7전선 유지용")),
+			unit("vindicator", "변명자", true, 4, 18, 30.0, 1.0, "minecraft:iron_axe", "", "", "", "", "", "minecraft:iron_axe", "도약", 10, "NONE", "minecraft:vindicator", List.of("&7짧은 돌진 스킬", "&7근접 압박용")),
+			unit("pillager", "약탈자", true, 3, 15, 16.0, 1.1, "minecraft:crossbow", "", "", "", "", "", "minecraft:firework_rocket", "폭죽 화살 지급", 15, "FIREWORK", "minecraft:pillager", List.of("&73발 폭죽 지급", "&7원거리 견제용"))
 		);
 		config.normalize();
 		return config;
@@ -338,15 +378,23 @@ public class MinecraftSnapConfigManager {
 		config.summaryLines = List.of("&7전직과 기습 중심", "&7환경 적응이 핵심");
 		config.captainSkill.name = "날씨 변화";
 		config.captainSkill.descriptionLines = List.of("&7실제 스킬 로직은 기존 구현 유지", "&7위키와 GUI 설명은 JSON 기준");
+		var zombie = unit("zombie", "좀비", true, 1, 6, 20.0, 0.8, "minecraft:iron_shovel", "", "", "", "", "", "", "", 0, "NONE", "minecraft:zombie", List.of("&7적 처치 시 사령관 소환 쿨 2초 감소"));
+		zombie.advanceOptions = List.of(advanceOption("zombie_veteran", "강화 좀비", List.of("&7늪과 비를 버티면 강화"), List.of("minecraft:swamp", "minecraft:mangrove_swamp"), List.of("rain", "thunder"), 15));
+		var skeleton = unit("skeleton", "스켈레톤", true, 2, 13, 14.0, 1.0, "minecraft:bow", "", "", "", "", "", "minecraft:bone", "뼈 폭발", 15, "ARROW", "minecraft:skeleton", List.of("&74칸 내 적 둔화 타격"));
+		skeleton.advanceOptions = List.of(advanceOption("skeleton_sniper", "강화 스켈레톤", List.of("&7설원 계열에서 정찰병화"), List.of("minecraft:snowy_plains", "minecraft:snowy_taiga"), List.of("clear", "rain"), 15));
+		var slime = unit("slime", "슬라임", true, 2, 10, 10.0, 1.1, "minecraft:slime_ball", "", "", "", "", "", "", "", 0, "NONE", "minecraft:slime", List.of("&7사망 시 작은 슬라임 3마리"));
+		slime.advanceOptions = List.of(advanceOption("slime_brute", "강화 슬라임", List.of("&7늪지에서 더 거대해짐"), List.of("minecraft:swamp", "minecraft:mangrove_swamp"), List.of("clear", "rain", "thunder"), 12));
+		var creeper = unit("creeper", "크리퍼", true, 5, 25, 20.0, 1.0, "minecraft:tnt", "", "", "", "", "", "minecraft:tnt", "자폭", 20, "NONE", "minecraft:creeper", List.of("&71초 뒤 자폭", "&7근접 폭발 특화"));
+		creeper.advanceOptions = List.of(advanceOption("charged_creeper", "대전된 크리퍼", List.of("&7천둥 아래에서 대전됨"), List.of("minecraft:plains", "minecraft:forest", "minecraft:dark_forest"), List.of("thunder"), 10));
 		config.units = List.of(
-			unit("zombie", "좀비", true, 1, 6, 20.0, 0.8, "minecraft:iron_shovel", "", "", "", "", "", "", "", 0, "NONE", "ZOMBIE_COOLDOWN_REFUND", "NONE", "zombie", List.of("&7사망 시 사령관 소환 쿨 2초 감소")),
-			unit("skeleton", "스켈레톤", true, 2, 13, 14.0, 1.0, "minecraft:bow", "", "", "", "", "", "minecraft:bone", "뼈 폭발", 15, "BONE_BLAST", "NONE", "ARROW", "skeleton", List.of("&74칸 내 적 둔화 타격")),
-			unit("slime", "슬라임", true, 2, 10, 10.0, 1.1, "minecraft:slime_ball", "", "", "", "", "", "", "", 0, "NONE", "SLIME_SPLIT", "NONE", "slime", List.of("&7사망 시 작은 슬라임 3마리")),
-			unit("creeper", "크리퍼", true, 5, 25, 20.0, 1.0, "minecraft:tnt", "", "", "", "", "", "minecraft:tnt", "자폭", 20, "CREEPER_BOMB", "NONE", "NONE", "creeper", List.of("&71초 뒤 자폭", "&7근접 폭발 특화")),
-			unit("zombie_veteran", "강화 좀비", false, 0, 0, 26.0, 0.95, "minecraft:iron_shovel", "", "", "minecraft:iron_chestplate", "", "", "", "", 0, "NONE", "ZOMBIE_COOLDOWN_REFUND", "NONE", "husk", List.of("&7늪/비 조건 전직 결과")),
-			unit("skeleton_sniper", "강화 스켈레톤", false, 0, 0, 18.0, 1.05, "minecraft:bow", "", "", "", "", "", "minecraft:bone", "뼈 폭발", 12, "BONE_BLAST", "NONE", "ARROW", "stray", List.of("&7설원 계열 전직 결과")),
-			unit("slime_brute", "강화 슬라임", false, 0, 0, 18.0, 1.2, "minecraft:slime_ball", "", "", "", "", "", "", "", 0, "NONE", "SLIME_SPLIT", "NONE", "slime", List.of("&7늪 지형 전직 결과")),
-			unit("charged_creeper", "대전된 크리퍼", false, 0, 0, 24.0, 1.05, "minecraft:tnt", "", "", "", "", "", "minecraft:tnt", "자폭", 15, "CREEPER_BOMB", "NONE", "NONE", "creeper", List.of("&7천둥 조건 전직 결과"))
+			zombie,
+			skeleton,
+			slime,
+			creeper,
+			unit("zombie_veteran", "강화 좀비", false, 0, 0, 26.0, 0.95, "minecraft:iron_shovel", "", "", "minecraft:iron_chestplate", "", "", "", "", 0, "NONE", "minecraft:husk", List.of("&7늪/비 조건 전직 결과")),
+			unit("skeleton_sniper", "강화 스켈레톤", false, 0, 0, 18.0, 1.05, "minecraft:bow", "", "", "", "", "", "minecraft:bone", "뼈 폭발", 12, "ARROW", "minecraft:stray", List.of("&7설원 계열 전직 결과")),
+			unit("slime_brute", "강화 슬라임", false, 0, 0, 18.0, 1.2, "minecraft:slime_ball", "", "", "", "", "", "", "", 0, "NONE", "minecraft:slime", List.of("&7늪 지형 전직 결과")),
+			unit("charged_creeper", "대전된 크리퍼", false, 0, 0, 24.0, 1.05, "minecraft:tnt", "", "", "", "", "", "minecraft:tnt", "자폭", 15, "NONE", "minecraft:creeper", List.of("&7천둥 조건 전직 결과"))
 		);
 		config.normalize();
 		return config;
@@ -359,10 +407,10 @@ public class MinecraftSnapConfigManager {
 		config.captainSkill.name = "포탈 생성";
 		config.captainSkill.descriptionLines = List.of("&7실제 스킬 로직은 기존 구현 유지", "&7위키와 GUI 설명은 JSON 기준");
 		config.units = List.of(
-			unit("piglin", "피글린", true, 2, 5, 20.0, 1.0, "minecraft:golden_sword", "", "", "", "", "", "", "", 0, "NONE", "PIGLIN_ZOMBIFY_ON_DEATH", "NONE", "piglin", List.of("&750% 확률로 좀비 피글린 생성")),
-			unit("zombified_piglin", "좀비 피글린", true, 2, 8, 20.0, 0.8, "minecraft:golden_sword", "", "", "", "", "", "minecraft:golden_sword", "분노", 15, "ZOMBIFIED_PIGLIN_RAGE", "NONE", "NONE", "zombified_piglin", List.of("&7주변 아군 강화")),
-			unit("blaze", "블레이즈", true, 3, 16, 16.0, 1.2, "minecraft:blaze_rod", "", "", "", "", "", "minecraft:blaze_rod", "화염구", 5, "BLAZE_BURST", "NONE", "NONE", "blaze", List.of("&7작은 화염구 3연사")),
-			unit("piglin_brute", "피글린 브루트", true, 6, 25, 40.0, 1.0, "minecraft:golden_axe", "", "", "", "", "", "minecraft:golden_axe", "광란", 30, "BRUTE_FRENZY", "NONE", "NONE", "piglin_brute", List.of("&7자가 강화 폭발력"))
+			unit("piglin", "피글린", true, 2, 5, 20.0, 1.0, "minecraft:golden_sword", "", "", "", "", "", "", "", 0, "NONE", "minecraft:piglin", List.of("&750% 확률로 좀비 피글린 생성")),
+			unit("zombified_piglin", "좀비 피글린", true, 2, 8, 20.0, 0.8, "minecraft:golden_sword", "", "", "", "", "", "minecraft:golden_sword", "분노", 15, "NONE", "minecraft:zombified_piglin", List.of("&7주변 아군 강화")),
+			unit("blaze", "블레이즈", true, 3, 16, 16.0, 1.2, "minecraft:blaze_rod", "", "", "", "", "", "minecraft:blaze_rod", "화염구", 5, "NONE", "minecraft:blaze", List.of("&7작은 화염구 3연사")),
+			unit("piglin_brute", "피글린 브루트", true, 6, 25, 40.0, 1.0, "minecraft:golden_axe", "", "", "", "", "", "minecraft:golden_axe", "광란", 30, "NONE", "minecraft:piglin_brute", List.of("&7자가 강화 폭발력"))
 		);
 		config.normalize();
 		return config;
@@ -385,8 +433,6 @@ public class MinecraftSnapConfigManager {
 		String abilityItemId,
 		String abilityName,
 		int abilityCooldownSeconds,
-		String abilityType,
-		String passiveType,
 		String ammoType,
 		String disguiseId,
 		List<String> descriptionLines
@@ -401,26 +447,93 @@ public class MinecraftSnapConfigManager {
 		entry.moveSpeedScale = moveSpeedScale;
 		entry.mainHand = UnitItemEntry.create(mainHandItemId);
 		entry.offHand = UnitItemEntry.create(offHandItemId);
+		entry.helmet = UnitItemEntry.create(helmetItemId);
+		entry.chest = UnitItemEntry.create(chestItemId);
+		entry.legs = UnitItemEntry.create(legsItemId);
+		entry.boots = UnitItemEntry.create(bootsItemId);
 		entry.abilityItem = UnitItemEntry.create(abilityItemId);
-		entry.mainHandItemId = mainHandItemId;
-		entry.offHandItemId = offHandItemId;
-		entry.helmetItemId = helmetItemId;
-		entry.chestItemId = chestItemId;
-		entry.legsItemId = legsItemId;
-		entry.bootsItemId = bootsItemId;
-		entry.abilityItemId = abilityItemId;
 		entry.abilityName = abilityName;
 		entry.abilityCooldownSeconds = abilityCooldownSeconds;
 		if (abilityItemId != null && !abilityItemId.isBlank() && abilityName != null && !abilityName.isBlank()) {
 			entry.abilityItem.displayName = "&b" + abilityName;
 			entry.abilityItem.loreLines = List.of("&7유닛 스킬 발동", "&8쿨다운: &f" + abilityCooldownSeconds + "초");
 		}
-		entry.abilityType = abilityType;
-		entry.passiveType = passiveType;
 		entry.ammoType = ammoType;
-		entry.disguiseId = disguiseId;
+		entry.disguise = EntitySpecEntry.create(disguiseId);
 		entry.descriptionLines = descriptionLines;
 		entry.normalize();
 		return entry;
+	}
+
+	private ShopEntry shop(String id, int price, String itemId, int count) {
+		var entry = new ShopEntry();
+		entry.id = id;
+		entry.price = price;
+		entry.item = UnitItemEntry.create(itemId);
+		entry.item.count = count;
+		entry.normalize();
+		return entry;
+	}
+
+	private AdvanceOptionEntry advanceOption(
+		String resultUnitId,
+		String displayName,
+		List<String> descriptionLines,
+		List<String> biomes,
+		List<String> weathers,
+		int requiredTicks
+	) {
+		var option = new AdvanceOptionEntry();
+		option.resultUnitId = resultUnitId;
+		option.displayName = displayName;
+		option.descriptionLines = descriptionLines;
+		option.biomes = biomes;
+		option.weathers = weathers;
+		option.requiredTicks = requiredTicks;
+		option.normalize();
+		return option;
+	}
+
+	private boolean migrateLegacyAdvanceOptions() {
+		var monsterConfig = factionConfigs.get(FactionId.MONSTER);
+		if (monsterConfig == null || systemConfig == null || systemConfig.advance == null || systemConfig.advance.conditions == null) {
+			return false;
+		}
+		boolean migrated = false;
+		for (var unit : monsterConfig.units) {
+			if (unit == null || !unit.advanceOptions.isEmpty()) {
+				continue;
+			}
+			for (var condition : systemConfig.advance.conditions) {
+				if (condition == null || !unit.id.equals(condition.unitId)) {
+					continue;
+				}
+				unit.advanceOptions.add(advanceOption(
+					condition.resultUnitId,
+					resolveUnitName(condition.resultUnitId),
+					List.of("&7레거시 system.json 전직 조건 마이그레이션"),
+					List.copyOf(condition.biomes),
+					List.copyOf(condition.weathers),
+					condition.requiredExp > 0 ? condition.requiredExp : 1
+				));
+				migrated = true;
+			}
+			unit.normalize();
+		}
+		return migrated;
+	}
+
+	private String resolveUnitName(String unitId) {
+		for (var config : factionConfigs.values()) {
+			if (config == null || config.units == null) {
+				continue;
+			}
+			for (var unit : config.units) {
+				if (unit != null && unitId.equals(unit.id) && unit.displayName != null && !unit.displayName.isBlank()) {
+					return unit.displayName;
+				}
+			}
+		}
+		return unitId;
 	}
 }

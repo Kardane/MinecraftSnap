@@ -100,7 +100,7 @@ public class UnitSpawnService {
 		} else {
 			unitLoadoutService.applyUnitLoadout(target, definition, textTemplateResolver);
 		}
-		DisguiseSupport.applyDisguise(target, definition.disguiseId());
+		DisguiseSupport.applyDisguise(target, definition.disguise());
 		target.sendMessage(textTemplateResolver.format("&a소환됨: &f" + definition.displayName()), false);
 		captain.sendMessage(textTemplateResolver.format("&a유닛 소환 완료: &f" + target.getName().getString() + " &7-> &f" + definition.displayName()), false);
 		return SpawnResult.success(target.getUuid(), definition.id());

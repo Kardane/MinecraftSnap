@@ -2,14 +2,16 @@ package karn.minecraftsnap.ui;
 
 import eu.pb4.sgui.api.elements.GuiElementBuilder;
 import eu.pb4.sgui.api.gui.SimpleGui;
-import karn.minecraftsnap.game.PlayerMatchState;
+import karn.minecraftsnap.game.AdvanceService;
 import karn.minecraftsnap.game.UnitDefinition;
 import karn.minecraftsnap.util.TextTemplateResolver;
 import net.minecraft.item.Items;
 import net.minecraft.screen.ScreenHandlerType;
 import net.minecraft.server.network.ServerPlayerEntity;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Consumer;
 
 public class AdvanceGuiService {
 	private final TextTemplateResolver textTemplateResolver;
@@ -20,42 +22,87 @@ public class AdvanceGuiService {
 
 	public void open(
 		ServerPlayerEntity player,
-		PlayerMatchState state,
-		String biomeId,
-		String weather,
-		int requiredExp,
-		UnitDefinition targetDefinition,
-		Runnable onAdvance
+		List<AdvanceOptionView> options,
+		Consumer<String> onAdvance
 	) {
-		var gui = new SimpleGui(ScreenHandlerType.GENERIC_9X3, player, false);
+		var gui = new SimpleGui(ScreenHandlerType.HOPPER, player, false);
 		gui.setTitle(textTemplateResolver.format("&c전직"));
-		gui.setSlot(11, new GuiElementBuilder(Items.COMPASS)
-			.setName(textTemplateResolver.format("&e현재 진행도"))
-			.setLore(lines(
-				"&f진행 EXP: &b" + state.getAdvanceExp() + "&7/&f" + requiredExp,
-				"&f현재 바이옴: &a" + biomeId,
-				"&f현재 날씨: &b" + weather
-			))
-			.build());
-		gui.setSlot(15, new GuiElementBuilder(targetDefinition == null ? Items.BARRIER : targetDefinition.mainHandItem())
-			.setName(textTemplateResolver.format(targetDefinition == null ? "&c전직 대상 없음" : "&a전직 결과: &f" + targetDefinition.displayName()))
-			.setLore(lines(
-				state.isAdvanceAvailable() ? "&a클릭해서 전직" : "&c아직 전직할 수 없음",
-				targetDefinition == null ? "&8컨픽 조건을 확인" : "&7준비되면 현재 유닛이 교체됨"
-			))
-			.setCallback((index, clickType, action, slotGui) -> {
-				if (state.isAdvanceAvailable() && targetDefinition != null) {
-					onAdvance.run();
-					gui.close();
-				}
-			})
-			.build());
+		if (options == null || options.isEmpty()) {
+			gui.setSlot(0, new GuiElementBuilder(Items.BARRIER)
+				.setName(textTemplateResolver.format("&c전직 대상 없음"))
+				.setLore(lines("&7현재 유닛은 전직 옵션이 없음"))
+				.build());
+			gui.open();
+			return;
+		}
+		for (int slot = 0; slot < Math.min(5, options.size()); slot++) {
+			var option = options.get(slot);
+			var definition = option.definition();
+			var item = definition == null || definition.mainHandItem() == null ? Items.BARRIER : definition.mainHandItem();
+			gui.setSlot(slot, new GuiElementBuilder(item)
+				.setName(textTemplateResolver.format("&f" + option.displayName()))
+				.setLore(lines(buildOptionLore(option).toArray(String[]::new)))
+				.setCallback((index, clickType, action, slotGui) -> {
+					if (option.ready()) {
+						onAdvance.accept(option.resultUnitId());
+						gui.close();
+					}
+				})
+				.build());
+		}
 		gui.open();
+	}
+
+	static List<String> buildOptionLore(AdvanceOptionView option) {
+		var lines = new ArrayList<String>();
+		lines.addAll(option.descriptionLines());
+		lines.add("&7요구 바이옴: &f" + String.join(", ", option.biomes()));
+		lines.add("&7요구 날씨: &f" + String.join(", ", option.weathers()));
+		lines.add("&7진행도: &b" + option.currentTicks() + "&7/&f" + option.requiredTicks());
+		if (!option.conditionsMet()) {
+			lines.add("&c조건이 충족되지 않음");
+		} else if (!option.ready()) {
+			lines.add("&e잔류 중");
+		} else {
+			lines.add("&a클릭해서 전직");
+		}
+		return lines;
 	}
 
 	private List<net.minecraft.text.Text> lines(String... values) {
 		return java.util.Arrays.stream(values)
 			.map(textTemplateResolver::format)
 			.toList();
+	}
+
+	public record AdvanceOptionView(
+		String resultUnitId,
+		String displayName,
+		List<String> descriptionLines,
+		List<String> biomes,
+		List<String> weathers,
+		int currentTicks,
+		int requiredTicks,
+		boolean conditionsMet,
+		boolean ready,
+		UnitDefinition definition
+	) {
+		public static AdvanceOptionView from(AdvanceService.AdvanceOptionState state) {
+			var option = state.option();
+			return new AdvanceOptionView(
+				option.resultUnitId,
+				option.displayName == null || option.displayName.isBlank()
+					? (state.definition() == null ? option.resultUnitId : state.definition().displayName())
+					: option.displayName,
+				option.descriptionLines,
+				option.biomes,
+				option.weathers,
+				state.currentTicks(),
+				option.requiredTicks,
+				state.conditionsMet(),
+				state.ready(),
+				state.definition()
+			);
+		}
 	}
 }

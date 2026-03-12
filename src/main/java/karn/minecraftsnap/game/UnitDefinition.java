@@ -1,5 +1,7 @@
 package karn.minecraftsnap.game;
 
+import karn.minecraftsnap.config.EntitySpecEntry;
+import karn.minecraftsnap.config.UnitItemEntry;
 import net.minecraft.item.Item;
 
 import java.util.List;
@@ -13,39 +15,45 @@ public record UnitDefinition(
 	int spawnCooldownSeconds,
 	double maxHealth,
 	double moveSpeedScale,
-	Item mainHandItem,
-	Item offHandItem,
-	Item helmetItem,
-	Item chestItem,
-	Item legsItem,
-	Item bootsItem,
-	Item abilityItem,
+	UnitItemEntry mainHand,
+	UnitItemEntry offHand,
+	UnitItemEntry helmet,
+	UnitItemEntry chest,
+	UnitItemEntry legs,
+	UnitItemEntry boots,
+	UnitItemEntry abilityItemSpec,
 	String abilityName,
 	int abilityCooldownSeconds,
-	UnitAbilityType abilityType,
-	UnitPassiveType passiveType,
 	AmmoType ammoType,
-	String disguiseId,
+	EntitySpecEntry disguise,
 	List<String> descriptionLines
 ) {
-	public enum UnitAbilityType {
-		NONE,
-		HEAL_SELF,
-		DASH,
-		GIVE_FIREWORKS,
-		BONE_BLAST,
-		CREEPER_BOMB,
-		ZOMBIFIED_PIGLIN_RAGE,
-		BLAZE_BURST,
-		BRUTE_FRENZY
+	public Item mainHandItem() {
+		return mainHand == null ? null : mainHand.resolve();
 	}
 
-	public enum UnitPassiveType {
-		NONE,
-		ZOMBIE_COOLDOWN_REFUND,
-		SLIME_AUTO_JUMP,
-		SLIME_SPLIT,
-		PIGLIN_ZOMBIFY_ON_DEATH
+	public Item offHandItem() {
+		return offHand == null ? null : offHand.resolve();
+	}
+
+	public Item helmetItem() {
+		return helmet == null ? null : helmet.resolve();
+	}
+
+	public Item chestItem() {
+		return chest == null ? null : chest.resolve();
+	}
+
+	public Item legsItem() {
+		return legs == null ? null : legs.resolve();
+	}
+
+	public Item bootsItem() {
+		return boots == null ? null : boots.resolve();
+	}
+
+	public Item abilityItem() {
+		return abilityItemSpec == null ? null : abilityItemSpec.resolve();
 	}
 
 	public enum AmmoType {

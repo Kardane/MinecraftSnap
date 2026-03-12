@@ -1,7 +1,9 @@
 package karn.minecraftsnap.game;
 
 import karn.minecraftsnap.config.FactionUnitEntry;
+import karn.minecraftsnap.config.UnitItemEntry;
 import karn.minecraftsnap.util.TextTemplateResolver;
+import net.minecraft.component.ComponentChanges;
 import net.minecraft.component.DataComponentTypes;
 import net.minecraft.component.type.LoreComponent;
 import net.minecraft.component.type.NbtComponent;
@@ -11,6 +13,9 @@ import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.Items;
 import net.minecraft.nbt.NbtCompound;
+import net.minecraft.nbt.NbtOps;
+import net.minecraft.nbt.StringNbtReader;
+import net.minecraft.registry.RegistryOps;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.text.Text;
 import net.minecraft.util.Unit;
@@ -33,24 +38,14 @@ public class UnitLoadoutService {
 	public void applyBaseLoadout(ServerPlayerEntity player, UnitDefinition definition, FactionUnitEntry unitEntry, TextTemplateResolver textTemplateResolver) {
 		player.getInventory().clear();
 		resetCombatState(player);
-		player.equipStack(EquipmentSlot.HEAD, createEquipment(definition.helmetItem()));
-		player.equipStack(EquipmentSlot.CHEST, createEquipment(definition.chestItem()));
-		player.equipStack(EquipmentSlot.LEGS, createEquipment(definition.legsItem()));
-		player.equipStack(EquipmentSlot.FEET, createEquipment(definition.bootsItem()));
-		player.equipStack(EquipmentSlot.MAINHAND, createEquipment(
-			definition.mainHandItem(),
-			unitEntry == null ? "" : unitEntry.mainHand.displayName,
-			unitEntry == null ? List.of() : unitEntry.mainHand.loreLines,
-			textTemplateResolver
-		));
-		player.equipStack(EquipmentSlot.OFFHAND, createEquipment(
-			definition.offHandItem(),
-			unitEntry == null ? "" : unitEntry.offHand.displayName,
-			unitEntry == null ? List.of() : unitEntry.offHand.loreLines,
-			textTemplateResolver
-		));
+		player.equipStack(EquipmentSlot.HEAD, createEquipment(player, unitEntry == null ? definition.helmet() : unitEntry.helmet, textTemplateResolver));
+		player.equipStack(EquipmentSlot.CHEST, createEquipment(player, unitEntry == null ? definition.chest() : unitEntry.chest, textTemplateResolver));
+		player.equipStack(EquipmentSlot.LEGS, createEquipment(player, unitEntry == null ? definition.legs() : unitEntry.legs, textTemplateResolver));
+		player.equipStack(EquipmentSlot.FEET, createEquipment(player, unitEntry == null ? definition.boots() : unitEntry.boots, textTemplateResolver));
+		player.equipStack(EquipmentSlot.MAINHAND, createEquipment(player, unitEntry == null ? definition.mainHand() : unitEntry.mainHand, textTemplateResolver));
+		player.equipStack(EquipmentSlot.OFFHAND, createEquipment(player, unitEntry == null ? definition.offHand() : unitEntry.offHand, textTemplateResolver));
 		if (definition.abilityItem() != null) {
-			player.getInventory().insertStack(createAbilityItem(definition, unitEntry, textTemplateResolver));
+			player.getInventory().insertStack(createAbilityItem(player, definition, unitEntry, textTemplateResolver));
 		}
 		restockAmmo(player, definition);
 		player.setHealth((float) definition.maxHealth());
@@ -146,41 +141,110 @@ public class UnitLoadoutService {
 		return stack;
 	}
 
-	private ItemStack createAbilityItem(UnitDefinition definition, FactionUnitEntry unitEntry, TextTemplateResolver textTemplateResolver) {
-		var stack = createTaggedStack(definition.abilityItem(), KIND_UNIT_ABILITY, definition.factionId(), definition.id());
-		var abilityName = unitEntry != null && unitEntry.abilityItem != null && !unitEntry.abilityItem.displayName.isBlank()
-			? unitEntry.abilityItem.displayName
+	private ItemStack createAbilityItem(ServerPlayerEntity player, UnitDefinition definition, FactionUnitEntry unitEntry, TextTemplateResolver textTemplateResolver) {
+		var spec = unitEntry == null ? definition.abilityItemSpec() : unitEntry.abilityItem;
+		var abilityName = spec != null && !spec.displayName.isBlank()
+			? spec.displayName
 			: "&b" + definition.abilityName();
-		var loreLines = unitEntry != null && unitEntry.abilityItem != null && !unitEntry.abilityItem.loreLines.isEmpty()
-			? unitEntry.abilityItem.loreLines
+		var loreLines = spec != null && !spec.loreLines.isEmpty()
+			? spec.loreLines
 			: List.of("&7유닛 스킬 발동", "&8쿨다운: &f" + definition.abilityCooldownSeconds() + "초");
-		stack.set(DataComponentTypes.CUSTOM_NAME, textTemplateResolver.format(abilityName));
-		stack.set(DataComponentTypes.LORE, new LoreComponent(loreLines.stream().map(textTemplateResolver::format).toList()));
+		return createConfiguredStack(player, spec, KIND_UNIT_ABILITY, definition.factionId(), definition.id(), abilityName, loreLines, textTemplateResolver);
+	}
+
+	private ItemStack createEquipment(ServerPlayerEntity player, UnitItemEntry spec, TextTemplateResolver textTemplateResolver) {
+		return createConfiguredStack(player, spec, null, null, null, "", List.of(), textTemplateResolver);
+	}
+
+	public ItemStack createShopItem(ServerPlayerEntity player, UnitItemEntry spec, TextTemplateResolver textTemplateResolver) {
+		if (spec == null || spec.isEmpty()) {
+			return ItemStack.EMPTY;
+		}
+		var stack = createBaseStack(player, spec);
+		if (stack.isEmpty()) {
+			return ItemStack.EMPTY;
+		}
+		if (textTemplateResolver != null && spec.displayName != null && !spec.displayName.isBlank()) {
+			stack.set(DataComponentTypes.CUSTOM_NAME, textTemplateResolver.format(spec.displayName));
+		}
+		if (textTemplateResolver != null && spec.loreLines != null && !spec.loreLines.isEmpty()) {
+			stack.set(DataComponentTypes.LORE, new LoreComponent(spec.loreLines.stream().map(textTemplateResolver::format).toList()));
+		}
 		return stack;
 	}
 
-	private ItemStack createEquipment(Item item) {
-		return createEquipment(item, "", List.of(), null);
+	private ItemStack createTaggedStack(Item item, String kind, FactionId factionId, String unitId) {
+		var stack = item == null ? ItemStack.EMPTY : new ItemStack(item);
+		markUnbreakable(stack);
+		applyCustomData(stack, kind, factionId, unitId);
+		return stack;
 	}
 
-	private ItemStack createEquipment(Item item, String displayName, List<String> loreLines, TextTemplateResolver textTemplateResolver) {
-		if (item == null) {
+	ItemStack createConfiguredStack(
+		ServerPlayerEntity player,
+		UnitItemEntry spec,
+		String kind,
+		FactionId factionId,
+		String unitId,
+		String fallbackDisplayName,
+		List<String> fallbackLoreLines,
+		TextTemplateResolver textTemplateResolver
+	) {
+		if (spec == null || spec.isEmpty()) {
 			return ItemStack.EMPTY;
 		}
-		var stack = new ItemStack(item);
+		var stack = createBaseStack(player, spec);
+		if (stack.isEmpty()) {
+			return ItemStack.EMPTY;
+		}
 		markUnbreakable(stack);
+		var displayName = spec.displayName.isBlank() ? fallbackDisplayName : spec.displayName;
+		var loreLines = spec.loreLines.isEmpty() ? fallbackLoreLines : spec.loreLines;
 		if (textTemplateResolver != null && displayName != null && !displayName.isBlank()) {
 			stack.set(DataComponentTypes.CUSTOM_NAME, textTemplateResolver.format(displayName));
 		}
 		if (textTemplateResolver != null && loreLines != null && !loreLines.isEmpty()) {
 			stack.set(DataComponentTypes.LORE, new LoreComponent(loreLines.stream().map(textTemplateResolver::format).toList()));
 		}
+		applyCustomData(stack, kind, factionId, unitId);
 		return stack;
 	}
 
-	private ItemStack createTaggedStack(Item item, String kind, FactionId factionId, String unitId) {
-		var stack = createEquipment(item);
-		var nbt = new NbtCompound();
+	private ItemStack createBaseStack(ServerPlayerEntity player, UnitItemEntry spec) {
+		try {
+			if (!spec.stackNbt.isBlank()) {
+				return ItemStack.CODEC.parse(registryOps(player), StringNbtReader.readCompound(spec.stackNbt))
+					.getOrThrow(message -> new IllegalArgumentException("잘못된 ItemStack SNBT: " + message));
+			}
+			var item = spec.resolve();
+			if (item == null) {
+				return ItemStack.EMPTY;
+			}
+			var stack = new ItemStack(item, spec.count);
+			if (!spec.componentsNbt.isBlank()) {
+				var changes = ComponentChanges.CODEC.parse(registryOps(player), StringNbtReader.readCompound(spec.componentsNbt))
+					.getOrThrow(message -> new IllegalArgumentException("잘못된 components SNBT: " + message));
+				stack.applyChanges(changes);
+			}
+			return stack;
+		} catch (Exception exception) {
+			throw new IllegalArgumentException("유닛 아이템 구성 파싱 실패: " + spec.itemId, exception);
+		}
+	}
+
+	private RegistryOps<net.minecraft.nbt.NbtElement> registryOps(ServerPlayerEntity player) {
+		if (player == null || player.getServer() == null) {
+			throw new IllegalArgumentException("아이템 SNBT 파싱에는 서버 컨텍스트가 필요함");
+		}
+		return RegistryOps.of(NbtOps.INSTANCE, player.getServer().getRegistryManager());
+	}
+
+	private void applyCustomData(ItemStack stack, String kind, FactionId factionId, String unitId) {
+		if (stack.isEmpty() || kind == null || kind.isBlank()) {
+			return;
+		}
+		var existing = stack.get(DataComponentTypes.CUSTOM_DATA);
+		var nbt = existing == null ? new NbtCompound() : existing.copyNbt();
 		nbt.putString(CUSTOM_DATA_KIND, kind);
 		if (factionId != null) {
 			nbt.putString(CUSTOM_DATA_FACTION_ID, factionId.name());
@@ -189,7 +253,6 @@ public class UnitLoadoutService {
 			nbt.putString(CUSTOM_DATA_UNIT_ID, unitId);
 		}
 		stack.set(DataComponentTypes.CUSTOM_DATA, NbtComponent.of(nbt));
-		return stack;
 	}
 
 	private boolean hasKind(ItemStack stack, String kind) {

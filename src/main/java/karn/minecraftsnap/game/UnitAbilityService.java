@@ -3,22 +3,13 @@ package karn.minecraftsnap.game;
 import karn.minecraftsnap.biome.BiomeRuntimeContext;
 import karn.minecraftsnap.lane.LaneRuntimeRegistry;
 import karn.minecraftsnap.util.TextTemplateResolver;
-import net.minecraft.entity.EntityType;
-import net.minecraft.entity.SpawnReason;
 import net.minecraft.entity.effect.StatusEffectInstance;
 import net.minecraft.entity.effect.StatusEffects;
-import net.minecraft.entity.mob.SlimeEntity;
-import net.minecraft.entity.projectile.SmallFireballEntity;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.server.world.ServerWorld;
-import net.minecraft.sound.SoundCategory;
-import net.minecraft.sound.SoundEvents;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Vec3d;
 
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.function.BooleanSupplier;
@@ -29,7 +20,6 @@ public class UnitAbilityService {
 	private final TextTemplateResolver textTemplateResolver;
 	private final LaneRuntimeRegistry laneRuntimeRegistry;
 	private final Map<UUID, Long> unitCooldownTicks = new HashMap<>();
-	private final Map<UUID, Long> pendingCreeperBombTicks = new HashMap<>();
 
 	public UnitAbilityService() {
 		this(new TextTemplateResolver(), null);
@@ -45,23 +35,6 @@ public class UnitAbilityService {
 	}
 
 	public void tick(MinecraftServer server, MatchManager matchManager) {
-		if (pendingCreeperBombTicks.isEmpty()) {
-			return;
-		}
-
-		var completed = new java.util.ArrayList<UUID>();
-		for (var entry : pendingCreeperBombTicks.entrySet()) {
-			if (matchManager.getServerTicks() < entry.getValue()) {
-				continue;
-			}
-
-			var player = server.getPlayerManager().getPlayer(entry.getKey());
-			if (player != null && matchManager.getPlayerState(player.getUuid()).getCurrentUnitId() != null) {
-				explodeCreeper(player, matchManager);
-			}
-			completed.add(entry.getKey());
-		}
-		completed.forEach(pendingCreeperBombTicks::remove);
 	}
 
 	public boolean useCaptainSkill(ServerPlayerEntity captain, MatchManager matchManager, CaptainManaService captainManaService) {
@@ -91,78 +64,6 @@ public class UnitAbilityService {
 		return true;
 	}
 
-	public boolean useUnitAbility(ServerPlayerEntity player, MatchManager matchManager, UnitRegistry unitRegistry) {
-		var state = matchManager.getPlayerState(player.getUuid());
-		var unitId = state.getCurrentUnitId();
-		if (unitId == null) {
-			return false;
-		}
-
-		var definition = unitRegistry.get(unitId);
-		if (definition == null || definition.abilityType() == UnitDefinition.UnitAbilityType.NONE) {
-			return false;
-		}
-
-		var nextUseTick = unitCooldownTicks.getOrDefault(player.getUuid(), Long.MIN_VALUE);
-		if (matchManager.getServerTicks() < nextUseTick) {
-			var remaining = (int) Math.ceil((nextUseTick - matchManager.getServerTicks()) / 20.0D);
-			player.sendMessage(textTemplateResolver.format("&c유닛 스킬 쿨다운: &f" + remaining + "초"), true);
-			return false;
-		}
-
-		var success = switch (definition.abilityType()) {
-			case HEAL_SELF -> {
-				player.heal(6.0f);
-				yield true;
-			}
-			case DASH -> {
-				var dash = player.getRotationVec(1.0f).multiply(1.2D);
-				player.addVelocity(dash.x, 0.3D, dash.z);
-				yield true;
-			}
-			case GIVE_FIREWORKS -> {
-				player.getInventory().insertStack(new net.minecraft.item.ItemStack(net.minecraft.item.Items.FIREWORK_ROCKET, 3));
-				yield true;
-			}
-			case BONE_BLAST -> {
-				for (var target : nearbyEnemyPlayers(player, matchManager, 4.0D)) {
-					target.damage((ServerWorld) player.getWorld(), target.getDamageSources().mobAttack(player), 6.0f);
-					target.addStatusEffect(new StatusEffectInstance(StatusEffects.SLOWNESS, 20 * 3, 1), player);
-				}
-				yield true;
-			}
-			case CREEPER_BOMB -> {
-				pendingCreeperBombTicks.put(player.getUuid(), matchManager.getServerTicks() + 20L);
-				player.sendMessage(textTemplateResolver.format("&c자폭 준비"), true);
-				yield true;
-			}
-			case ZOMBIFIED_PIGLIN_RAGE -> {
-				player.addStatusEffect(new StatusEffectInstance(StatusEffects.STRENGTH, 20 * 8, 1));
-				player.addStatusEffect(new StatusEffectInstance(StatusEffects.SPEED, 20 * 8, 0));
-				yield true;
-			}
-			case BLAZE_BURST -> {
-				spawnFireballs(player);
-				yield true;
-			}
-			case BRUTE_FRENZY -> {
-				player.addStatusEffect(new StatusEffectInstance(StatusEffects.STRENGTH, 20 * 10, 1));
-				player.addStatusEffect(new StatusEffectInstance(StatusEffects.RESISTANCE, 20 * 10, 0));
-				yield true;
-			}
-			case NONE -> false;
-		};
-
-		if (!success) {
-			return false;
-		}
-		notifyActiveSkillHook(player, definition, matchManager);
-
-		unitCooldownTicks.put(player.getUuid(), matchManager.getServerTicks() + definition.abilityCooldownSeconds() * 20L);
-		player.getItemCooldownManager().set(player.getMainHandStack(), definition.abilityCooldownSeconds() * 20);
-		return true;
-	}
-
 	public boolean activateUnitSkill(ServerPlayerEntity player, MatchManager matchManager, UnitDefinition definition, BooleanSupplier action) {
 		if (player == null || matchManager == null || definition == null || action == null) {
 			return false;
@@ -182,168 +83,8 @@ public class UnitAbilityService {
 		return true;
 	}
 
-	public boolean heal(ServerPlayerEntity player, float amount) {
-		player.heal(amount);
-		return true;
-	}
-
-	public boolean dash(ServerPlayerEntity player, double horizontalSpeed, double upwardSpeed) {
-		var dash = player.getRotationVec(1.0f).multiply(horizontalSpeed);
-		player.addVelocity(dash.x, upwardSpeed, dash.z);
-		return true;
-	}
-
-	public boolean giveFireworks(ServerPlayerEntity player, int count) {
-		player.getInventory().insertStack(new net.minecraft.item.ItemStack(net.minecraft.item.Items.FIREWORK_ROCKET, count));
-		return true;
-	}
-
-	public boolean boneBlast(ServerPlayerEntity player, MatchManager matchManager, double radius, float damage, int slowSeconds, int amplifier) {
-		for (var target : nearbyEnemyPlayers(player, matchManager, radius)) {
-			target.damage((ServerWorld) player.getWorld(), target.getDamageSources().mobAttack(player), damage);
-			target.addStatusEffect(new StatusEffectInstance(StatusEffects.SLOWNESS, 20 * slowSeconds, amplifier), player);
-		}
-		return true;
-	}
-
-	public boolean queueCreeperBomb(ServerPlayerEntity player, MatchManager matchManager, int warmupTicks, String message) {
-		pendingCreeperBombTicks.put(player.getUuid(), matchManager.getServerTicks() + warmupTicks);
-		if (message != null && !message.isBlank()) {
-			player.sendMessage(textTemplateResolver.format(message), true);
-		}
-		return true;
-	}
-
-	public boolean applyEffects(ServerPlayerEntity player, StatusEffectInstance... effects) {
-		for (var effect : effects) {
-			player.addStatusEffect(effect);
-		}
-		return true;
-	}
-
-	public boolean spawnFireballBurst(ServerPlayerEntity player) {
-		spawnFireballs(player);
-		return true;
-	}
-
-	public void spawnSlimeSplit(ServerPlayerEntity player) {
-		spawnSlimes(player);
-	}
-
-	public void trySpawnZombifiedPiglin(ServerPlayerEntity player, float chance) {
-		if (player.getRandom().nextFloat() < chance) {
-			spawnZombifiedPiglin(player);
-		}
-	}
-
-	public void handleEnemyKill(UUID killerId, MatchManager matchManager, CaptainManaService captainManaService, UnitRegistry unitRegistry) {
-		var killerState = matchManager.getPlayerState(killerId);
-		var unitId = killerState.getCurrentUnitId();
-		if (unitId == null) {
-			return;
-		}
-
-		var definition = unitRegistry.get(unitId);
-		if (definition == null || definition.passiveType() != UnitDefinition.UnitPassiveType.ZOMBIE_COOLDOWN_REFUND) {
-			return;
-		}
-
-		var captainId = matchManager.getCaptainId(killerState.getTeamId());
-		if (captainId != null) {
-			captainManaService.reduceSpawnCooldown(captainId, 2);
-		}
-	}
-
-	public void handleUnitDeath(ServerPlayerEntity player, MatchManager matchManager, UnitRegistry unitRegistry) {
-		var state = matchManager.getPlayerState(player.getUuid());
-		var unitId = state.getCurrentUnitId();
-		if (unitId == null) {
-			return;
-		}
-
-		var definition = unitRegistry.get(unitId);
-		if (definition == null) {
-			return;
-		}
-
-		if (definition.passiveType() == UnitDefinition.UnitPassiveType.SLIME_SPLIT) {
-			spawnSlimes(player);
-		}
-		if (definition.passiveType() == UnitDefinition.UnitPassiveType.PIGLIN_ZOMBIFY_ON_DEATH && player.getRandom().nextFloat() < 0.5f) {
-			spawnZombifiedPiglin(player);
-		}
-	}
-
 	public void clearPlayerState(UUID playerId) {
 		unitCooldownTicks.remove(playerId);
-		pendingCreeperBombTicks.remove(playerId);
-	}
-
-	private void explodeCreeper(ServerPlayerEntity player, MatchManager matchManager) {
-		player.getWorld().playSound(
-			null,
-			player.getBlockPos(),
-			SoundEvents.ENTITY_GENERIC_EXPLODE.value(),
-			SoundCategory.PLAYERS,
-			1.0f,
-			1.0f
-		);
-		for (var target : nearbyEnemyPlayers(player, matchManager, 5.0D)) {
-			target.damage((ServerWorld) player.getWorld(), target.getDamageSources().explosion(player, player), 14.0f);
-		}
-		player.damage((ServerWorld) player.getWorld(), player.getDamageSources().explosion(player, player), 1000.0f);
-	}
-
-	private List<ServerPlayerEntity> nearbyEnemyPlayers(ServerPlayerEntity player, MatchManager matchManager, double radius) {
-		var playerState = matchManager.getPlayerState(player.getUuid());
-		var squaredRadius = radius * radius;
-		return player.getServer().getPlayerManager().getPlayerList().stream()
-			.filter(target -> target.getWorld() == player.getWorld())
-			.filter(target -> !target.getUuid().equals(player.getUuid()))
-			.filter(target -> player.squaredDistanceTo(target) <= squaredRadius)
-			.filter(target -> {
-				var targetState = matchManager.getPlayerState(target.getUuid());
-				return targetState.getTeamId() != null
-					&& playerState.getTeamId() != null
-					&& targetState.getTeamId() != playerState.getTeamId()
-					&& targetState.getRoleType() != RoleType.SPECTATOR;
-			})
-			.toList();
-	}
-
-	private void spawnFireballs(ServerPlayerEntity player) {
-		var world = (ServerWorld) player.getWorld();
-		var forward = player.getRotationVec(1.0f);
-		var side = player.getRotationVector(0.0f, player.getYaw() + 90.0f).normalize().multiply(0.15D);
-		for (int index = -1; index <= 1; index++) {
-			var velocity = forward.add(side.multiply(index * 1.5D)).normalize();
-			var fireball = new SmallFireballEntity(world, player, velocity);
-			fireball.refreshPositionAndAngles(player.getX(), player.getEyeY() - 0.1D, player.getZ(), player.getYaw(), player.getPitch());
-			world.spawnEntity(fireball);
-		}
-	}
-
-	private void spawnSlimes(ServerPlayerEntity player) {
-		var world = (ServerWorld) player.getWorld();
-		for (int index = 0; index < 3; index++) {
-			var slime = EntityType.SLIME.create(world, SpawnReason.MOB_SUMMONED);
-			if (slime == null) {
-				continue;
-			}
-			slime.setSize(1, true);
-			slime.refreshPositionAndAngles(player.getX() + (index - 1), player.getY(), player.getZ(), player.getYaw(), player.getPitch());
-			world.spawnEntity(slime);
-		}
-	}
-
-	private void spawnZombifiedPiglin(ServerPlayerEntity player) {
-		var world = (ServerWorld) player.getWorld();
-		var piglin = EntityType.ZOMBIFIED_PIGLIN.create(world, SpawnReason.MOB_SUMMONED);
-		if (piglin == null) {
-			return;
-		}
-		piglin.refreshPositionAndAngles(new BlockPos((int) player.getX(), (int) player.getY(), (int) player.getZ()), player.getYaw(), player.getPitch());
-		world.spawnEntity(piglin);
 	}
 
 	private void notifyActiveSkillHook(ServerPlayerEntity player, UnitDefinition definition, MatchManager matchManager) {

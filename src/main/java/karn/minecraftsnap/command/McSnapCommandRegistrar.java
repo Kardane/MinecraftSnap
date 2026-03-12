@@ -50,7 +50,7 @@ public class McSnapCommandRegistrar {
 				.then(CommandManager.literal("captain").executes(ctx -> setPreference(ctx.getSource(), "captain")))
 				.then(CommandManager.literal("role")
 					.then(CommandManager.argument("unit", StringArgumentType.word())
-						.suggests(this::suggestUnitIds)
+						.suggests(this::suggestSpawnableUnitIds)
 						.executes(ctx -> setPreference(ctx.getSource(), "unit:" + StringArgumentType.getString(ctx, "unit")))))
 				.then(CommandManager.literal("none").executes(ctx -> setPreference(ctx.getSource(), "none"))))
 			.then(CommandManager.literal("captain_red")
@@ -88,6 +88,15 @@ public class McSnapCommandRegistrar {
 					.executes(ctx -> advance(ctx.getSource(), ctx.getSource().getPlayer()))
 					.then(CommandManager.argument("player", EntityArgumentType.player())
 						.executes(ctx -> advance(ctx.getSource(), EntityArgumentType.getPlayer(ctx, "player")))))
+				.then(CommandManager.literal("unit")
+					.then(CommandManager.argument("player", EntityArgumentType.player())
+						.then(CommandManager.argument("unit", StringArgumentType.word())
+							.suggests(this::suggestAllUnitIds)
+							.executes(ctx -> forceUnit(
+								ctx.getSource(),
+								EntityArgumentType.getPlayer(ctx, "player"),
+								StringArgumentType.getString(ctx, "unit")
+							)))))
 				.then(CommandManager.literal("captainskill")
 					.then(CommandManager.literal("villager").executes(ctx -> triggerCaptainSkill(ctx.getSource(), FactionId.VILLAGER)))
 					.then(CommandManager.literal("monster").executes(ctx -> triggerCaptainSkill(ctx.getSource(), FactionId.MONSTER)))
@@ -110,7 +119,7 @@ public class McSnapCommandRegistrar {
 		return send(source, "&a선호 직업 갱신: &f" + preference);
 	}
 
-	private CompletableFuture<Suggestions> suggestUnitIds(com.mojang.brigadier.context.CommandContext<ServerCommandSource> context, SuggestionsBuilder builder) {
+	private CompletableFuture<Suggestions> suggestSpawnableUnitIds(com.mojang.brigadier.context.CommandContext<ServerCommandSource> context, SuggestionsBuilder builder) {
 		if (mod == null) {
 			return builder.buildFuture();
 		}
@@ -118,6 +127,16 @@ public class McSnapCommandRegistrar {
 			if (unit.captainSpawnable()) {
 				builder.suggest(unit.id());
 			}
+		}
+		return builder.buildFuture();
+	}
+
+	private CompletableFuture<Suggestions> suggestAllUnitIds(com.mojang.brigadier.context.CommandContext<ServerCommandSource> context, SuggestionsBuilder builder) {
+		if (mod == null) {
+			return builder.buildFuture();
+		}
+		for (var unit : mod.getUnitRegistry().all()) {
+			builder.suggest(unit.id());
 		}
 		return builder.buildFuture();
 	}
@@ -169,6 +188,14 @@ public class McSnapCommandRegistrar {
 			return send(source, "&c전직 가능 상태 강제 부여 실패");
 		}
 		return send(source, "&a전직 가능 상태 강제 부여: &f" + player.getName().getString());
+	}
+
+	private int forceUnit(ServerCommandSource source, ServerPlayerEntity player, String unitId) {
+		var result = mod.forceAssignUnit(player, unitId);
+		if (player != null && result.startsWith("&a")) {
+			player.sendMessage(mod.getTextTemplateResolver().format("&e관리자 유닛 강제 배정: &f" + unitId), false);
+		}
+		return send(source, result);
 	}
 
 	private int openGui(ServerCommandSource source, String guiId) {

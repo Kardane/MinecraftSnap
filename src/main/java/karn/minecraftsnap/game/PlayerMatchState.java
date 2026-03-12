@@ -1,5 +1,8 @@
 package karn.minecraftsnap.game;
 
+import java.util.HashMap;
+import java.util.Map;
+
 public class PlayerMatchState {
 	private TeamId teamId;
 	private RoleType roleType = RoleType.NONE;
@@ -12,6 +15,8 @@ public class PlayerMatchState {
 	private int advanceExp;
 	private String advanceTargetUnitId;
 	private LaneId lastLaneId;
+	private final Map<String, Long> unitRuntimeLongs = new HashMap<>();
+	private final Map<String, Integer> advanceOptionTicks = new HashMap<>();
 
 	public TeamId getTeamId() {
 		return teamId;
@@ -32,6 +37,8 @@ public class PlayerMatchState {
 		this.advanceExp = 0;
 		this.advanceTargetUnitId = null;
 		this.lastLaneId = null;
+		this.unitRuntimeLongs.clear();
+		this.advanceOptionTicks.clear();
 	}
 
 	public RoleType getRoleType() {
@@ -134,6 +141,30 @@ public class PlayerMatchState {
 		this.advanceAvailable = false;
 		this.advanceExp = 0;
 		this.advanceTargetUnitId = null;
+		this.advanceOptionTicks.clear();
+	}
+
+	public int getAdvanceOptionTicks(String resultUnitId) {
+		return advanceOptionTicks.getOrDefault(resultUnitId, 0);
+	}
+
+	public void setAdvanceOptionTicks(String resultUnitId, int ticks) {
+		if (resultUnitId == null || resultUnitId.isBlank()) {
+			return;
+		}
+		if (ticks <= 0) {
+			advanceOptionTicks.remove(resultUnitId);
+			return;
+		}
+		advanceOptionTicks.put(resultUnitId, ticks);
+	}
+
+	public void clearAdvanceOptionTicksExcept(java.util.Set<String> validResultUnitIds) {
+		advanceOptionTicks.keySet().removeIf(key -> validResultUnitIds == null || !validResultUnitIds.contains(key));
+	}
+
+	public boolean isAdvanceReady(String resultUnitId, int requiredTicks) {
+		return getAdvanceOptionTicks(resultUnitId) >= requiredTicks;
 	}
 
 	public LaneId getLastLaneId() {
@@ -142,5 +173,17 @@ public class PlayerMatchState {
 
 	public void setLastLaneId(LaneId lastLaneId) {
 		this.lastLaneId = lastLaneId;
+	}
+
+	public Long getUnitRuntimeLong(String key) {
+		return unitRuntimeLongs.get(key);
+	}
+
+	public void setUnitRuntimeLong(String key, long value) {
+		unitRuntimeLongs.put(key, value);
+	}
+
+	public void removeUnitRuntimeLong(String key) {
+		unitRuntimeLongs.remove(key);
 	}
 }
