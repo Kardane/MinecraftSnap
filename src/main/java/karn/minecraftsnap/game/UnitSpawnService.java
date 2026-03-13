@@ -1,5 +1,6 @@
 package karn.minecraftsnap.game;
 
+import karn.minecraftsnap.audio.UiSoundService;
 import karn.minecraftsnap.config.SystemConfig;
 import karn.minecraftsnap.integration.DisguiseSupport;
 import karn.minecraftsnap.util.TextTemplateResolver;
@@ -20,10 +21,11 @@ public class UnitSpawnService {
 	private final UnitRegistry unitRegistry;
 	private final UnitLoadoutService unitLoadoutService;
 	private final UnitAbilityService unitAbilityService;
+	private final UiSoundService uiSoundService;
 	private UnitHookService unitHookService;
 
 	public UnitSpawnService() {
-		this(new CaptainManaService(), null, new UnitLoadoutService(), new UnitAbilityService());
+		this(new CaptainManaService(), null, new UnitLoadoutService(), new UnitAbilityService(), null);
 	}
 
 	public UnitSpawnService(
@@ -32,10 +34,21 @@ public class UnitSpawnService {
 		UnitLoadoutService unitLoadoutService,
 		UnitAbilityService unitAbilityService
 	) {
+		this(captainManaService, unitRegistry, unitLoadoutService, unitAbilityService, null);
+	}
+
+	public UnitSpawnService(
+		CaptainManaService captainManaService,
+		UnitRegistry unitRegistry,
+		UnitLoadoutService unitLoadoutService,
+		UnitAbilityService unitAbilityService,
+		UiSoundService uiSoundService
+	) {
 		this.captainManaService = captainManaService;
 		this.unitRegistry = unitRegistry;
 		this.unitLoadoutService = unitLoadoutService;
 		this.unitAbilityService = unitAbilityService;
+		this.uiSoundService = uiSoundService;
 	}
 
 	public SpawnCandidate selectSpawnCandidate(String unitId, List<SpawnCandidate> candidates) {
@@ -61,15 +74,23 @@ public class UnitSpawnService {
 	) {
 		var captainState = matchManager.getPlayerState(captain.getUuid());
 		if (!captainState.isCaptain() || captainState.getTeamId() == null) {
+			playDeny(captain);
 			return SpawnResult.error("&c사령관만 소환 가능");
 		}
 
 		var definition = unitRegistry.get(unitId);
 		if (definition == null) {
+			playDeny(captain);
 			return SpawnResult.error("&c알 수 없는 유닛");
 		}
 		if (captainState.getFactionId() != definition.factionId()) {
+			playDeny(captain);
 			return SpawnResult.error("&c현재 팩션에서 소환 불가");
+		}
+		var laneId = nearestLaneForCaptain(captain, systemConfig);
+		if (!matchManager.isLaneRevealed(laneId)) {
+			playDeny(captain);
+			return SpawnResult.error(systemConfig.gameStart.captainSpawnBlockedLaneMessage.replace("{lane}", laneLabel(laneId)));
 		}
 
 		var candidates = matchManager.getOnlineSpectatorUnits(captainState.getTeamId()).stream()
@@ -80,21 +101,24 @@ public class UnitSpawnService {
 			.toList();
 		var candidate = selectSpawnCandidate(unitId, candidates);
 		if (candidate == null) {
+			playDeny(captain);
 			return SpawnResult.error("&c소환 가능한 관전자 유닛 없음");
 		}
 		if (!captainManaService.trySpendForSpawn(captain.getUuid(), definition.cost(), definition.spawnCooldownSeconds())) {
+			playDeny(captain);
 			return SpawnResult.error("&c마나 또는 생성 쿨다운 부족");
 		}
 
 		var target = captain.getServer().getPlayerManager().getPlayer(candidate.playerId());
 		if (target == null) {
+			playDeny(captain);
 			return SpawnResult.error("&c대상 유닛 플레이어를 찾지 못함");
 		}
 
 		unitAbilityService.clearPlayerState(target.getUuid());
 		matchManager.setCurrentUnit(target.getUuid(), definition.id());
-		target.changeGameMode(GameMode.SURVIVAL);
-		teleport(target, systemConfig.world, systemConfig.gameStart.unitSpawnFor(captainState.getTeamId()));
+		target.changeGameMode(GameMode.ADVENTURE);
+		teleport(target, systemConfig.world, safeUnitSpawn(systemConfig, captainState.getTeamId(), laneId));
 		if (unitHookService != null) {
 			unitHookService.applyLoadout(target, definition, systemConfig);
 		} else {
@@ -103,6 +127,8 @@ public class UnitSpawnService {
 		DisguiseSupport.applyDisguise(target, definition.disguise());
 		target.sendMessage(textTemplateResolver.format("&a소환됨: &f" + definition.displayName()), false);
 		captain.sendMessage(textTemplateResolver.format("&a유닛 소환 완료: &f" + target.getName().getString() + " &7-> &f" + definition.displayName()), false);
+		playSuccess(captain);
+		playSuccess(target);
 		return SpawnResult.success(target.getUuid(), definition.id());
 	}
 
@@ -166,6 +192,73 @@ public class UnitSpawnService {
 			return world != null ? world : player.getServer().getOverworld();
 		} catch (Exception ignored) {
 			return player.getServer().getOverworld();
+		}
+	}
+
+	static LaneId nearestLaneForCaptain(ServerPlayerEntity captain, SystemConfig systemConfig) {
+		if (captain == null || systemConfig == null || systemConfig.inGame == null) {
+			return LaneId.LANE_1;
+		}
+		return nearestLaneForPosition(captain.getX(), captain.getZ(), systemConfig);
+	}
+
+	static LaneId nearestLaneForPosition(double x, double z, SystemConfig systemConfig) {
+		if (systemConfig == null || systemConfig.inGame == null) {
+			return LaneId.LANE_1;
+		}
+		var closestLane = LaneId.LANE_1;
+		var closestDistance = squaredDistanceXZ(x, z, centerX(systemConfig.inGame.lane1Region), centerZ(systemConfig.inGame.lane1Region));
+		var lane2Distance = squaredDistanceXZ(x, z, centerX(systemConfig.inGame.lane2Region), centerZ(systemConfig.inGame.lane2Region));
+		if (lane2Distance < closestDistance) {
+			closestLane = LaneId.LANE_2;
+			closestDistance = lane2Distance;
+		}
+		var lane3Distance = squaredDistanceXZ(x, z, centerX(systemConfig.inGame.lane3Region), centerZ(systemConfig.inGame.lane3Region));
+		if (lane3Distance < closestDistance) {
+			return LaneId.LANE_3;
+		}
+		return closestLane;
+	}
+
+	static SystemConfig.PositionConfig safeUnitSpawn(SystemConfig systemConfig, TeamId teamId, LaneId laneId) {
+		var spawn = systemConfig.gameStart.unitSpawnFor(teamId, laneId);
+		if (spawn == null || spawn.y < 0.0D) {
+			return systemConfig.gameStart.captainSpawnFor(teamId);
+		}
+		return spawn;
+	}
+
+	private static double centerX(SystemConfig.LaneRegionConfig region) {
+		return region == null ? 0.0D : (region.minX + region.maxX) / 2.0D;
+	}
+
+	private static double centerZ(SystemConfig.LaneRegionConfig region) {
+		return region == null ? 0.0D : (region.minZ + region.maxZ) / 2.0D;
+	}
+
+	private static double squaredDistanceXZ(double x1, double z1, double x2, double z2) {
+		var dx = x1 - x2;
+		var dz = z1 - z2;
+		return dx * dx + dz * dz;
+	}
+
+	private static String laneLabel(LaneId laneId) {
+		return switch (laneId) {
+			case LANE_1 -> "1번 라인";
+			case LANE_2 -> "2번 라인";
+			case LANE_3 -> "3번 라인";
+		};
+	}
+
+	private void playDeny(ServerPlayerEntity player) {
+		if (uiSoundService != null) {
+			uiSoundService.playUiDeny(player);
+		}
+	}
+
+	private void playSuccess(ServerPlayerEntity player) {
+		if (uiSoundService != null) {
+			uiSoundService.playUiConfirm(player);
 		}
 	}
 

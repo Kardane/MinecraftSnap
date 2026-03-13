@@ -1,11 +1,14 @@
 package karn.minecraftsnap.game;
 
+import karn.minecraftsnap.audio.UiSoundService;
 import karn.minecraftsnap.config.StatsRepository;
 import karn.minecraftsnap.config.SystemConfig;
 import net.minecraft.particle.DustParticleEffect;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.server.world.ServerWorld;
+import net.minecraft.sound.SoundCategory;
+import net.minecraft.sound.SoundEvents;
 import net.minecraft.util.math.Vec3d;
 
 import java.util.EnumMap;
@@ -16,11 +19,17 @@ public class CapturePointService {
 	private final MatchManager matchManager;
 	private final StatsRepository statsRepository;
 	private final Map<LaneId, CapturePointState> states = new EnumMap<>(LaneId.class);
+	private final UiSoundService uiSoundService;
 	private UnitHookService unitHookService;
 
 	public CapturePointService(MatchManager matchManager, StatsRepository statsRepository) {
+		this(matchManager, statsRepository, null);
+	}
+
+	public CapturePointService(MatchManager matchManager, StatsRepository statsRepository, UiSoundService uiSoundService) {
 		this.matchManager = matchManager;
 		this.statsRepository = statsRepository;
+		this.uiSoundService = uiSoundService;
 		for (var laneId : LaneId.values()) {
 			states.put(laneId, new CapturePointState(laneId));
 		}
@@ -65,6 +74,9 @@ public class CapturePointService {
 		int scoreIntervalTicks
 	) {
 		var state = states.get(laneId);
+		if (shouldRenderParticles(matchManager.isLaneActive(laneId), laneRegion, pointConfig) && matchManager.getServerTicks() % 10L == 0L) {
+			spawnDustBorder(server, worldId, pointConfig, state.getOwner());
+		}
 		if (!matchManager.isLaneActive(laneId) || pointConfig == null || !pointConfig.enabled || !contains(laneRegion, pointConfig)) {
 			state.getProgress().reset();
 			return;
@@ -75,7 +87,7 @@ public class CapturePointService {
 		int blueCount = 0;
 		for (var player : occupants) {
 			var playerState = matchManager.getPlayerState(player.getUuid());
-			if (!playerState.isUnit() || player.isSpectator() || playerState.getCurrentUnitId() == null) {
+			if (!countsForCapture(playerState, player.isSpectator())) {
 				continue;
 			}
 			if (playerState.getTeamId() == TeamId.RED) {
@@ -87,9 +99,17 @@ public class CapturePointService {
 
 		boolean contested = redCount > 0 && blueCount > 0;
 		TeamId occupyingTeam = contested ? null : redCount > 0 ? TeamId.RED : blueCount > 0 ? TeamId.BLUE : null;
+		var wasContested = state.getProgress().isContested();
+		var previousOwner = state.getOwner();
+		if (matchManager.getServerTicks() % 20L == 0L && isCaptureInProgress(state, occupyingTeam, contested)) {
+			playCaptureSound(occupants);
+		}
 		boolean captured = state.update(occupyingTeam, contested, captureStepSeconds);
-		if (matchManager.getServerTicks() % 10L == 0L) {
-			spawnDustBorder(server, worldId, pointConfig, state.getOwner());
+		if (contested && !wasContested) {
+			playContestedSound(occupants);
+		}
+		if (captured && previousOwner != state.getOwner()) {
+			playCapturedSound(occupants);
 		}
 		if (captured && occupyingTeam != null) {
 			for (var player : occupants) {
@@ -171,10 +191,18 @@ public class CapturePointService {
 				playerState.addEmeralds(1);
 				statsRepository.addEmeralds(player.getUuid(), player.getName().getString(), 1);
 			}
+			player.getWorld().playSound(
+				null,
+				player.getBlockPos(),
+				SoundEvents.ENTITY_EXPERIENCE_ORB_PICKUP,
+				SoundCategory.PLAYERS,
+				0.7f,
+				1.2f
+			);
 		}
 	}
 
-	static boolean contains(SystemConfig.CaptureRegionConfig region, Vec3d pos) {
+	public static boolean contains(SystemConfig.CaptureRegionConfig region, Vec3d pos) {
 		return region != null
 			&& pos.x >= region.minX && pos.x <= region.maxX
 			&& pos.y >= region.minY && pos.y <= region.maxY
@@ -192,18 +220,30 @@ public class CapturePointService {
 			&& captureRegion.maxZ <= laneRegion.maxZ;
 	}
 
+	static boolean countsForCapture(PlayerMatchState playerState, boolean spectator) {
+		if (playerState == null || spectator || playerState.getTeamId() == null) {
+			return false;
+		}
+		return playerState.isCaptain()
+			|| (playerState.isUnit() && playerState.getCurrentUnitId() != null);
+	}
+
+	static boolean shouldRenderParticles(boolean laneActive, SystemConfig.LaneRegionConfig laneRegion, SystemConfig.CaptureRegionConfig captureRegion) {
+		return captureRegion != null && captureRegion.enabled && contains(laneRegion, captureRegion);
+	}
+
 	private void spawnDustBorder(MinecraftServer server, String worldId, SystemConfig.CaptureRegionConfig region, CaptureOwner owner) {
 		var world = resolveWorld(server, worldId);
 		if (world == null) {
 			return;
 		}
 		var effect = new DustParticleEffect(color(owner), 1.0f);
-		double y = region.minY + 0.1;
-		for (double x = region.minX; x <= region.maxX; x += 1.0) {
+		double y = particleBorderY(region);
+		for (double x = region.minX; x <= region.maxX; x += particleSpacing()) {
 			spawnDust(world, effect, x, y, region.minZ);
 			spawnDust(world, effect, x, y, region.maxZ);
 		}
-		for (double z = region.minZ + 1.0; z < region.maxZ; z += 1.0) {
+		for (double z = region.minZ + particleSpacing(); z < region.maxZ; z += particleSpacing()) {
 			spawnDust(world, effect, region.minX, y, z);
 			spawnDust(world, effect, region.maxX, y, z);
 		}
@@ -213,12 +253,65 @@ public class CapturePointService {
 		world.spawnParticles(effect, x + 0.5, y, z + 0.5, 1, 0.0, 0.0, 0.0, 0.0);
 	}
 
-	private int color(CaptureOwner owner) {
+	static int color(CaptureOwner owner) {
 		return switch (owner) {
 			case RED -> 0xFF3333;
 			case BLUE -> 0x3366FF;
 			case NEUTRAL -> 0xFFFFFF;
 		};
+	}
+
+	static double particleBorderY(SystemConfig.CaptureRegionConfig region) {
+		return region.maxY + 0.1D;
+	}
+
+	static double particleSpacing() {
+		return 0.5D;
+	}
+
+	private boolean isCaptureInProgress(CapturePointState state, TeamId occupyingTeam, boolean contested) {
+		if (state == null) {
+			return false;
+		}
+		if (contested) {
+			return true;
+		}
+		return occupyingTeam != null && state.getOwner() != CaptureOwner.fromTeam(occupyingTeam);
+	}
+
+	private void playCaptureSound(List<ServerPlayerEntity> occupants) {
+		for (var player : occupants) {
+			var state = matchManager.getPlayerState(player.getUuid());
+			if (!state.isUnit() || state.getCurrentUnitId() == null || player.isSpectator()) {
+				continue;
+			}
+			player.getWorld().playSound(
+				null,
+				player.getBlockPos(),
+				SoundEvents.BLOCK_NOTE_BLOCK_HAT.value(),
+				SoundCategory.PLAYERS,
+				0.6f,
+				1.6f
+			);
+		}
+	}
+
+	private void playContestedSound(List<ServerPlayerEntity> occupants) {
+		if (uiSoundService == null) {
+			return;
+		}
+		for (var player : occupants) {
+			uiSoundService.playEventWarning(player);
+		}
+	}
+
+	private void playCapturedSound(List<ServerPlayerEntity> occupants) {
+		if (uiSoundService == null) {
+			return;
+		}
+		for (var player : occupants) {
+			uiSoundService.playEventSuccess(player);
+		}
 	}
 
 	private ServerWorld resolveWorld(MinecraftServer server, String worldId) {

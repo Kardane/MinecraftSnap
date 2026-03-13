@@ -43,6 +43,7 @@ class AdvanceGuiServiceTest {
 				0,
 				UnitDefinition.AmmoType.NONE,
 				new EntitySpecEntry(),
+				List.of(),
 				List.of()
 			)
 		);

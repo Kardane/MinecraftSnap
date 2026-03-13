@@ -1,11 +1,12 @@
 package karn.minecraftsnap.ui;
 
+import karn.minecraftsnap.audio.UiSoundService;
 import eu.pb4.sgui.api.elements.GuiElementBuilder;
 import eu.pb4.sgui.api.gui.SimpleGui;
 import karn.minecraftsnap.config.BiomeCatalog;
 import karn.minecraftsnap.config.BiomeEntry;
-import karn.minecraftsnap.config.FactionConfigFile;
 import karn.minecraftsnap.game.FactionId;
+import karn.minecraftsnap.game.FactionSpec;
 import karn.minecraftsnap.game.MatchPhase;
 import karn.minecraftsnap.game.UnitDefinition;
 import karn.minecraftsnap.game.UnitRegistry;
@@ -24,12 +25,18 @@ public class WikiGuiService {
 	private final UnitRegistry unitRegistry;
 	private final Supplier<BiomeCatalog> biomeCatalogSupplier;
 	private final Supplier<MatchPhase> phaseSupplier;
+	private final UiSoundService uiSoundService;
 
 	public WikiGuiService(TextTemplateResolver textTemplateResolver, UnitRegistry unitRegistry, Supplier<BiomeCatalog> biomeCatalogSupplier, Supplier<MatchPhase> phaseSupplier) {
+		this(textTemplateResolver, unitRegistry, biomeCatalogSupplier, phaseSupplier, null);
+	}
+
+	public WikiGuiService(TextTemplateResolver textTemplateResolver, UnitRegistry unitRegistry, Supplier<BiomeCatalog> biomeCatalogSupplier, Supplier<MatchPhase> phaseSupplier, UiSoundService uiSoundService) {
 		this.textTemplateResolver = textTemplateResolver;
 		this.unitRegistry = unitRegistry;
 		this.biomeCatalogSupplier = biomeCatalogSupplier;
 		this.phaseSupplier = phaseSupplier;
+		this.uiSoundService = uiSoundService;
 	}
 
 	public void open(ServerPlayerEntity player, MatchPhase phase) {
@@ -66,14 +73,14 @@ public class WikiGuiService {
 	}
 
 	private void openFactionDetail(ServerPlayerEntity player, FactionId factionId) {
-		var config = unitRegistry.getFactionConfig(factionId);
+		var config = unitRegistry.getFactionSpec(factionId);
 		var gui = new SimpleGui(ScreenHandlerType.GENERIC_9X3, player, false);
-		gui.setTitle(textTemplateResolver.format("&f" + (config == null ? factionId.name() : config.displayName)));
+		gui.setTitle(textTemplateResolver.format("&f" + (config == null ? factionId.name() : config.displayName())));
 		var lines = new ArrayList<String>();
 		if (config != null) {
-			lines.addAll(config.summaryLines);
-			lines.add("&8사령관 스킬: &d" + config.captainSkill.name);
-			lines.addAll(config.captainSkill.descriptionLines);
+			lines.addAll(config.summaryLines());
+			lines.add("&8사령관 스킬: &d" + config.captainSkillName());
+			lines.addAll(config.captainSkillDescriptionLines());
 		}
 		gui.setSlot(13, action(iconOf(factionId), "&f개요", lines, null));
 		gui.setSlot(18, homeAction(player));
@@ -93,7 +100,7 @@ public class WikiGuiService {
 
 	private void openUnitList(ServerPlayerEntity player, FactionId factionId) {
 		var gui = new SimpleGui(ScreenHandlerType.GENERIC_9X3, player, false);
-		gui.setTitle(textTemplateResolver.format("&f" + unitRegistry.getFactionConfig(factionId).displayName + " 유닛"));
+		gui.setTitle(textTemplateResolver.format("&f" + unitRegistry.getFactionSpec(factionId).displayName() + " 유닛"));
 		int slot = 9;
 		for (var unit : unitRegistry.allByFaction(factionId)) {
 			if (slot >= 27) {
@@ -143,9 +150,9 @@ public class WikiGuiService {
 	}
 
 	private eu.pb4.sgui.api.elements.GuiElementInterface factionAction(ServerPlayerEntity player, FactionId factionId, Item item) {
-		var config = unitRegistry.getFactionConfig(factionId);
-		var lore = config == null ? List.of("&7데이터 없음") : config.summaryLines;
-		return action(item, "&f" + (config == null ? factionId.name() : config.displayName), lore, () -> openFactionDetail(player, factionId));
+		var config = unitRegistry.getFactionSpec(factionId);
+		var lore = config == null ? List.of("&7데이터 없음") : config.summaryLines();
+		return action(item, "&f" + (config == null ? factionId.name() : config.displayName()), lore, () -> openFactionDetail(player, factionId));
 	}
 
 	private eu.pb4.sgui.api.elements.GuiElementInterface action(Item item, String name, List<String> lore, Runnable callback) {
@@ -154,7 +161,12 @@ public class WikiGuiService {
 			.setLore(lore.stream().map(textTemplateResolver::format).toList());
 		if (callback != null) {
 			builder.glow();
-			builder.setCallback((index, clickType, actionType, gui) -> callback.run());
+			builder.setCallback((index, clickType, actionType, gui) -> {
+				if (uiSoundService != null && gui.getPlayer() instanceof ServerPlayerEntity player) {
+					uiSoundService.playUiClick(player);
+				}
+				callback.run();
+			});
 		}
 		return builder.build();
 	}
@@ -173,7 +185,7 @@ public class WikiGuiService {
 		lines.add("&7이동속도 배율: &b" + unit.moveSpeedScale());
 		lines.add("&7코스트: &b" + unit.cost());
 		lines.add("&7생성 쿨: &e" + unit.spawnCooldownSeconds() + "초");
-		if (unit.abilityItem() != null) {
+		if (unit.hasActiveSkill()) {
 			lines.add("&8스킬: &f" + unit.abilityName());
 			lines.add("&8스킬 쿨다운: &f" + unit.abilityCooldownSeconds() + "초");
 		}

@@ -39,7 +39,7 @@ class LaneRuntimeRegistryTest {
 		registry.refresh(null, config, new MatchManager(), capturePointService);
 
 		var runtime = registry.get(LaneId.LANE_1);
-		assertEquals(config.inGame.lane2Region, runtime.laneRegion());
+		assertEquals(config.inGame.lane1Region, runtime.laneRegion());
 		assertEquals(config.capture.lane1, runtime.captureRegion());
 		assertEquals(LaneCaptureStatus.RED_PROGRESS, runtime.captureStatus());
 		assertEquals(1, runtime.redCaptureScore());

@@ -1,6 +1,5 @@
 package karn.minecraftsnap.game;
 
-import karn.minecraftsnap.config.FactionUnitEntry;
 import karn.minecraftsnap.config.UnitItemEntry;
 import karn.minecraftsnap.util.TextTemplateResolver;
 import net.minecraft.component.ComponentChanges;
@@ -15,6 +14,7 @@ import net.minecraft.item.Items;
 import net.minecraft.nbt.NbtCompound;
 import net.minecraft.nbt.NbtOps;
 import net.minecraft.nbt.StringNbtReader;
+import net.minecraft.registry.Registries;
 import net.minecraft.registry.RegistryOps;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.text.Text;
@@ -31,21 +31,36 @@ public class UnitLoadoutService {
 	public static final String KIND_CAPTAIN_SKILL = "captain_skill";
 
 	public void applyUnitLoadout(ServerPlayerEntity player, UnitDefinition definition, TextTemplateResolver textTemplateResolver) {
-		applyBaseLoadout(player, definition, null, textTemplateResolver);
+		applyBaseLoadout(player, definition, textTemplateResolver);
 		applyBaseAttributes(player, definition);
 	}
 
-	public void applyBaseLoadout(ServerPlayerEntity player, UnitDefinition definition, FactionUnitEntry unitEntry, TextTemplateResolver textTemplateResolver) {
+	public void applyBaseLoadout(ServerPlayerEntity player, UnitDefinition definition, TextTemplateResolver textTemplateResolver) {
 		player.getInventory().clear();
 		resetCombatState(player);
-		player.equipStack(EquipmentSlot.HEAD, createEquipment(player, unitEntry == null ? definition.helmet() : unitEntry.helmet, textTemplateResolver));
-		player.equipStack(EquipmentSlot.CHEST, createEquipment(player, unitEntry == null ? definition.chest() : unitEntry.chest, textTemplateResolver));
-		player.equipStack(EquipmentSlot.LEGS, createEquipment(player, unitEntry == null ? definition.legs() : unitEntry.legs, textTemplateResolver));
-		player.equipStack(EquipmentSlot.FEET, createEquipment(player, unitEntry == null ? definition.boots() : unitEntry.boots, textTemplateResolver));
-		player.equipStack(EquipmentSlot.MAINHAND, createEquipment(player, unitEntry == null ? definition.mainHand() : unitEntry.mainHand, textTemplateResolver));
-		player.equipStack(EquipmentSlot.OFFHAND, createEquipment(player, unitEntry == null ? definition.offHand() : unitEntry.offHand, textTemplateResolver));
-		if (definition.abilityItem() != null) {
-			player.getInventory().insertStack(createAbilityItem(player, definition, unitEntry, textTemplateResolver));
+		var head = createEquipment(player, definition.helmet(), textTemplateResolver);
+		var chest = createEquipment(player, definition.chest(), textTemplateResolver);
+		var legs = createEquipment(player, definition.legs(), textTemplateResolver);
+		var feet = createEquipment(player, definition.boots(), textTemplateResolver);
+		var mainHand = createEquipment(player, definition.mainHand(), textTemplateResolver);
+		var offHand = createEquipment(player, definition.offHand(), textTemplateResolver);
+		var abilityTriggerTarget = determineAbilityTriggerTarget(definition);
+		switch (abilityTriggerTarget) {
+			case MAIN_HAND -> tagAbilityTrigger(mainHand, definition);
+			case OFF_HAND -> tagAbilityTrigger(offHand, definition);
+			case EXTRA_ITEM -> {
+			}
+			case NONE -> {
+			}
+		}
+		player.equipStack(EquipmentSlot.HEAD, head);
+		player.equipStack(EquipmentSlot.CHEST, chest);
+		player.equipStack(EquipmentSlot.LEGS, legs);
+		player.equipStack(EquipmentSlot.FEET, feet);
+		player.equipStack(EquipmentSlot.MAINHAND, mainHand);
+		player.equipStack(EquipmentSlot.OFFHAND, offHand);
+		if (abilityTriggerTarget == AbilityTriggerTarget.EXTRA_ITEM) {
+			player.getInventory().insertStack(createAbilityItem(player, definition, textTemplateResolver));
 		}
 		restockAmmo(player, definition);
 		player.setHealth((float) definition.maxHealth());
@@ -112,6 +127,28 @@ public class UnitLoadoutService {
 		return customData != null && unitId.equals(customData.copyNbt().getString(CUSTOM_DATA_UNIT_ID));
 	}
 
+	public boolean matchesUnitAbilityTrigger(ItemStack stack, UnitDefinition definition) {
+		if (stack == null || stack.isEmpty() || definition == null || !definition.hasActiveSkill()) {
+			return false;
+		}
+		if (isUnitAbilityItem(stack, definition.id())) {
+			return true;
+		}
+		return matchesUnitAbilityTriggerItemId(Registries.ITEM.getId(stack.getItem()).toString(), definition);
+	}
+
+	boolean matchesUnitAbilityTriggerItemId(String itemId, UnitDefinition definition) {
+		if (itemId == null || itemId.isBlank() || definition == null || !definition.hasActiveSkill()) {
+			return false;
+		}
+		return switch (determineAbilityTriggerTarget(definition)) {
+			case MAIN_HAND -> itemIdMatchesSpec(itemId, definition.mainHand());
+			case OFF_HAND -> itemIdMatchesSpec(itemId, definition.offHand());
+			case EXTRA_ITEM -> itemIdMatchesSpec(itemId, definition.abilityItemSpec());
+			case NONE -> false;
+		};
+	}
+
 	private void restockAmmo(ServerPlayerEntity player, UnitDefinition definition) {
 		if (definition.ammoType() == UnitDefinition.AmmoType.ARROW && !player.getInventory().contains(new ItemStack(Items.ARROW))) {
 			player.getInventory().insertStack(new ItemStack(Items.ARROW));
@@ -121,17 +158,17 @@ public class UnitLoadoutService {
 		}
 	}
 
-	private ItemStack createCaptainMenuItem(FactionId factionId, TextTemplateResolver textTemplateResolver) {
+	ItemStack createCaptainMenuItem(FactionId factionId, TextTemplateResolver textTemplateResolver) {
 		var stack = createTaggedStack(Items.BELL, KIND_CAPTAIN_MENU, factionId, null);
 		stack.set(DataComponentTypes.CUSTOM_NAME, textTemplateResolver.format("&e유닛 소환"));
 		stack.set(DataComponentTypes.LORE, new LoreComponent(List.of(
-			textTemplateResolver.format("&7우클릭 또는 Shift+F로 소환 GUI 열기"),
+			textTemplateResolver.format("&7우클릭으로 소환 GUI 열기"),
 			textTemplateResolver.format("&8현재 팩션: &f" + factionLabel(factionId))
 		)));
 		return stack;
 	}
 
-	private ItemStack createCaptainSkillItem(FactionId factionId, TextTemplateResolver textTemplateResolver) {
+	ItemStack createCaptainSkillItem(FactionId factionId, TextTemplateResolver textTemplateResolver) {
 		var stack = createTaggedStack(Items.NETHER_STAR, KIND_CAPTAIN_SKILL, factionId, null);
 		stack.set(DataComponentTypes.CUSTOM_NAME, textTemplateResolver.format("&d사령관 스킬"));
 		stack.set(DataComponentTypes.LORE, new LoreComponent(List.of(
@@ -141,8 +178,8 @@ public class UnitLoadoutService {
 		return stack;
 	}
 
-	private ItemStack createAbilityItem(ServerPlayerEntity player, UnitDefinition definition, FactionUnitEntry unitEntry, TextTemplateResolver textTemplateResolver) {
-		var spec = unitEntry == null ? definition.abilityItemSpec() : unitEntry.abilityItem;
+	private ItemStack createAbilityItem(ServerPlayerEntity player, UnitDefinition definition, TextTemplateResolver textTemplateResolver) {
+		var spec = definition.abilityItemSpec();
 		var abilityName = spec != null && !spec.displayName.isBlank()
 			? spec.displayName
 			: "&b" + definition.abilityName();
@@ -171,6 +208,29 @@ public class UnitLoadoutService {
 			stack.set(DataComponentTypes.LORE, new LoreComponent(spec.loreLines.stream().map(textTemplateResolver::format).toList()));
 		}
 		return stack;
+	}
+
+	AbilityTriggerTarget determineAbilityTriggerTarget(UnitDefinition definition) {
+		if (definition == null || !definition.hasActiveSkill()) {
+			return AbilityTriggerTarget.NONE;
+		}
+		var abilitySpec = definition.abilityItemSpec();
+		if (abilitySpec == null || abilitySpec.isEmpty()) {
+			if (definition.mainHand() != null && !definition.mainHand().isEmpty()) {
+				return AbilityTriggerTarget.MAIN_HAND;
+			}
+			if (definition.offHand() != null && !definition.offHand().isEmpty()) {
+				return AbilityTriggerTarget.OFF_HAND;
+			}
+			return AbilityTriggerTarget.NONE;
+		}
+		if (definition.mainHand() != null && abilitySpec.sameSpec(definition.mainHand())) {
+			return AbilityTriggerTarget.MAIN_HAND;
+		}
+		if (definition.offHand() != null && abilitySpec.sameSpec(definition.offHand())) {
+			return AbilityTriggerTarget.OFF_HAND;
+		}
+		return AbilityTriggerTarget.EXTRA_ITEM;
 	}
 
 	private ItemStack createTaggedStack(Item item, String kind, FactionId factionId, String unitId) {
@@ -255,6 +315,24 @@ public class UnitLoadoutService {
 		stack.set(DataComponentTypes.CUSTOM_DATA, NbtComponent.of(nbt));
 	}
 
+	private void tagAbilityTrigger(ItemStack stack, UnitDefinition definition) {
+		if (stack.isEmpty() || definition == null) {
+			return;
+		}
+		applyCustomData(stack, KIND_UNIT_ABILITY, definition.factionId(), definition.id());
+	}
+
+	private boolean itemIdMatchesSpec(String itemId, UnitItemEntry spec) {
+		if (itemId == null || itemId.isBlank() || spec == null || spec.isEmpty()) {
+			return false;
+		}
+		if (spec.itemId != null && !spec.itemId.isBlank()) {
+			return itemId.equals(spec.itemId);
+		}
+		var item = spec.resolve();
+		return item != null && itemId.equals(Registries.ITEM.getId(item).toString());
+	}
+
 	private boolean hasKind(ItemStack stack, String kind) {
 		var customData = stack.get(DataComponentTypes.CUSTOM_DATA);
 		return customData != null && kind.equals(customData.copyNbt().getString(CUSTOM_DATA_KIND));
@@ -285,5 +363,12 @@ public class UnitLoadoutService {
 			case MONSTER -> "몬스터";
 			case NETHER -> "네더";
 		};
+	}
+
+	enum AbilityTriggerTarget {
+		NONE,
+		MAIN_HAND,
+		OFF_HAND,
+		EXTRA_ITEM
 	}
 }

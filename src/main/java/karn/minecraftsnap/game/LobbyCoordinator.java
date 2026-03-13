@@ -19,6 +19,7 @@ import net.minecraft.world.TeleportTarget;
 
 public class LobbyCoordinator {
 	private final java.util.EnumMap<TeamId, Long> factionGuiOpenTicks = new java.util.EnumMap<>(TeamId.class);
+	private boolean autoAdvanceTeamSelection = true;
 	private final MatchManager matchManager;
 	private final StatsRepository statsRepository;
 	private final TeamAssignmentService teamAssignmentService;
@@ -79,7 +80,8 @@ public class LobbyCoordinator {
 			lobbyScoreboardService.sync(server, matchManager, statsRepository);
 		}
 
-		if (matchManager.getPhase() == MatchPhase.TEAM_SELECT
+		if (autoAdvanceTeamSelection
+			&& matchManager.getPhase() == MatchPhase.TEAM_SELECT
 			&& matchManager.getPhaseTicks() >= config.lobby.factionSelectDelaySeconds * 20L) {
 			matchManager.setPhase(MatchPhase.FACTION_SELECT);
 			openCaptainFactionGuis(server, config);
@@ -130,6 +132,24 @@ public class LobbyCoordinator {
 	}
 
 	public void startTeamSelection(MinecraftServer server, SystemConfig config) {
+		startTeamSelection(server, config, autoAdvanceTeamSelection);
+	}
+
+	public void assignTeamsOnly(MinecraftServer server, SystemConfig config) {
+		startTeamSelection(server, config, false);
+	}
+
+	public boolean toggleAutoAdvanceTeamSelection() {
+		autoAdvanceTeamSelection = !autoAdvanceTeamSelection;
+		return autoAdvanceTeamSelection;
+	}
+
+	public boolean isAutoAdvanceTeamSelection() {
+		return autoAdvanceTeamSelection;
+	}
+
+	private void startTeamSelection(MinecraftServer server, SystemConfig config, boolean autoAdvance) {
+		autoAdvanceTeamSelection = autoAdvance;
 		var players = server.getPlayerManager().getPlayerList();
 		if (players.isEmpty()) {
 			matchManager.setPhase(MatchPhase.TEAM_SELECT);
@@ -140,14 +160,13 @@ public class LobbyCoordinator {
 		var candidates = players.stream()
 			.map(player -> {
 				var stats = statsRepository.getOrCreate(player.getUuid(), player.getName().getString());
-				var state = matchManager.getPlayerState(player.getUuid());
 				return new TeamAssignmentService.PlayerCandidate(
 					player.getUuid(),
 					player.getName().getString(),
 					stats.ladder,
 					stats.preference,
-					state.getRoleType() == RoleType.CAPTAIN ? state.getTeamId() : null,
-					state.getRoleType() == RoleType.CAPTAIN
+					null,
+					false
 				);
 			})
 			.toList();
@@ -298,7 +317,7 @@ public class LobbyCoordinator {
 		if (state.getRoleType() == RoleType.UNIT) {
 			matchManager.clearCurrentUnit(player.getUuid());
 			player.changeGameMode(GameMode.SPECTATOR);
-			teleport(player, config.world, config.gameStart.unitSpawnFor(state.getTeamId()));
+			teleport(player, config.world, config.gameStart.captainSpawnFor(state.getTeamId()));
 		} else {
 			player.changeGameMode(GameMode.ADVENTURE);
 			teleport(player, config.world, config.gameStart.captainSpawnFor(state.getTeamId()));

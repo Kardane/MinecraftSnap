@@ -50,6 +50,7 @@ class UnitClassRegistryTest {
 				0,
 				UnitDefinition.AmmoType.NONE,
 				new karn.minecraftsnap.config.EntitySpecEntry(),
+				java.util.List.of(),
 				java.util.List.of()
 			));
 		}
@@ -81,6 +82,7 @@ class UnitClassRegistryTest {
 			0,
 			UnitDefinition.AmmoType.NONE,
 			new karn.minecraftsnap.config.EntitySpecEntry(),
+			java.util.List.of(),
 			java.util.List.of()
 		));
 		var unitClassRegistry = new UnitClassRegistry();

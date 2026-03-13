@@ -24,7 +24,7 @@ class LaneBiomeServiceTest {
 	}
 
 	@Test
-	void targetRegionFollowsCaptureRegionLocation() {
+	void targetRegionUsesLaneKeyDirectly() {
 		var config = new karn.minecraftsnap.config.SystemConfig();
 		config.capture.lane1.enabled = true;
 		config.capture.lane1.minX = 16.0;
@@ -34,7 +34,7 @@ class LaneBiomeServiceTest {
 		config.capture.lane1.minZ = -2.0;
 		config.capture.lane1.maxZ = 2.0;
 
-		assertEquals(config.inGame.lane2Region, LaneBiomeService.targetRegionOf(LaneId.LANE_1, config));
+		assertEquals(config.inGame.lane1Region, LaneBiomeService.targetRegionOf(LaneId.LANE_1, config));
 	}
 
 	@Test

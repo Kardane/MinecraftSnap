@@ -2,6 +2,7 @@ package karn.minecraftsnap.ui;
 
 import eu.pb4.sgui.api.elements.GuiElementBuilder;
 import eu.pb4.sgui.api.gui.SimpleGui;
+import karn.minecraftsnap.audio.UiSoundService;
 import karn.minecraftsnap.config.ShopConfigFile;
 import karn.minecraftsnap.config.ShopEntry;
 import karn.minecraftsnap.config.StatsRepository;
@@ -11,6 +12,7 @@ import karn.minecraftsnap.game.UnitLoadoutService;
 import karn.minecraftsnap.util.TextTemplateResolver;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.Items;
+import net.minecraft.registry.Registries;
 import net.minecraft.screen.ScreenHandlerType;
 import net.minecraft.server.network.ServerPlayerEntity;
 
@@ -22,15 +24,13 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 
 public class TradeGuiService {
-	private static final List<Integer> MERCHANDISE_SLOTS = java.util.stream.IntStream.range(0, 27)
-		.filter(slot -> slot != 11 && slot != 13 && slot != 15)
-		.boxed()
-		.toList();
+	private static final List<Integer> MERCHANDISE_SLOTS = java.util.stream.IntStream.range(0, 27).boxed().toList();
 
 	private final TextTemplateResolver textTemplateResolver;
 	private final UnitLoadoutService unitLoadoutService;
 	private final Function<FactionId, ShopConfigFile> shopConfigProvider;
 	private final Supplier<StatsRepository> statsRepositorySupplier;
+	private final UiSoundService uiSoundService;
 
 	public TradeGuiService(
 		TextTemplateResolver textTemplateResolver,
@@ -38,10 +38,21 @@ public class TradeGuiService {
 		Function<FactionId, ShopConfigFile> shopConfigProvider,
 		Supplier<StatsRepository> statsRepositorySupplier
 	) {
+		this(textTemplateResolver, unitLoadoutService, shopConfigProvider, statsRepositorySupplier, null);
+	}
+
+	public TradeGuiService(
+		TextTemplateResolver textTemplateResolver,
+		UnitLoadoutService unitLoadoutService,
+		Function<FactionId, ShopConfigFile> shopConfigProvider,
+		Supplier<StatsRepository> statsRepositorySupplier,
+		UiSoundService uiSoundService
+	) {
 		this.textTemplateResolver = textTemplateResolver;
 		this.unitLoadoutService = unitLoadoutService;
 		this.shopConfigProvider = shopConfigProvider;
 		this.statsRepositorySupplier = statsRepositorySupplier;
+		this.uiSoundService = uiSoundService;
 	}
 
 	public void open(ServerPlayerEntity player, PlayerMatchState state) {
@@ -70,17 +81,25 @@ public class TradeGuiService {
 		UUID playerId,
 		String playerName,
 		int price,
+		int inventoryCurrencyAvailable,
+		Runnable inventoryCurrencySpendAction,
 		BooleanSupplier rewardGrantAction
 	) {
-		if (balanceOf(factionId, state) < price) {
+		var stateBalance = balanceOf(factionId, state);
+		var inventoryCurrencySpent = Math.min(price, Math.max(0, inventoryCurrencyAvailable));
+		if (stateBalance + inventoryCurrencySpent < price) {
 			return PurchaseResult.INSUFFICIENT_FUNDS;
 		}
 		if (!rewardGrantAction.getAsBoolean()) {
 			return PurchaseResult.INVENTORY_FULL;
 		}
+		if (inventoryCurrencySpendAction != null && inventoryCurrencySpent > 0) {
+			inventoryCurrencySpendAction.run();
+		}
+		var remainingStateCost = Math.max(0, price - inventoryCurrencySpent);
 		switch (factionId) {
-			case VILLAGER -> state.addEmeralds(-price);
-			case NETHER -> state.addGoldIngots(-price);
+			case VILLAGER -> state.addEmeralds(-remainingStateCost);
+			case NETHER -> state.addGoldIngots(-remainingStateCost);
 			default -> {
 				return PurchaseResult.UNSUPPORTED_FACTION;
 			}
@@ -88,8 +107,8 @@ public class TradeGuiService {
 		var repository = statsRepositorySupplier == null ? null : statsRepositorySupplier.get();
 		if (repository != null) {
 			switch (factionId) {
-				case VILLAGER -> repository.addEmeralds(playerId, playerName, -price);
-				case NETHER -> repository.addGoldIngots(playerId, playerName, -price);
+				case VILLAGER -> repository.addEmeralds(playerId, playerName, -remainingStateCost);
+				case NETHER -> repository.addGoldIngots(playerId, playerName, -remainingStateCost);
 				default -> {
 				}
 			}
@@ -100,30 +119,8 @@ public class TradeGuiService {
 	private void openInternal(ServerPlayerEntity player, PlayerMatchState state, FactionId factionId) {
 		var gui = new SimpleGui(ScreenHandlerType.GENERIC_9X3, player, false);
 		gui.setTitle(textTemplateResolver.format(factionId == FactionId.NETHER ? "&6네더 상점" : "&a주민 상점"));
-		renderStaticSlots(gui, state, factionId);
 		renderMerchandise(gui, player, state, factionId);
 		gui.open();
-	}
-
-	private void renderStaticSlots(SimpleGui gui, PlayerMatchState state, FactionId factionId) {
-		gui.setSlot(11, new GuiElementBuilder(factionId == FactionId.NETHER ? Items.GOLD_INGOT : Items.EMERALD)
-			.setName(textTemplateResolver.format(factionId == FactionId.NETHER ? "&6금괴 잔액" : "&a에메랄드 잔액"))
-			.setLore(lines("&f보유량: " + currencyColor(factionId) + balanceOf(factionId, state)))
-			.build());
-		gui.setSlot(13, new GuiElementBuilder(factionId == FactionId.NETHER ? Items.BARREL : Items.CHEST)
-			.setName(textTemplateResolver.format("&e소모품 상점"))
-			.setLore(lines(
-				"&7아이템 클릭으로 즉시 구매",
-				"&7디스플레이 아이템은 사라지지 않음"
-			))
-			.build());
-		gui.setSlot(15, new GuiElementBuilder(Items.PAPER)
-			.setName(textTemplateResolver.format("&f구매 안내"))
-			.setLore(lines(
-				"&7재화 부족 시 구매 실패",
-				"&7인벤토리가 가득 차면 지급 안 됨"
-			))
-			.build());
 	}
 
 	private void renderMerchandise(SimpleGui gui, ServerPlayerEntity player, PlayerMatchState state, FactionId factionId) {
@@ -138,15 +135,42 @@ public class TradeGuiService {
 			mergeShopLore(displayStack, factionId, entry.price);
 			var builder = new GuiElementBuilder(displayStack)
 				.setCallback((slotIndex, clickType, action, slotGui) -> {
+					if (uiSoundService != null) {
+						uiSoundService.playUiClick(player);
+					}
 					var result = purchase(player, state, factionId, entry);
 					switch (result) {
-						case SUCCESS -> player.sendMessage(textTemplateResolver.format("&a구매 완료"), false);
-						case INSUFFICIENT_FUNDS -> player.sendMessage(textTemplateResolver.format("&c재화가 부족함"), false);
-						case INVENTORY_FULL -> player.sendMessage(textTemplateResolver.format("&c인벤토리 공간 부족"), false);
-						case INVALID_ENTRY -> player.sendMessage(textTemplateResolver.format("&c상점 품목 설정 오류"), false);
-						case UNSUPPORTED_FACTION -> player.sendMessage(textTemplateResolver.format("&c이 팩션은 상점을 사용할 수 없음"), false);
+						case SUCCESS -> {
+							if (uiSoundService != null) {
+								uiSoundService.playUiConfirm(player);
+							}
+							player.sendMessage(textTemplateResolver.format("&a구매 완료"), false);
+						}
+						case INSUFFICIENT_FUNDS -> {
+							if (uiSoundService != null) {
+								uiSoundService.playUiDeny(player);
+							}
+							player.sendMessage(textTemplateResolver.format("&c재화가 부족함"), false);
+						}
+						case INVENTORY_FULL -> {
+							if (uiSoundService != null) {
+								uiSoundService.playUiDeny(player);
+							}
+							player.sendMessage(textTemplateResolver.format("&c인벤토리 공간 부족"), false);
+						}
+						case INVALID_ENTRY -> {
+							if (uiSoundService != null) {
+								uiSoundService.playUiDeny(player);
+							}
+							player.sendMessage(textTemplateResolver.format("&c상점 품목 설정 오류"), false);
+						}
+						case UNSUPPORTED_FACTION -> {
+							if (uiSoundService != null) {
+								uiSoundService.playUiDeny(player);
+							}
+							player.sendMessage(textTemplateResolver.format("&c이 팩션은 상점을 사용할 수 없음"), false);
+						}
 					}
-					renderStaticSlots(gui, state, factionId);
 				});
 			gui.setSlot(MERCHANDISE_SLOTS.get(index), builder.build());
 		}
@@ -176,12 +200,16 @@ public class TradeGuiService {
 		if (reward.isEmpty()) {
 			return PurchaseResult.INVALID_ENTRY;
 		}
+		var inventoryCurrencyAvailable = countInventoryCurrency(factionId, inventoryStacks(player));
+		var inventoryCurrencySpent = Math.min(entry.price, inventoryCurrencyAvailable);
 		return completePurchase(
 			factionId,
 			state,
 			player.getUuid(),
 			player.getName().getString(),
 			entry.price,
+			inventoryCurrencyAvailable,
+			() -> consumeInventoryCurrency(factionId, inventoryStacks(player), inventoryCurrencySpent),
 			() -> tryInsertReward(player, reward)
 		);
 	}
@@ -229,14 +257,80 @@ public class TradeGuiService {
 		};
 	}
 
-	private String currencyColor(FactionId factionId) {
-		return factionId == FactionId.NETHER ? "&6" : "&a";
+	static int countInventoryCurrency(FactionId factionId, List<ItemStack> stacks) {
+		var entries = stacks.stream()
+			.map(stack -> new CurrencyEntry(stack.isEmpty() ? "" : Registries.ITEM.getId(stack.getItem()).toString(), stack.getCount()))
+			.toList();
+		return countCurrencyEntries(factionId, entries);
 	}
 
-	private List<net.minecraft.text.Text> lines(String... values) {
-		return java.util.Arrays.stream(values)
-			.map(textTemplateResolver::format)
-			.toList();
+	static int countCurrencyEntries(FactionId factionId, List<CurrencyEntry> entries) {
+		if (entries == null || factionId == null) {
+			return 0;
+		}
+		var currencyItemId = currencyItemIdOf(factionId);
+		if (currencyItemId == null) {
+			return 0;
+		}
+		return entries.stream()
+			.filter(entry -> currencyItemId.equals(entry.itemId()))
+			.mapToInt(CurrencyEntry::count)
+			.sum();
+	}
+
+	static int consumeInventoryCurrency(FactionId factionId, List<ItemStack> stacks, int amount) {
+		if (stacks == null || amount <= 0 || factionId == null) {
+			return amount;
+		}
+		var remaining = amount;
+		var currencyItem = currencyItemOf(factionId);
+		if (currencyItem == null) {
+			return remaining;
+		}
+		for (var stack : stacks) {
+			if (remaining <= 0) {
+				break;
+			}
+			if (stack.isEmpty() || stack.getItem() != currencyItem) {
+				continue;
+			}
+			var consumed = Math.min(stack.getCount(), remaining);
+			stack.decrement(consumed);
+			remaining -= consumed;
+		}
+		return remaining;
+	}
+
+	private static net.minecraft.item.Item currencyItemOf(FactionId factionId) {
+		return switch (factionId) {
+			case VILLAGER -> Items.EMERALD;
+			case NETHER -> Items.GOLD_INGOT;
+			default -> null;
+		};
+	}
+
+	private static String currencyItemIdOf(FactionId factionId) {
+		return switch (factionId) {
+			case VILLAGER -> "minecraft:emerald";
+			case NETHER -> "minecraft:gold_ingot";
+			default -> null;
+		};
+	}
+
+	private List<ItemStack> inventoryStacks(ServerPlayerEntity player) {
+		if (player == null) {
+			return List.of();
+		}
+		var inventory = player.getInventory();
+		var stacks = new ArrayList<ItemStack>(inventory.size());
+		for (int slot = 0; slot < inventory.size(); slot++) {
+			stacks.add(inventory.getStack(slot));
+		}
+		return stacks;
+	}
+
+	private String currencyColor(FactionId factionId) {
+		return factionId == FactionId.NETHER ? "&6" : "&a";
 	}
 
 	enum PurchaseResult {
@@ -245,5 +339,8 @@ public class TradeGuiService {
 		INVENTORY_FULL,
 		INVALID_ENTRY,
 		UNSUPPORTED_FACTION
+	}
+
+	record CurrencyEntry(String itemId, int count) {
 	}
 }

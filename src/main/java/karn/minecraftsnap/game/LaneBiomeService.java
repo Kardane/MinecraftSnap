@@ -163,22 +163,6 @@ public class LaneBiomeService {
 	}
 
 	static SystemConfig.LaneRegionConfig targetRegionOf(LaneId laneId, SystemConfig systemConfig) {
-		var captureRegion = switch (laneId) {
-			case LANE_1 -> systemConfig.capture.lane1;
-			case LANE_2 -> systemConfig.capture.lane2;
-			case LANE_3 -> systemConfig.capture.lane3;
-		};
-		if (captureRegion != null) {
-			for (var candidate : new SystemConfig.LaneRegionConfig[] {
-				systemConfig.inGame.lane1Region,
-				systemConfig.inGame.lane2Region,
-				systemConfig.inGame.lane3Region
-			}) {
-				if (CapturePointService.contains(candidate, captureRegion)) {
-					return candidate;
-				}
-			}
-		}
 		return switch (laneId) {
 			case LANE_1 -> systemConfig.inGame.lane1Region;
 			case LANE_2 -> systemConfig.inGame.lane2Region;

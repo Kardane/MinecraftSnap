@@ -1,5 +1,6 @@
 package karn.minecraftsnap.ui;
 
+import karn.minecraftsnap.audio.UiSoundService;
 import eu.pb4.sgui.api.elements.GuiElementBuilder;
 import eu.pb4.sgui.api.gui.SimpleGui;
 import karn.minecraftsnap.game.CaptainState;
@@ -16,15 +17,21 @@ import java.util.function.Consumer;
 public class CaptainSpawnGuiService {
 	private final TextTemplateResolver textTemplateResolver;
 	private final UnitRegistry unitRegistry;
+	private final UiSoundService uiSoundService;
 
 	public CaptainSpawnGuiService(TextTemplateResolver textTemplateResolver, UnitRegistry unitRegistry) {
-		this.textTemplateResolver = textTemplateResolver;
-		this.unitRegistry = unitRegistry;
+		this(textTemplateResolver, unitRegistry, null);
 	}
 
-	public void open(ServerPlayerEntity player, FactionId factionId, CaptainState captainState, Consumer<UnitDefinition> onSelect) {
+	public CaptainSpawnGuiService(TextTemplateResolver textTemplateResolver, UnitRegistry unitRegistry, UiSoundService uiSoundService) {
+		this.textTemplateResolver = textTemplateResolver;
+		this.unitRegistry = unitRegistry;
+		this.uiSoundService = uiSoundService;
+	}
+
+	public void open(ServerPlayerEntity player, FactionId factionId, CaptainState captainState, String title, Consumer<UnitDefinition> onSelect) {
 		var gui = new SimpleGui(ScreenHandlerType.GENERIC_9X3, player, false);
-		gui.setTitle(textTemplateResolver.format("&6유닛 소환"));
+		gui.setTitle(textTemplateResolver.format(title));
 		int slot = 10;
 		for (var definition : unitRegistry.byFaction(factionId)) {
 			var blocked = captainState.getCurrentMana() < definition.cost() || captainState.getSpawnCooldownSeconds() > 0;
@@ -40,8 +47,17 @@ public class CaptainSpawnGuiService {
 			if (!blocked) {
 				builder.glow();
 				builder.setCallback((index, clickType, action, slotGui) -> {
+					if (uiSoundService != null) {
+						uiSoundService.playUiConfirm(gui.getPlayer());
+					}
 					onSelect.accept(definition);
 					gui.close();
+				});
+			} else {
+				builder.setCallback((index, clickType, action, slotGui) -> {
+					if (uiSoundService != null) {
+						uiSoundService.playUiDeny(gui.getPlayer());
+					}
 				});
 			}
 			gui.setSlot(slot++, builder.build());

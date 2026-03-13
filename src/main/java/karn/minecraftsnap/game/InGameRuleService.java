@@ -1,5 +1,6 @@
 package karn.minecraftsnap.game;
 
+import karn.minecraftsnap.audio.UiSoundService;
 import karn.minecraftsnap.biome.BiomeRuntimeContext;
 import karn.minecraftsnap.config.StatsRepository;
 import karn.minecraftsnap.config.SystemConfig;
@@ -30,12 +31,13 @@ public class InGameRuleService {
 	private final UnitAbilityService unitAbilityService;
 	private final LaneRuntimeRegistry laneRuntimeRegistry;
 	private final UnitHookService unitHookService;
+	private final UiSoundService uiSoundService;
 	private SystemConfig lastSystemConfig = new SystemConfig();
 	private final Set<UUID> pendingSpectators = new HashSet<>();
 	private final Map<UUID, Long> laneWarningTicks = new HashMap<>();
 
 	public InGameRuleService(MatchManager matchManager, StatsRepository statsRepository, TextTemplateResolver textTemplateResolver) {
-		this(matchManager, statsRepository, textTemplateResolver, null, null, null, null, null, null);
+		this(matchManager, statsRepository, textTemplateResolver, null, null, null, null, null, null, null);
 	}
 
 	public InGameRuleService(
@@ -47,7 +49,8 @@ public class InGameRuleService {
 		UnitRegistry unitRegistry,
 		UnitAbilityService unitAbilityService,
 		LaneRuntimeRegistry laneRuntimeRegistry,
-		UnitHookService unitHookService
+		UnitHookService unitHookService,
+		UiSoundService uiSoundService
 	) {
 		this.matchManager = matchManager;
 		this.statsRepository = statsRepository;
@@ -58,6 +61,7 @@ public class InGameRuleService {
 		this.unitAbilityService = unitAbilityService;
 		this.laneRuntimeRegistry = laneRuntimeRegistry;
 		this.unitHookService = unitHookService;
+		this.uiSoundService = uiSoundService;
 	}
 
 	public void tick(MinecraftServer server, SystemConfig systemConfig) {
@@ -153,6 +157,7 @@ public class InGameRuleService {
 		if (attacker != null && unitHookService != null) {
 			unitHookService.handleKill(attacker, player, nullSafeSystemConfig());
 		}
+		broadcastCustomDeathMessage(player, attacker, source);
 		notifyDeathHook(player, source);
 		matchManager.clearCurrentUnit(player.getUuid());
 		if (unitSpawnService != null) {
@@ -214,23 +219,18 @@ public class InGameRuleService {
 		if (laneId == null || !shouldBlockClosedLane(state, laneId)) {
 			return;
 		}
+		if (isInsideCaptureRegion(player, systemConfig.capture)) {
+			return;
+		}
 
 		var lastTick = laneWarningTicks.getOrDefault(player.getUuid(), Long.MIN_VALUE);
 		if (matchManager.getServerTicks() - lastTick >= systemConfig.inGame.laneWarningCooldownTicks) {
 			player.sendMessage(textTemplateResolver.format(systemConfig.inGame.closedLaneMessage), true);
+			if (uiSoundService != null) {
+				uiSoundService.playEventWarning(player);
+			}
 			laneWarningTicks.put(player.getUuid(), matchManager.getServerTicks());
 		}
-
-		var spawn = systemConfig.gameStart.unitSpawnFor(state.getTeamId());
-		var world = resolveWorld(player.getServer(), systemConfig.world);
-		player.teleportTo(new net.minecraft.world.TeleportTarget(
-			world,
-			new net.minecraft.util.math.Vec3d(spawn.x, spawn.y, spawn.z),
-			net.minecraft.util.math.Vec3d.ZERO,
-			spawn.yaw,
-			spawn.pitch,
-			net.minecraft.world.TeleportTarget.NO_OP
-		));
 	}
 
 	private void applyPendingSpectators(MinecraftServer server) {
@@ -278,6 +278,15 @@ public class InGameRuleService {
 			&& z >= region.minZ && z <= region.maxZ;
 	}
 
+	private boolean isInsideCaptureRegion(ServerPlayerEntity player, SystemConfig.CaptureConfig captureConfig) {
+		if (player == null || captureConfig == null) {
+			return false;
+		}
+		return CapturePointService.contains(captureConfig.lane1, player.getPos())
+			|| CapturePointService.contains(captureConfig.lane2, player.getPos())
+			|| CapturePointService.contains(captureConfig.lane3, player.getPos());
+	}
+
 	private net.minecraft.server.world.ServerWorld resolveWorld(MinecraftServer server, String worldId) {
 		try {
 			var key = net.minecraft.registry.RegistryKey.of(net.minecraft.registry.RegistryKeys.WORLD, net.minecraft.util.Identifier.of(worldId));
@@ -291,11 +300,28 @@ public class InGameRuleService {
 	private void enforceCaptainFlight(MinecraftServer server, SystemConfig systemConfig) {
 		for (var player : server.getPlayerManager().getPlayerList()) {
 			var state = matchManager.getPlayerState(player.getUuid());
-			if (!state.isCaptain()) {
+			if (player.isSpectator()) {
+				boolean changed = false;
+				if (!player.getAbilities().allowFlying) {
+					player.getAbilities().allowFlying = true;
+					changed = true;
+				}
+				if (!player.getAbilities().flying) {
+					player.getAbilities().flying = true;
+					changed = true;
+				}
+				if (player.getAbilities().getFlySpeed() != systemConfig.inGame.defaultFlySpeed) {
+					player.getAbilities().setFlySpeed(systemConfig.inGame.defaultFlySpeed);
+					changed = true;
+				}
+				if (changed) {
+					player.sendAbilitiesUpdate();
+				}
 				continue;
 			}
 			boolean changed = false;
-			if (isCaptainFlightPhase(matchManager.getPhase())) {
+			var captainFlight = state.isCaptain() && isCaptainFlightPhase(matchManager.getPhase());
+			if (captainFlight) {
 				if (!player.getAbilities().allowFlying) {
 					player.getAbilities().allowFlying = true;
 					player.getAbilities().flying = true;
@@ -307,11 +333,11 @@ public class InGameRuleService {
 				}
 				player.fallDistance = 0.0f;
 			} else {
-				if (player.getAbilities().flying) {
+				if (!player.hasPermissionLevel(2) && player.getAbilities().flying) {
 					player.getAbilities().flying = false;
 					changed = true;
 				}
-				if (player.getAbilities().allowFlying) {
+				if (!player.hasPermissionLevel(2) && player.getAbilities().allowFlying) {
 					player.getAbilities().allowFlying = false;
 					changed = true;
 				}
@@ -348,7 +374,7 @@ public class InGameRuleService {
 			return;
 		}
 		for (var player : server.getPlayerManager().getPlayerList()) {
-			if (player.hasPermissionLevel(2)) {
+			if (player.hasPermissionLevel(2) || player.isSpectator()) {
 				continue;
 			}
 			boolean changed = false;
@@ -415,6 +441,28 @@ public class InGameRuleService {
 		var context = createContext(victim);
 		if (context != null) {
 			context.laneRuntime().biomeEffect().onDeath(context, victim, source);
+		}
+	}
+
+	private void broadcastCustomDeathMessage(ServerPlayerEntity victim, ServerPlayerEntity attacker, DamageSource source) {
+		var server = matchManager.getServer();
+		if (server == null || victim == null) {
+			return;
+		}
+		var template = nullSafeSystemConfig().announcements.customDeathMessage;
+		if (template == null || template.isBlank()) {
+			return;
+		}
+		var killerName = attacker != null ? attacker.getName().getString() : "환경";
+		server.getPlayerManager().broadcast(
+			textTemplateResolver.format(template
+				.replace("{victim}", victim.getName().getString())
+				.replace("{killer}", killerName)
+				.replace("{damage_type}", source == null ? "unknown" : source.getName())),
+			false
+		);
+		if (uiSoundService != null) {
+			uiSoundService.playEventWarning(server);
 		}
 	}
 

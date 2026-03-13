@@ -1,0 +1,92 @@
+package karn.minecraftsnap.config;
+
+public class TextConfigFile {
+	public String prefix = "&7[&6!&7]&f ";
+	public String bossBarTemplate = "&c레드 {red_score} &8| &f남은 시간 {time} &8| &9블루 {blue_score}";
+	public String teamChatFormat = "&8[&a팀&8] &7[{team} / {role}] &f{player}&7: {message}";
+	public String teamChatNoTeamMessage = "&c팀 채팅은 팀 배정 이후에만 사용할 수 있음";
+	public String teamChatEmptyMessage = "&c팀 채팅 내용이 비어있음";
+	public String factionSelectBossBarTemplate = "&6팩션 선택 남은 시간 &f{time}";
+	public String closedLaneMessage = "&c아직 공개되지 않은 라인임";
+	public String ladderPrefixFormat = "[{ladder}] ";
+	public String captainStar = "★ ";
+	public String unitHudTemplate = "&f{unit} &8| &b{skill} &8| {cooldown}";
+	public String unitHudReadyMessage = "&a준비 완료";
+	public String unitHudFallbackSkillName = "기본 스킬";
+	public String unitHudUnknownUnitName = "알 수 없는 유닛";
+	public String captureDefaultBossBarText = "&f점령";
+	public String captureContestedBossBarText = "&e격돌중!";
+	public String captureRedOwnerBossBarText = "레드 점령지";
+	public String captureBlueOwnerBossBarText = "블루 점령지";
+	public String captureNeutralOwnerBossBarText = "중립 점령지";
+	public String lobbyPhaseMessage = "&e로비로 복귀";
+	public String teamSelectPhaseMessage = "&a팀 배정 시작";
+	public String factionSelectPhaseMessage = "&6팩션 선택 시작";
+	public String gameStartPhaseMessage = "&b게임 준비 시작";
+	public String gameRunningPhaseMessage = "&c게임 시작";
+	public String gameEndPhaseMessage = "&d게임 종료";
+	public String factionSelectionMessage = "&f{team} 팀 사령관이 &6{faction} &f팩션 선택";
+	public String villagerFactionName = "주민";
+	public String monsterFactionName = "몬스터";
+	public String netherFactionName = "네더";
+	public String advanceNotAvailableMessage = "&c아직 전직할 수 없음";
+	public String advanceReadyMessage = "&a전직 가능 상태가 됨";
+	public String gameEndTitleTemplate = "&6승리: &f{winner}";
+	public String gameEndDrawTitleTemplate = "&e무승부";
+	public String captainSpawnGuiTitle = "&6유닛 소환";
+	public String captainSpawnNoFactionMessage = "&c팩션이 정해지지 않았음";
+	public String captainSpawnBlockedLaneMessage = "&c{lane}은 아직 공개되지 않아 소환 불가";
+	public String gameStartCountdownTitle = "&e게임 시작";
+	public String gameStartCountdownSubtitleTemplate = "&f{seconds}초";
+	public String victoryCountdownSubtitleTemplate = "&e{team} 팀 승리 임박 &7({seconds}초)";
+	public String customDeathMessage = "&8[사망] &f{victim} &7사망";
+	public String autoStartEnabledMessage = "&a팀 선택 자동 시작: &f켜짐";
+	public String autoStartDisabledMessage = "&c팀 선택 자동 시작: &f꺼짐";
+
+	public void applyTo(SystemConfig systemConfig) {
+		if (systemConfig == null) {
+			return;
+		}
+		systemConfig.prefix = prefix;
+		systemConfig.bossBar.template = bossBarTemplate;
+		systemConfig.teamChat.format = teamChatFormat;
+		systemConfig.teamChat.noTeamMessage = teamChatNoTeamMessage;
+		systemConfig.teamChat.emptyMessage = teamChatEmptyMessage;
+		systemConfig.lobby.factionSelectBossBarTemplate = factionSelectBossBarTemplate;
+		systemConfig.inGame.closedLaneMessage = closedLaneMessage;
+		systemConfig.display.ladderPrefixFormat = ladderPrefixFormat;
+		systemConfig.display.captainStar = captainStar;
+		systemConfig.display.unitHudTemplate = unitHudTemplate;
+		systemConfig.display.unitHudReadyMessage = unitHudReadyMessage;
+		systemConfig.display.unitHudFallbackSkillName = unitHudFallbackSkillName;
+		systemConfig.display.unitHudUnknownUnitName = unitHudUnknownUnitName;
+		systemConfig.capture.defaultBossBarText = captureDefaultBossBarText;
+		systemConfig.capture.contestedBossBarText = captureContestedBossBarText;
+		systemConfig.capture.redOwnerBossBarText = captureRedOwnerBossBarText;
+		systemConfig.capture.blueOwnerBossBarText = captureBlueOwnerBossBarText;
+		systemConfig.capture.neutralOwnerBossBarText = captureNeutralOwnerBossBarText;
+		systemConfig.announcements.lobbyPhaseMessage = lobbyPhaseMessage;
+		systemConfig.announcements.teamSelectPhaseMessage = teamSelectPhaseMessage;
+		systemConfig.announcements.factionSelectPhaseMessage = factionSelectPhaseMessage;
+		systemConfig.announcements.gameStartPhaseMessage = gameStartPhaseMessage;
+		systemConfig.announcements.gameRunningPhaseMessage = gameRunningPhaseMessage;
+		systemConfig.announcements.gameEndPhaseMessage = gameEndPhaseMessage;
+		systemConfig.announcements.factionSelectionMessage = factionSelectionMessage;
+		systemConfig.announcements.villagerFactionName = villagerFactionName;
+		systemConfig.announcements.monsterFactionName = monsterFactionName;
+		systemConfig.announcements.netherFactionName = netherFactionName;
+		systemConfig.announcements.customDeathMessage = customDeathMessage;
+		systemConfig.announcements.autoStartEnabledMessage = autoStartEnabledMessage;
+		systemConfig.announcements.autoStartDisabledMessage = autoStartDisabledMessage;
+		systemConfig.advance.notAvailableMessage = advanceNotAvailableMessage;
+		systemConfig.advance.readyMessage = advanceReadyMessage;
+		systemConfig.gameEnd.titleTemplate = gameEndTitleTemplate;
+		systemConfig.gameEnd.drawTitleTemplate = gameEndDrawTitleTemplate;
+		systemConfig.gameEnd.victoryCountdownSubtitleTemplate = victoryCountdownSubtitleTemplate;
+		systemConfig.gameStart.captainSpawnGuiTitle = captainSpawnGuiTitle;
+		systemConfig.gameStart.captainSpawnNoFactionMessage = captainSpawnNoFactionMessage;
+		systemConfig.gameStart.captainSpawnBlockedLaneMessage = captainSpawnBlockedLaneMessage;
+		systemConfig.gameStart.countdownTitle = gameStartCountdownTitle;
+		systemConfig.gameStart.countdownSubtitleTemplate = gameStartCountdownSubtitleTemplate;
+	}
+}

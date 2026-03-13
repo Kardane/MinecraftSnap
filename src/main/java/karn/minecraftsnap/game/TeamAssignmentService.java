@@ -4,9 +4,21 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Random;
 import java.util.UUID;
 
 public class TeamAssignmentService {
+	private static final int RANDOM_TIE_THRESHOLD = 100;
+	private final Random random;
+
+	public TeamAssignmentService() {
+		this(new Random());
+	}
+
+	TeamAssignmentService(Random random) {
+		this.random = random;
+	}
+
 	public Map<UUID, TeamId> assignTeams(List<PlayerCandidate> players) {
 		Map<UUID, TeamId> assignments = new HashMap<>();
 		int redLadder = 0;
@@ -36,8 +48,15 @@ public class TeamAssignmentService {
 			.toList();
 
 		for (var player : remaining) {
-			boolean assignRed = redLadder < blueLadder
-				|| redLadder == blueLadder && redCount <= blueCount;
+			var redProjectedDiff = Math.abs((redLadder + player.ladder()) - blueLadder);
+			var blueProjectedDiff = Math.abs(redLadder - (blueLadder + player.ladder()));
+			boolean assignRed;
+			if (Math.abs(redProjectedDiff - blueProjectedDiff) <= RANDOM_TIE_THRESHOLD && redCount == blueCount) {
+				assignRed = random.nextBoolean();
+			} else {
+				assignRed = redProjectedDiff < blueProjectedDiff
+					|| redProjectedDiff == blueProjectedDiff && redCount <= blueCount;
+			}
 			var teamId = assignRed ? TeamId.RED : TeamId.BLUE;
 			assignments.put(player.playerId(), teamId);
 

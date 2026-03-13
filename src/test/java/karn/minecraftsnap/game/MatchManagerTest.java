@@ -18,6 +18,8 @@ class MatchManagerTest {
 		}
 
 		assertEquals(MatchPhase.GAME_RUNNING, manager.getPhase());
+		assertEquals(TeamId.RED, manager.getAllPointsHeldTeam());
+		assertEquals(29, manager.getAllPointsHeldSeconds());
 		manager.recordAllPointsHeld(TeamId.RED, 30);
 		assertEquals(MatchPhase.GAME_END, manager.getPhase());
 		assertEquals(TeamId.RED, manager.getWinnerTeam());

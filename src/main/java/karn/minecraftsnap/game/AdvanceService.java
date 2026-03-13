@@ -1,7 +1,6 @@
 package karn.minecraftsnap.game;
 
 import karn.minecraftsnap.config.AdvanceOptionEntry;
-import karn.minecraftsnap.config.FactionUnitEntry;
 import net.minecraft.server.network.ServerPlayerEntity;
 
 import java.util.LinkedHashSet;
@@ -81,11 +80,7 @@ public class AdvanceService {
 	}
 
 	public List<AdvanceOptionEntry> findOptions(String unitId) {
-		var entry = unitId == null ? null : unitRegistry.getEntry(unitId);
-		if (entry == null || entry.advanceOptions == null) {
-			return List.of();
-		}
-		return entry.advanceOptions;
+		return unitRegistry.getAdvanceOptions(unitId);
 	}
 
 	public AdvanceOptionEntry findOption(String unitId, String resultUnitId) {

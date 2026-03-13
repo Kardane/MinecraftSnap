@@ -123,8 +123,10 @@ class InGameRuleServiceTest {
 	void gameStartConfigReturnsTeamSpecificUnitSpawn() {
 		var config = new SystemConfig();
 
-		assertEquals(config.gameStart.redUnitSpawn, config.gameStart.unitSpawnFor(TeamId.RED));
-		assertEquals(config.gameStart.blueUnitSpawn, config.gameStart.unitSpawnFor(TeamId.BLUE));
+		assertEquals(config.gameStart.redLane1UnitSpawn, config.gameStart.unitSpawnFor(TeamId.RED, LaneId.LANE_1));
+		assertEquals(config.gameStart.blueLane1UnitSpawn, config.gameStart.unitSpawnFor(TeamId.BLUE, LaneId.LANE_1));
+		assertEquals(config.gameStart.redLane2UnitSpawn, config.gameStart.unitSpawnFor(TeamId.RED, LaneId.LANE_2));
+		assertEquals(config.gameStart.blueLane3UnitSpawn, config.gameStart.unitSpawnFor(TeamId.BLUE, LaneId.LANE_3));
 		assertEquals(config.gameStart.redCaptainSpawn, config.gameStart.captainSpawnFor(TeamId.RED));
 		assertEquals(config.gameStart.blueCaptainSpawn, config.gameStart.captainSpawnFor(TeamId.BLUE));
 		assertEquals(0.0, config.inGame.captainMinY);
@@ -139,7 +141,7 @@ class InGameRuleServiceTest {
 		assertFalse(InGameRuleService.isCaptainFlightPhase(MatchPhase.LOBBY));
 		assertTrue(InGameRuleService.isCaptainProtectedPhase(MatchPhase.GAME_END));
 		assertTrue(InGameRuleService.isCaptainGamePhase(MatchPhase.GAME_END));
-		assertEquals(3.0f, config.inGame.captainFlySpeed);
+		assertEquals(1.0f, config.inGame.captainFlySpeed);
 		assertEquals(0.05f, config.inGame.defaultFlySpeed);
 	}
 

@@ -49,6 +49,18 @@ public class UnitItemEntry {
 		return stackNbt.isBlank() && (itemId.isBlank() || "minecraft:air".equals(itemId));
 	}
 
+	public boolean sameSpec(UnitItemEntry other) {
+		if (other == null) {
+			return false;
+		}
+		return itemId.equals(other.itemId)
+			&& count == other.count
+			&& displayName.equals(other.displayName)
+			&& loreLines.equals(other.loreLines)
+			&& componentsNbt.equals(other.componentsNbt)
+			&& stackNbt.equals(other.stackNbt);
+	}
+
 	public Item resolve() {
 		var resolvedItemId = itemId;
 		if ((resolvedItemId == null || resolvedItemId.isBlank()) && stackNbt != null && !stackNbt.isBlank()) {

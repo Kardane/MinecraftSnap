@@ -52,6 +52,11 @@ public class SystemConfig {
 		public int captureStepSeconds = 5;
 		public int scoreIntervalTicks = 20;
 		public int allPointsHoldSeconds = 30;
+		public String defaultBossBarText = "&f점령";
+		public String contestedBossBarText = "&e격돌중!";
+		public String redOwnerBossBarText = "레드 점령지";
+		public String blueOwnerBossBarText = "블루 점령지";
+		public String neutralOwnerBossBarText = "중립 점령지";
 		public CaptureRegionConfig lane1 = CaptureRegionConfig.create("1번 라인", -4.0, 60.0, -4.0, 4.0, 68.0, 4.0);
 		public CaptureRegionConfig lane2 = CaptureRegionConfig.create("2번 라인", 16.0, 60.0, -4.0, 24.0, 68.0, 4.0);
 		public CaptureRegionConfig lane3 = CaptureRegionConfig.create("3번 라인", 36.0, 60.0, -4.0, 44.0, 68.0, 4.0);
@@ -72,17 +77,37 @@ public class SystemConfig {
 	public static class GameStartConfig {
 		public int waitSeconds = 15;
 		public boolean allowShiftF = true;
+		public String captainSpawnGuiTitle = "&6유닛 소환";
+		public String captainSpawnNoFactionMessage = "&c팩션이 정해지지 않았음";
+		public String captainSpawnBlockedLaneMessage = "&c{lane}은 아직 공개되지 않아 소환 불가";
+		public String countdownTitle = "&e게임 시작";
+		public String countdownSubtitleTemplate = "&f{seconds}초";
 		public PositionConfig redCaptainSpawn = PositionConfig.create(-10.0, 64.0, 10.0);
 		public PositionConfig blueCaptainSpawn = PositionConfig.create(10.0, 64.0, 10.0);
-		public PositionConfig redUnitSpawn = PositionConfig.create(-10.0, 64.0, -10.0);
-		public PositionConfig blueUnitSpawn = PositionConfig.create(10.0, 64.0, -10.0);
+		public PositionConfig redLane1UnitSpawn = PositionConfig.create(-10.0, 64.0, -10.0);
+		public PositionConfig redLane2UnitSpawn = PositionConfig.create(-10.0, 64.0, -10.0);
+		public PositionConfig redLane3UnitSpawn = PositionConfig.create(-10.0, 64.0, -10.0);
+		public PositionConfig blueLane1UnitSpawn = PositionConfig.create(10.0, 64.0, -10.0);
+		public PositionConfig blueLane2UnitSpawn = PositionConfig.create(10.0, 64.0, -10.0);
+		public PositionConfig blueLane3UnitSpawn = PositionConfig.create(10.0, 64.0, -10.0);
 
 		public PositionConfig captainSpawnFor(karn.minecraftsnap.game.TeamId teamId) {
 			return teamId == karn.minecraftsnap.game.TeamId.BLUE ? blueCaptainSpawn : redCaptainSpawn;
 		}
 
-		public PositionConfig unitSpawnFor(karn.minecraftsnap.game.TeamId teamId) {
-			return teamId == karn.minecraftsnap.game.TeamId.BLUE ? blueUnitSpawn : redUnitSpawn;
+		public PositionConfig unitSpawnFor(karn.minecraftsnap.game.TeamId teamId, karn.minecraftsnap.game.LaneId laneId) {
+			if (teamId == karn.minecraftsnap.game.TeamId.BLUE) {
+				return switch (laneId) {
+					case LANE_1 -> blueLane1UnitSpawn;
+					case LANE_2 -> blueLane2UnitSpawn;
+					case LANE_3 -> blueLane3UnitSpawn;
+				};
+			}
+			return switch (laneId) {
+				case LANE_1 -> redLane1UnitSpawn;
+				case LANE_2 -> redLane2UnitSpawn;
+				case LANE_3 -> redLane3UnitSpawn;
+			};
 		}
 	}
 
@@ -104,6 +129,7 @@ public class SystemConfig {
 		public int winnerGlowSeconds = 5;
 		public String titleTemplate = "&6승리: &f{winner}";
 		public String drawTitleTemplate = "&e무승부";
+		public String victoryCountdownSubtitleTemplate = "&e{team} 팀 승리 임박 &7({seconds}초)";
 	}
 
 	public static class PositionConfig {
@@ -146,7 +172,7 @@ public class SystemConfig {
 		public String closedLaneMessage = "&c아직 공개되지 않은 라인임";
 		public int laneWarningCooldownTicks = 40;
 		public double captainMinY = 0.0;
-		public float captainFlySpeed = 3.0f;
+		public float captainFlySpeed = 1.0f;
 		public float defaultFlySpeed = 0.05f;
 		public LaneRegionConfig lane1Region = LaneRegionConfig.create(-8.0, 0.0, -8.0, 8.0, 320.0, 8.0);
 		public LaneRegionConfig lane2Region = LaneRegionConfig.create(12.0, 0.0, -8.0, 28.0, 320.0, 8.0);
@@ -156,6 +182,10 @@ public class SystemConfig {
 	public static class DisplayConfig {
 		public String ladderPrefixFormat = "[{ladder}] ";
 		public String captainStar = "★ ";
+		public String unitHudTemplate = "&f{unit} &8| &b{skill} &8| {cooldown}";
+		public String unitHudReadyMessage = "&a준비 완료";
+		public String unitHudFallbackSkillName = "기본 스킬";
+		public String unitHudUnknownUnitName = "알 수 없는 유닛";
 	}
 
 	public static class AnnouncementConfig {
@@ -169,6 +199,9 @@ public class SystemConfig {
 		public String villagerFactionName = "주민";
 		public String monsterFactionName = "몬스터";
 		public String netherFactionName = "네더";
+		public String customDeathMessage = "&8[사망] &f{victim} &7사망";
+		public String autoStartEnabledMessage = "&a팀 선택 자동 시작: &f켜짐";
+		public String autoStartDisabledMessage = "&c팀 선택 자동 시작: &f꺼짐";
 	}
 
 	public static class AdvanceConfig {
@@ -255,11 +288,23 @@ public class SystemConfig {
 		if (gameStart.blueCaptainSpawn == null) {
 			gameStart.blueCaptainSpawn = PositionConfig.create(10.0, 64.0, 10.0);
 		}
-		if (gameStart.redUnitSpawn == null) {
-			gameStart.redUnitSpawn = PositionConfig.create(-10.0, 64.0, -10.0);
+		if (gameStart.redLane1UnitSpawn == null) {
+			gameStart.redLane1UnitSpawn = copyPosition(gameStart.redCaptainSpawn);
 		}
-		if (gameStart.blueUnitSpawn == null) {
-			gameStart.blueUnitSpawn = PositionConfig.create(10.0, 64.0, -10.0);
+		if (gameStart.redLane2UnitSpawn == null) {
+			gameStart.redLane2UnitSpawn = copyPosition(gameStart.redCaptainSpawn);
+		}
+		if (gameStart.redLane3UnitSpawn == null) {
+			gameStart.redLane3UnitSpawn = copyPosition(gameStart.redCaptainSpawn);
+		}
+		if (gameStart.blueLane1UnitSpawn == null) {
+			gameStart.blueLane1UnitSpawn = copyPosition(gameStart.blueCaptainSpawn);
+		}
+		if (gameStart.blueLane2UnitSpawn == null) {
+			gameStart.blueLane2UnitSpawn = copyPosition(gameStart.blueCaptainSpawn);
+		}
+		if (gameStart.blueLane3UnitSpawn == null) {
+			gameStart.blueLane3UnitSpawn = copyPosition(gameStart.blueCaptainSpawn);
 		}
 		if (inGame.lane1Region == null) {
 			inGame.lane1Region = LaneRegionConfig.create(-8.0, 0.0, -8.0, 8.0, 320.0, 8.0);
@@ -295,5 +340,15 @@ public class SystemConfig {
 			}
 			condition.requiredSeconds = 0;
 		}
+	}
+
+	private static PositionConfig copyPosition(PositionConfig source) {
+		if (source == null) {
+			return PositionConfig.create(0.0, 64.0, 0.0);
+		}
+		var copy = PositionConfig.create(source.x, source.y, source.z);
+		copy.yaw = source.yaw;
+		copy.pitch = source.pitch;
+		return copy;
 	}
 }

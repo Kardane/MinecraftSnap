@@ -2,6 +2,7 @@ package karn.minecraftsnap.config;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import karn.minecraftsnap.game.FactionId;
@@ -22,6 +23,7 @@ public class MinecraftSnapConfigManager {
 	private final Path configDirectory;
 	private final Logger logger;
 	private SystemConfig systemConfig = new SystemConfig();
+	private TextConfigFile textConfig = new TextConfigFile();
 	private BiomeCatalog biomeCatalog = new BiomeCatalog();
 	private final EnumMap<FactionId, FactionConfigFile> factionConfigs = new EnumMap<>(FactionId.class);
 	private final EnumMap<FactionId, ShopConfigFile> shopConfigs = new EnumMap<>(FactionId.class);
@@ -36,16 +38,11 @@ public class MinecraftSnapConfigManager {
 		try {
 			Files.createDirectories(configDirectory);
 			systemConfig = loadSystemConfig(configDirectory.resolve("system.json"));
+			textConfig = loadOrCreate(configDirectory.resolve("texts.json"), TextConfigFile.class, new TextConfigFile());
+			textConfig.applyTo(systemConfig);
 			biomeCatalog = loadOrCreate(configDirectory.resolve("biomes.json"), BiomeCatalog.class, createDefaultBiomeCatalog());
 			biomeCatalog.normalize();
 			factionConfigs.clear();
-			factionConfigs.put(FactionId.VILLAGER, loadOrCreate(configDirectory.resolve("faction_villager.json"), FactionConfigFile.class, createDefaultFactionConfig(FactionId.VILLAGER)));
-			factionConfigs.put(FactionId.MONSTER, loadOrCreate(configDirectory.resolve("faction_monster.json"), FactionConfigFile.class, createDefaultFactionConfig(FactionId.MONSTER)));
-			factionConfigs.put(FactionId.NETHER, loadOrCreate(configDirectory.resolve("faction_nether.json"), FactionConfigFile.class, createDefaultFactionConfig(FactionId.NETHER)));
-			factionConfigs.values().forEach(FactionConfigFile::normalize);
-			if (migrateLegacyAdvanceOptions()) {
-				writeJson(configDirectory.resolve("faction_monster.json"), factionConfigs.get(FactionId.MONSTER));
-			}
 			shopConfigs.clear();
 			shopConfigs.put(FactionId.VILLAGER, loadOrCreate(configDirectory.resolve("villager_shop.json"), ShopConfigFile.class, createDefaultShopConfig(FactionId.VILLAGER)));
 			shopConfigs.put(FactionId.NETHER, loadOrCreate(configDirectory.resolve("nether_shop.json"), ShopConfigFile.class, createDefaultShopConfig(FactionId.NETHER)));
@@ -56,11 +53,10 @@ public class MinecraftSnapConfigManager {
 		} catch (IOException exception) {
 			logger.error("MCsnap 컨픽 디렉터리 초기화 실패", exception);
 			systemConfig = new SystemConfig();
+			textConfig = new TextConfigFile();
+			textConfig.applyTo(systemConfig);
 			biomeCatalog = createDefaultBiomeCatalog();
 			factionConfigs.clear();
-			factionConfigs.put(FactionId.VILLAGER, createDefaultFactionConfig(FactionId.VILLAGER));
-			factionConfigs.put(FactionId.MONSTER, createDefaultFactionConfig(FactionId.MONSTER));
-			factionConfigs.put(FactionId.NETHER, createDefaultFactionConfig(FactionId.NETHER));
 			shopConfigs.clear();
 			shopConfigs.put(FactionId.VILLAGER, createDefaultShopConfig(FactionId.VILLAGER));
 			shopConfigs.put(FactionId.NETHER, createDefaultShopConfig(FactionId.NETHER));
@@ -81,16 +77,12 @@ public class MinecraftSnapConfigManager {
 		return statsRepository;
 	}
 
+	public TextConfigFile getTextConfig() {
+		return textConfig;
+	}
+
 	public BiomeCatalog getBiomeCatalog() {
 		return biomeCatalog;
-	}
-
-	public Map<FactionId, FactionConfigFile> getFactionConfigs() {
-		return Map.copyOf(factionConfigs);
-	}
-
-	public FactionConfigFile getFactionConfig(FactionId factionId) {
-		return factionConfigs.get(factionId);
 	}
 
 	public ShopConfigFile getShopConfig(FactionId factionId) {
@@ -139,6 +131,30 @@ public class MinecraftSnapConfigManager {
 		}
 	}
 
+	private FactionConfigFile loadFactionConfig(Path path, FactionId factionId) throws IOException {
+		var defaultValue = createDefaultFactionConfig(factionId);
+		if (Files.notExists(path)) {
+			writeJson(path, defaultValue);
+			return defaultValue;
+		}
+
+		JsonObject rawJson;
+		try (Reader reader = Files.newBufferedReader(path, StandardCharsets.UTF_8)) {
+			rawJson = JsonParser.parseReader(reader).getAsJsonObject();
+		}
+
+		var loaded = gson.fromJson(rawJson, FactionConfigFile.class);
+		if (loaded == null) {
+			loaded = new FactionConfigFile();
+		}
+		var migrated = migrateLegacyFactionConfig(rawJson, loaded);
+		loaded.normalize();
+		if (migrated) {
+			writeJson(path, loaded);
+		}
+		return loaded;
+	}
+
 	private void writeJson(Path path, Object value) throws IOException {
 		try (Writer writer = Files.newBufferedWriter(path, StandardCharsets.UTF_8)) {
 			gson.toJson(value, writer);
@@ -169,18 +185,7 @@ public class MinecraftSnapConfigManager {
 			}
 		}
 
-		var legacyUnitSpawn = legacyPosition(rawJson, "gameStart", "unitSpawn");
-		if (legacyUnitSpawn != null) {
-			if (loaded.gameStart == null) {
-				loaded.gameStart = new SystemConfig.GameStartConfig();
-			}
-			if (nestedObject(rawJson, "gameStart", "redUnitSpawn") == null) {
-				loaded.gameStart.redUnitSpawn = copyPosition(legacyUnitSpawn);
-			}
-			if (nestedObject(rawJson, "gameStart", "blueUnitSpawn") == null) {
-				loaded.gameStart.blueUnitSpawn = copyPosition(legacyUnitSpawn);
-			}
-		}
+		migrateLegacyLaneUnitSpawns(rawJson, loaded, legacyPosition(rawJson, "gameStart", "unitSpawn"));
 
 		if (loaded.capture == null) {
 			loaded.capture = new SystemConfig.CaptureConfig();
@@ -188,6 +193,38 @@ public class MinecraftSnapConfigManager {
 		migrateLegacyCaptureRegion(rawJson, loaded.capture, "lane1");
 		migrateLegacyCaptureRegion(rawJson, loaded.capture, "lane2");
 		migrateLegacyCaptureRegion(rawJson, loaded.capture, "lane3");
+	}
+
+	private void migrateLegacyLaneUnitSpawns(JsonObject rawJson, SystemConfig loaded, SystemConfig.PositionConfig legacyUnitSpawn) {
+		if (loaded.gameStart == null) {
+			loaded.gameStart = new SystemConfig.GameStartConfig();
+		}
+		var redLegacy = legacyPosition(rawJson, "gameStart", "redUnitSpawn");
+		var blueLegacy = legacyPosition(rawJson, "gameStart", "blueUnitSpawn");
+		if (redLegacy == null) {
+			redLegacy = legacyUnitSpawn != null ? copyPosition(legacyUnitSpawn) : copyPosition(loaded.gameStart.redCaptainSpawn);
+		}
+		if (blueLegacy == null) {
+			blueLegacy = legacyUnitSpawn != null ? copyPosition(legacyUnitSpawn) : copyPosition(loaded.gameStart.blueCaptainSpawn);
+		}
+		if (nestedObject(rawJson, "gameStart", "redLane1UnitSpawn") == null) {
+			loaded.gameStart.redLane1UnitSpawn = copyPosition(redLegacy);
+		}
+		if (nestedObject(rawJson, "gameStart", "redLane2UnitSpawn") == null) {
+			loaded.gameStart.redLane2UnitSpawn = copyPosition(redLegacy);
+		}
+		if (nestedObject(rawJson, "gameStart", "redLane3UnitSpawn") == null) {
+			loaded.gameStart.redLane3UnitSpawn = copyPosition(redLegacy);
+		}
+		if (nestedObject(rawJson, "gameStart", "blueLane1UnitSpawn") == null) {
+			loaded.gameStart.blueLane1UnitSpawn = copyPosition(blueLegacy);
+		}
+		if (nestedObject(rawJson, "gameStart", "blueLane2UnitSpawn") == null) {
+			loaded.gameStart.blueLane2UnitSpawn = copyPosition(blueLegacy);
+		}
+		if (nestedObject(rawJson, "gameStart", "blueLane3UnitSpawn") == null) {
+			loaded.gameStart.blueLane3UnitSpawn = copyPosition(blueLegacy);
+		}
 	}
 
 	private void migrateLegacyCaptureRegion(JsonObject rawJson, SystemConfig.CaptureConfig captureConfig, String laneKey) {
@@ -241,6 +278,94 @@ public class MinecraftSnapConfigManager {
 		}
 		logger.warn("MCsnap 점령 구역 {} 설정이 라인 구역을 벗어나 비활성화됨", laneKey);
 		captureRegion.enabled = false;
+	}
+
+	private boolean migrateLegacyFactionConfig(JsonObject rawJson, FactionConfigFile loaded) {
+		if (rawJson == null || loaded == null || !rawJson.has("units") || !rawJson.get("units").isJsonArray()) {
+			return false;
+		}
+		boolean migrated = false;
+		var rawUnits = rawJson.getAsJsonArray("units");
+		for (var unit : loaded.units) {
+			var rawUnit = findUnitJson(rawUnits, unit.id);
+			if (rawUnit == null) {
+				continue;
+			}
+			migrated |= migrateLegacyUnitEntry(rawUnit, unit);
+		}
+		return migrated;
+	}
+
+	private JsonObject findUnitJson(JsonArray rawUnits, String unitId) {
+		for (var element : rawUnits) {
+			if (!element.isJsonObject()) {
+				continue;
+			}
+			var unit = element.getAsJsonObject();
+			if (unit.has("id") && unitId.equals(unit.get("id").getAsString())) {
+				return unit;
+			}
+		}
+		return null;
+	}
+
+	private boolean migrateLegacyUnitEntry(JsonObject rawUnit, FactionUnitEntry unit) {
+		boolean migrated = false;
+		migrated |= migrateLegacyItem(rawUnit, "mainHandItemId", unit.mainHand);
+		migrated |= migrateLegacyItem(rawUnit, "offHandItemId", unit.offHand);
+		migrated |= migrateLegacyItem(rawUnit, "helmetItemId", unit.helmet);
+		migrated |= migrateLegacyItem(rawUnit, "chestItemId", unit.chest);
+		migrated |= migrateLegacyItem(rawUnit, "legsItemId", unit.legs);
+		migrated |= migrateLegacyItem(rawUnit, "bootsItemId", unit.boots);
+		migrated |= migrateLegacyItem(rawUnit, "abilityItemId", unit.abilityItem);
+		if (rawUnit.has("disguiseId") && !rawUnit.get("disguiseId").isJsonNull()) {
+			if (unit.disguise == null) {
+				unit.disguise = new EntitySpecEntry();
+			}
+			if (unit.disguise.entityId == null || unit.disguise.entityId.isBlank()) {
+				unit.disguise.entityId = normalizeMinecraftId(rawUnit.get("disguiseId").getAsString());
+				migrated = true;
+			}
+		}
+		if (rawUnit.has("abilityName") && !rawUnit.get("abilityName").isJsonNull() && (unit.abilityName == null || unit.abilityName.isBlank())) {
+			unit.abilityName = rawUnit.get("abilityName").getAsString();
+			migrated = true;
+		}
+		if (rawUnit.has("abilityCooldownSeconds") && !rawUnit.get("abilityCooldownSeconds").isJsonNull() && unit.abilityCooldownSeconds <= 0) {
+			unit.abilityCooldownSeconds = rawUnit.get("abilityCooldownSeconds").getAsInt();
+			migrated = true;
+		}
+		if (!unit.abilityItem.isEmpty()
+			&& (unit.abilityItem.displayName == null || unit.abilityItem.displayName.isBlank())
+			&& unit.abilityName != null
+			&& !unit.abilityName.isBlank()) {
+			unit.abilityItem.displayName = "&b" + unit.abilityName;
+			unit.abilityItem.loreLines = List.of("&7유닛 스킬 발동", "&8쿨다운: &f" + unit.abilityCooldownSeconds + "초");
+			migrated = true;
+		}
+		return migrated;
+	}
+
+	private boolean migrateLegacyItem(JsonObject rawUnit, String legacyKey, UnitItemEntry itemEntry) {
+		if (itemEntry == null || !rawUnit.has(legacyKey) || rawUnit.get(legacyKey).isJsonNull()) {
+			return false;
+		}
+		var legacyId = rawUnit.get(legacyKey).getAsString();
+		if (legacyId == null || legacyId.isBlank()) {
+			return false;
+		}
+		itemEntry.itemId = normalizeMinecraftId(legacyId);
+		if (itemEntry.count <= 0) {
+			itemEntry.count = 1;
+		}
+		return true;
+	}
+
+	private String normalizeMinecraftId(String value) {
+		if (value == null || value.isBlank()) {
+			return "";
+		}
+		return value.contains(":") ? value : "minecraft:" + value;
 	}
 
 	private SystemConfig.PositionConfig legacyPosition(JsonObject rawJson, String... path) {

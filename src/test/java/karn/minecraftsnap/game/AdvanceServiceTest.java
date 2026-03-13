@@ -2,13 +2,10 @@ package karn.minecraftsnap.game;
 
 import karn.minecraftsnap.config.AdvanceOptionEntry;
 import karn.minecraftsnap.config.EntitySpecEntry;
-import karn.minecraftsnap.config.FactionConfigFile;
-import karn.minecraftsnap.config.FactionUnitEntry;
 import karn.minecraftsnap.config.UnitItemEntry;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
-import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -70,38 +67,62 @@ class AdvanceServiceTest {
 	}
 
 	private UnitRegistry monsterRegistry(AdvanceOptionEntry... options) {
-		var zombie = new FactionUnitEntry();
-		zombie.id = "zombie";
-		zombie.displayName = "좀비";
-		zombie.mainHand = UnitItemEntry.create("minecraft:iron_shovel");
-		zombie.disguise = EntitySpecEntry.create("minecraft:zombie");
-		zombie.advanceOptions = new java.util.ArrayList<>(List.of(options));
-		zombie.normalize();
-
-		var veteran = targetUnit("zombie_veteran", "강화 좀비", "minecraft:iron_shovel", "minecraft:husk");
-		var alt = targetUnit("zombie_alt", "대체 전직", "minecraft:stone_sword", "minecraft:zombie");
-		var charged = targetUnit("charged_creeper", "대전된 크리퍼", "minecraft:tnt", "minecraft:creeper");
-		var creeperAlt = targetUnit("creeper_alt", "크리퍼 대체형", "minecraft:tnt", "minecraft:creeper");
-		var slimeBrute = targetUnit("slime_brute", "강화 슬라임", "minecraft:slime_ball", "minecraft:slime");
-
-		var config = new FactionConfigFile();
-		config.units = List.of(zombie, veteran, alt, charged, creeperAlt, slimeBrute);
-		config.normalize();
-
 		var registry = new UnitRegistry(false);
-		registry.loadFromFactionConfigs(Map.of(FactionId.MONSTER, config));
+		registry.registerUnit(new UnitDefinition(
+			"zombie",
+			"좀비",
+			FactionId.MONSTER,
+			true,
+			0,
+			0,
+			20.0,
+			1.0,
+			UnitItemEntry.create("minecraft:iron_shovel"),
+			new UnitItemEntry(),
+			new UnitItemEntry(),
+			new UnitItemEntry(),
+			new UnitItemEntry(),
+			new UnitItemEntry(),
+			new UnitItemEntry(),
+			"",
+			0,
+			UnitDefinition.AmmoType.NONE,
+			EntitySpecEntry.create("minecraft:zombie"),
+			List.of(),
+			List.of(options)
+		));
+		registry.registerUnit(targetUnit("zombie_veteran", "강화 좀비", "minecraft:iron_shovel", "minecraft:husk"));
+		registry.registerUnit(targetUnit("zombie_alt", "대체 전직", "minecraft:stone_sword", "minecraft:zombie"));
+		registry.registerUnit(targetUnit("charged_creeper", "대전된 크리퍼", "minecraft:tnt", "minecraft:creeper"));
+		registry.registerUnit(targetUnit("creeper_alt", "크리퍼 대체형", "minecraft:tnt", "minecraft:creeper"));
+		registry.registerUnit(targetUnit("slime_brute", "강화 슬라임", "minecraft:slime_ball", "minecraft:slime"));
 		return registry;
 	}
 
-	private FactionUnitEntry targetUnit(String id, String displayName, String itemId, String disguiseId) {
-		var unit = new FactionUnitEntry();
-		unit.id = id;
-		unit.displayName = displayName;
-		unit.captainSpawnable = false;
-		unit.mainHand = UnitItemEntry.create(itemId);
-		unit.disguise = EntitySpecEntry.create(disguiseId);
-		unit.normalize();
-		return unit;
+	private UnitDefinition targetUnit(String id, String displayName, String itemId, String disguiseId) {
+		return new UnitDefinition(
+			id,
+			displayName,
+			FactionId.MONSTER,
+			false,
+			0,
+			0,
+			20.0,
+			1.0,
+			UnitItemEntry.create(itemId),
+			new UnitItemEntry(),
+			new UnitItemEntry(),
+			new UnitItemEntry(),
+			new UnitItemEntry(),
+			new UnitItemEntry(),
+			new UnitItemEntry(),
+			"",
+			0,
+			UnitDefinition.AmmoType.NONE,
+			EntitySpecEntry.create(disguiseId),
+			List.of(),
+			List.of()
+		);
 	}
 
 	private AdvanceOptionEntry option(String resultUnitId, List<String> biomes, List<String> weathers, int requiredTicks) {

@@ -9,15 +9,16 @@ import java.util.function.Consumer;
 import java.util.function.IntConsumer;
 
 public class GameEndService {
-	public static final int TITLE_FADE_IN_TICKS = 10;
-	public static final int TITLE_STAY_TICKS = 60;
-	public static final int TITLE_FADE_OUT_TICKS = 20;
+	public static final int TITLE_FADE_IN_TICKS = 0;
+	public static final int TITLE_STAY_TICKS = 30;
+	public static final int TITLE_FADE_OUT_TICKS = 0;
 	private final MatchManager matchManager;
 	private final TextTemplateResolver textTemplateResolver;
 	private final Consumer<String> titleSender;
 	private final BiConsumer<TeamId, Integer> winnerGlowApplier;
 	private final Runnable glowClearer;
 	private final IntConsumer tickRateController;
+	private final Runnable rewardAction;
 	private final Runnable lobbyReturnAction;
 	private final Runnable biomeRestoreAction;
 	private boolean active;
@@ -29,6 +30,7 @@ public class GameEndService {
 		BiConsumer<TeamId, Integer> winnerGlowApplier,
 		Runnable glowClearer,
 		IntConsumer tickRateController,
+		Runnable rewardAction,
 		Runnable lobbyReturnAction,
 		Runnable biomeRestoreAction
 	) {
@@ -38,6 +40,7 @@ public class GameEndService {
 		this.winnerGlowApplier = winnerGlowApplier;
 		this.glowClearer = glowClearer;
 		this.tickRateController = tickRateController;
+		this.rewardAction = rewardAction;
 		this.lobbyReturnAction = lobbyReturnAction;
 		this.biomeRestoreAction = biomeRestoreAction;
 	}
@@ -51,6 +54,7 @@ public class GameEndService {
 		if (!active) {
 			active = true;
 			announce(systemConfig.gameEnd);
+			rewardAction.run();
 			if (matchManager.getWinnerTeam() != null) {
 				winnerGlowApplier.accept(matchManager.getWinnerTeam(), systemConfig.gameEnd.winnerGlowSeconds);
 			}

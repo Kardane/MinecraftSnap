@@ -253,6 +253,14 @@ public class MatchManager {
 		return winnerTeam;
 	}
 
+	public TeamId getAllPointsHeldTeam() {
+		return allPointsHeldTeam;
+	}
+
+	public int getAllPointsHeldSeconds() {
+		return allPointsHeldSeconds;
+	}
+
 	public void clearPlayerAssignments() {
 		playerStates.values().forEach(PlayerMatchState::clear);
 		factionSelections.clear();

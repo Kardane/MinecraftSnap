@@ -1,5 +1,6 @@
 package karn.minecraftsnap.game;
 
+import karn.minecraftsnap.audio.UiSoundService;
 import karn.minecraftsnap.config.StatsRepository;
 import karn.minecraftsnap.config.SystemConfig;
 import karn.minecraftsnap.integration.DisguiseSupport;
@@ -33,6 +34,7 @@ public class UnitHookService {
 	private final AdvanceGuiService advanceGuiService;
 	private final CaptainManaService captainManaService;
 	private final PlayerDisplayNameService playerDisplayNameService;
+	private final UiSoundService uiSoundService;
 
 	public UnitHookService(
 		MatchManager matchManager,
@@ -47,7 +49,8 @@ public class UnitHookService {
 		TradeGuiService tradeGuiService,
 		AdvanceGuiService advanceGuiService,
 		CaptainManaService captainManaService,
-		PlayerDisplayNameService playerDisplayNameService
+		PlayerDisplayNameService playerDisplayNameService,
+		UiSoundService uiSoundService
 	) {
 		this.matchManager = matchManager;
 		this.unitRegistry = unitRegistry;
@@ -62,6 +65,7 @@ public class UnitHookService {
 		this.advanceGuiService = advanceGuiService;
 		this.captainManaService = captainManaService;
 		this.playerDisplayNameService = playerDisplayNameService;
+		this.uiSoundService = uiSoundService;
 	}
 
 	public void tick(MinecraftServer server, SystemConfig systemConfig) {
@@ -166,6 +170,9 @@ public class UnitHookService {
 		advanceGuiService.open(player, options, resultUnitId -> {
 			var definition = advanceService.applyAdvance(state, resultUnitId);
 			if (definition == null) {
+				if (uiSoundService != null) {
+					uiSoundService.playUiDeny(player);
+				}
 				player.sendMessage(textTemplateResolver.format(systemConfig.advance.notAvailableMessage), false);
 				return;
 			}
@@ -182,6 +189,12 @@ public class UnitHookService {
 					textTemplateResolver.format("&d전직: &f" + player.getName().getString() + " &7-> &a" + definition.displayName()),
 					false
 				);
+				if (uiSoundService != null) {
+					uiSoundService.playEventSuccess(matchManager.getServer());
+				}
+			}
+			if (uiSoundService != null) {
+				uiSoundService.playUiConfirm(player);
 			}
 			player.sendMessage(textTemplateResolver.format("&a전직 완료: &f" + definition.displayName()), false);
 		});
@@ -261,7 +274,6 @@ public class UnitHookService {
 			matchManager,
 			state,
 			definition,
-			unitRegistry.getEntry(definition.id()),
 			player,
 			laneRuntime,
 			systemConfig,

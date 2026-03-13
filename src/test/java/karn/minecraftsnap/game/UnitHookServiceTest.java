@@ -11,9 +11,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class UnitHookServiceTest {
 	@Test
 	void dispatchesAllConfiguredHooks() {
-		var service = new UnitHookService(null, null, null, null, () -> null, null, null, null, null, null, null, null, null);
+		var service = new UnitHookService(null, null, null, null, () -> null, null, null, null, null, null, null, null, null, null);
 		var unitClass = new RecordingUnitClass();
-		var context = new UnitContext(null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
+		var context = new UnitContext(null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
 
 		service.dispatchOnTick(unitClass, context);
 		service.dispatchOnSkillUse(unitClass, context);

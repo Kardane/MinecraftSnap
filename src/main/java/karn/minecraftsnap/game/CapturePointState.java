@@ -43,7 +43,7 @@ public class CapturePointState {
 		}
 
 		progress.increment();
-		if (progress.getSeconds() < captureStepSeconds) {
+		if (progress.getTicks() < captureStepSeconds * 20) {
 			return false;
 		}
 

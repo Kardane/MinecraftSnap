@@ -1,6 +1,5 @@
 package karn.minecraftsnap.unit;
 
-import karn.minecraftsnap.config.FactionUnitEntry;
 import karn.minecraftsnap.config.StatsRepository;
 import karn.minecraftsnap.config.SystemConfig;
 import karn.minecraftsnap.game.AdvanceService;
@@ -26,7 +25,6 @@ public class UnitContext {
 	private final MatchManager matchManager;
 	private final PlayerMatchState state;
 	private final UnitDefinition unitDefinition;
-	private final FactionUnitEntry unitEntry;
 	private final ServerPlayerEntity player;
 	private final LaneRuntime laneRuntime;
 	private final SystemConfig systemConfig;
@@ -45,7 +43,6 @@ public class UnitContext {
 		MatchManager matchManager,
 		PlayerMatchState state,
 		UnitDefinition unitDefinition,
-		FactionUnitEntry unitEntry,
 		ServerPlayerEntity player,
 		LaneRuntime laneRuntime,
 		SystemConfig systemConfig,
@@ -63,7 +60,6 @@ public class UnitContext {
 		this.matchManager = matchManager;
 		this.state = state;
 		this.unitDefinition = unitDefinition;
-		this.unitEntry = unitEntry;
 		this.player = player;
 		this.laneRuntime = laneRuntime;
 		this.systemConfig = systemConfig;
@@ -117,7 +113,7 @@ public class UnitContext {
 
 	public void baseBuildLoadout() {
 		if (player != null && unitDefinition != null && unitLoadoutService != null && textTemplateResolver != null) {
-			unitLoadoutService.applyBaseLoadout(player, unitDefinition, unitEntry, textTemplateResolver);
+			unitLoadoutService.applyBaseLoadout(player, unitDefinition, textTemplateResolver);
 		}
 	}
 

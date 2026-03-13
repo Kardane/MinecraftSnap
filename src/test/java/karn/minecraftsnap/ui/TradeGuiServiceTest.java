@@ -13,6 +13,7 @@ import org.junit.jupiter.api.io.TempDir;
 import org.slf4j.LoggerFactory;
 
 import java.nio.file.Path;
+import java.util.List;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -22,11 +23,31 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class TradeGuiServiceTest {
 	@Test
 	void merchandiseSlotsExcludeReservedSlots() {
-		assertEquals(24, TradeGuiService.merchandiseSlots().size());
-		assertFalse(TradeGuiService.merchandiseSlots().contains(11));
-		assertFalse(TradeGuiService.merchandiseSlots().contains(13));
-		assertFalse(TradeGuiService.merchandiseSlots().contains(15));
+		assertEquals(27, TradeGuiService.merchandiseSlots().size());
+		assertTrue(TradeGuiService.merchandiseSlots().contains(11));
 		assertEquals(0, TradeGuiService.merchandiseSlots().getFirst());
+	}
+
+	@Test
+	void countInventoryCurrencyIgnoresNbtAndComponents() {
+		var total = TradeGuiService.countCurrencyEntries(FactionId.VILLAGER, List.of(
+			new TradeGuiService.CurrencyEntry("minecraft:emerald", 2),
+			new TradeGuiService.CurrencyEntry("minecraft:emerald", 3),
+			new TradeGuiService.CurrencyEntry("minecraft:diamond", 10)
+		));
+
+		assertEquals(5, total);
+	}
+
+	@Test
+	void countInventoryCurrencyUsesOnlyMatchingItemId() {
+		var total = TradeGuiService.countCurrencyEntries(FactionId.NETHER, List.of(
+			new TradeGuiService.CurrencyEntry("minecraft:gold_ingot", 2),
+			new TradeGuiService.CurrencyEntry("minecraft:gold_ingot", 2),
+			new TradeGuiService.CurrencyEntry("minecraft:gold_nugget", 99)
+		));
+
+		assertEquals(4, total);
 	}
 
 	@Test
@@ -38,7 +59,8 @@ class TradeGuiServiceTest {
 		state.setEmeralds(5);
 		var service = createService(repository);
 
-		var result = service.completePurchase(FactionId.VILLAGER, state, playerId, "tester", 3, () -> true);
+		var result = service.completePurchase(FactionId.VILLAGER, state, playerId, "tester", 3, 0, () -> {
+		}, () -> true);
 
 		assertEquals(TradeGuiService.PurchaseResult.SUCCESS, result);
 		assertEquals(2, state.getEmeralds());
@@ -54,7 +76,8 @@ class TradeGuiServiceTest {
 		state.setGoldIngots(4);
 		var service = createService(repository);
 
-		var result = service.completePurchase(FactionId.NETHER, state, playerId, "tester", 2, () -> true);
+		var result = service.completePurchase(FactionId.NETHER, state, playerId, "tester", 2, 0, () -> {
+		}, () -> true);
 
 		assertEquals(TradeGuiService.PurchaseResult.SUCCESS, result);
 		assertEquals(2, state.getGoldIngots());
@@ -70,7 +93,8 @@ class TradeGuiServiceTest {
 		state.setEmeralds(1);
 		var service = createService(repository);
 
-		var result = service.completePurchase(FactionId.VILLAGER, state, playerId, "tester", 2, () -> true);
+		var result = service.completePurchase(FactionId.VILLAGER, state, playerId, "tester", 2, 0, () -> {
+		}, () -> true);
 
 		assertEquals(TradeGuiService.PurchaseResult.INSUFFICIENT_FUNDS, result);
 		assertEquals(1, state.getEmeralds());
@@ -86,7 +110,8 @@ class TradeGuiServiceTest {
 		state.setGoldIngots(5);
 		var service = createService(repository);
 
-		var result = service.completePurchase(FactionId.NETHER, state, playerId, "tester", 3, () -> false);
+		var result = service.completePurchase(FactionId.NETHER, state, playerId, "tester", 3, 0, () -> {
+		}, () -> false);
 
 		assertEquals(TradeGuiService.PurchaseResult.INVENTORY_FULL, result);
 		assertEquals(5, state.getGoldIngots());
@@ -107,6 +132,22 @@ class TradeGuiServiceTest {
 		assertEquals(1, config.entries.size());
 		assertEquals(1, config.entries.getFirst().price);
 		assertTrue(config.entries.getFirst().item.count >= 1);
+	}
+
+	@Test
+	void purchaseCanUseInventoryCurrencyWithoutTouchingStateBalance(@TempDir Path tempDir) {
+		var repository = createRepository(tempDir);
+		var playerId = UUID.randomUUID();
+		var state = new PlayerMatchState();
+		var spent = new int[1];
+		var service = createService(repository);
+
+		var result = service.completePurchase(FactionId.VILLAGER, state, playerId, "tester", 3, 3, () -> spent[0] = 3, () -> true);
+
+		assertEquals(TradeGuiService.PurchaseResult.SUCCESS, result);
+		assertEquals(0, state.getEmeralds());
+		assertEquals(3, spent[0]);
+		assertEquals(0, repository.getOrCreate(playerId, "tester").emeralds);
 	}
 
 	private TradeGuiService createService(StatsRepository repository) {

@@ -1,5 +1,6 @@
 package karn.minecraftsnap.ui;
 
+import karn.minecraftsnap.audio.UiSoundService;
 import eu.pb4.sgui.api.elements.GuiElementBuilder;
 import eu.pb4.sgui.api.gui.SimpleGui;
 import karn.minecraftsnap.game.AdvanceService;
@@ -15,9 +16,15 @@ import java.util.function.Consumer;
 
 public class AdvanceGuiService {
 	private final TextTemplateResolver textTemplateResolver;
+	private final UiSoundService uiSoundService;
 
 	public AdvanceGuiService(TextTemplateResolver textTemplateResolver) {
+		this(textTemplateResolver, null);
+	}
+
+	public AdvanceGuiService(TextTemplateResolver textTemplateResolver, UiSoundService uiSoundService) {
 		this.textTemplateResolver = textTemplateResolver;
+		this.uiSoundService = uiSoundService;
 	}
 
 	public void open(
@@ -44,8 +51,13 @@ public class AdvanceGuiService {
 				.setLore(lines(buildOptionLore(option).toArray(String[]::new)))
 				.setCallback((index, clickType, action, slotGui) -> {
 					if (option.ready()) {
+						if (uiSoundService != null) {
+							uiSoundService.playUiConfirm(gui.getPlayer());
+						}
 						onAdvance.accept(option.resultUnitId());
 						gui.close();
+					} else if (uiSoundService != null) {
+						uiSoundService.playUiDeny(gui.getPlayer());
 					}
 				})
 				.build());

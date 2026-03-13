@@ -4,6 +4,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Random;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -49,5 +50,34 @@ class CaptainSelectionServiceTest {
 		));
 
 		assertEquals(preferredCaptain.playerId(), result.get(TeamId.RED));
+	}
+
+	@Test
+	void similarLadderCaptainsUseRandomTieBreak() {
+		var first = new TeamAssignmentService.PlayerCandidate(UUID.randomUUID(), "alpha", 300, "captain", TeamId.RED, false);
+		var second = new TeamAssignmentService.PlayerCandidate(UUID.randomUUID(), "beta", 260, "captain", TeamId.RED, false);
+		var assignments = Map.of(
+			first.playerId(), TeamId.RED,
+			second.playerId(), TeamId.RED
+		);
+
+		var chooseFirst = new CaptainSelectionService(new FixedRandom(0)).selectCaptains(List.of(first, second), assignments);
+		var chooseSecond = new CaptainSelectionService(new FixedRandom(1)).selectCaptains(List.of(first, second), assignments);
+
+		assertEquals(first.playerId(), chooseFirst.get(TeamId.RED));
+		assertEquals(second.playerId(), chooseSecond.get(TeamId.RED));
+	}
+
+	private static final class FixedRandom extends Random {
+		private final int value;
+
+		private FixedRandom(int value) {
+			this.value = value;
+		}
+
+		@Override
+		public int nextInt(int bound) {
+			return Math.min(value, bound - 1);
+		}
 	}
 }

@@ -87,6 +87,17 @@ public class UnitAbilityService {
 		unitCooldownTicks.remove(playerId);
 	}
 
+	public int remainingUnitCooldownSeconds(UUID playerId, long serverTicks) {
+		if (playerId == null) {
+			return 0;
+		}
+		var nextUseTick = unitCooldownTicks.getOrDefault(playerId, Long.MIN_VALUE);
+		if (serverTicks >= nextUseTick) {
+			return 0;
+		}
+		return (int) Math.ceil((nextUseTick - serverTicks) / 20.0D);
+	}
+
 	private void notifyActiveSkillHook(ServerPlayerEntity player, UnitDefinition definition, MatchManager matchManager) {
 		if (laneRuntimeRegistry == null) {
 			return;

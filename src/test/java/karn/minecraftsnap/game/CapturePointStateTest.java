@@ -12,7 +12,7 @@ class CapturePointStateTest {
 	void neutralToRedAfterFiveSeconds() {
 		var state = new CapturePointState(LaneId.LANE_1);
 
-		for (int i = 0; i < 4; i++) {
+		for (int i = 0; i < 99; i++) {
 			assertFalse(state.update(TeamId.RED, false, 5));
 		}
 		assertTrue(state.update(TeamId.RED, false, 5));
@@ -35,17 +35,17 @@ class CapturePointStateTest {
 	@Test
 	void redToBlueRequiresTwoSteps() {
 		var state = new CapturePointState(LaneId.LANE_1);
-		for (int i = 0; i < 5; i++) {
+		for (int i = 0; i < 100; i++) {
 			state.update(TeamId.RED, false, 5);
 		}
 		assertEquals(CaptureOwner.RED, state.getOwner());
 
-		for (int i = 0; i < 5; i++) {
+		for (int i = 0; i < 100; i++) {
 			state.update(TeamId.BLUE, false, 5);
 		}
 		assertEquals(CaptureOwner.NEUTRAL, state.getOwner());
 
-		for (int i = 0; i < 5; i++) {
+		for (int i = 0; i < 100; i++) {
 			state.update(TeamId.BLUE, false, 5);
 		}
 		assertEquals(CaptureOwner.BLUE, state.getOwner());

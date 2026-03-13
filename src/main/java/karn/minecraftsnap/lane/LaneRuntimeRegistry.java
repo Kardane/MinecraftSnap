@@ -175,33 +175,10 @@ public class LaneRuntimeRegistry {
 	}
 
 	private SystemConfig.LaneRegionConfig resolveLaneRegion(LaneId laneId, SystemConfig config) {
-		var captureRegion = captureRegionOf(laneId, config);
-		if (captureRegion != null) {
-			for (var candidate : new SystemConfig.LaneRegionConfig[] {
-				config.inGame.lane1Region,
-				config.inGame.lane2Region,
-				config.inGame.lane3Region
-			}) {
-				if (contains(candidate, captureRegion)) {
-					return candidate;
-				}
-			}
-		}
 		return switch (laneId) {
 			case LANE_1 -> config.inGame.lane1Region;
 			case LANE_2 -> config.inGame.lane2Region;
 			case LANE_3 -> config.inGame.lane3Region;
 		};
-	}
-
-	private boolean contains(SystemConfig.LaneRegionConfig laneRegion, SystemConfig.CaptureRegionConfig captureRegion) {
-		return laneRegion != null
-			&& captureRegion != null
-			&& captureRegion.minX >= laneRegion.minX
-			&& captureRegion.maxX <= laneRegion.maxX
-			&& captureRegion.minY >= laneRegion.minY
-			&& captureRegion.maxY <= laneRegion.maxY
-			&& captureRegion.minZ >= laneRegion.minZ
-			&& captureRegion.maxZ <= laneRegion.maxZ;
 	}
 }

@@ -1,5 +1,6 @@
 package karn.minecraftsnap.ui;
 
+import karn.minecraftsnap.audio.UiSoundService;
 import eu.pb4.sgui.api.elements.GuiElementBuilder;
 import eu.pb4.sgui.api.gui.SimpleGui;
 import karn.minecraftsnap.game.FactionId;
@@ -15,10 +16,16 @@ import java.util.List;
 public class PreparationGuiService {
 	private final TextTemplateResolver textTemplateResolver;
 	private final UnitRegistry unitRegistry;
+	private final UiSoundService uiSoundService;
 
 	public PreparationGuiService(TextTemplateResolver textTemplateResolver, UnitRegistry unitRegistry) {
+		this(textTemplateResolver, unitRegistry, null);
+	}
+
+	public PreparationGuiService(TextTemplateResolver textTemplateResolver, UnitRegistry unitRegistry, UiSoundService uiSoundService) {
 		this.textTemplateResolver = textTemplateResolver;
 		this.unitRegistry = unitRegistry;
+		this.uiSoundService = uiSoundService;
 	}
 
 	public void open(ServerPlayerEntity player, PlayerMatchState state) {
@@ -42,6 +49,9 @@ public class PreparationGuiService {
 			}
 			if (state.getRoleType() == RoleType.UNIT) {
 				builder.setCallback((index, clickType, action, slotGui) -> {
+					if (uiSoundService != null) {
+						uiSoundService.playUiConfirm(gui.getPlayer());
+					}
 					state.setPreferredUnitId(selected ? null : unit.id());
 					gui.close();
 				});

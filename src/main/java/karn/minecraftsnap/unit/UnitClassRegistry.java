@@ -22,29 +22,33 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 public class UnitClassRegistry {
-	private final Map<String, UnitClass> unitClasses = new LinkedHashMap<>();
+	private final Map<String, ConfiguredUnitClass> unitClasses = new LinkedHashMap<>();
 
 	public UnitClassRegistry() {
-		register("villager", new VillagerUnit());
-		register("armorer_villager", new ArmorerVillagerUnit());
-		register("vindicator", new VindicatorUnit());
-		register("pillager", new PillagerUnit());
-		register("zombie", new ZombieUnit());
-		register("skeleton", new SkeletonUnit());
-		register("slime", new SlimeUnit());
-		register("creeper", new CreeperUnit());
-		register("zombie_veteran", new ZombieVeteranUnit());
-		register("skeleton_sniper", new SkeletonSniperUnit());
-		register("slime_brute", new SlimeBruteUnit());
-		register("charged_creeper", new ChargedCreeperUnit());
-		register("piglin", new PiglinUnit());
-		register("zombified_piglin", new ZombifiedPiglinUnit());
-		register("blaze", new BlazeUnit());
-		register("piglin_brute", new PiglinBruteUnit());
+		register(new VillagerUnit());
+		register(new ArmorerVillagerUnit());
+		register(new VindicatorUnit());
+		register(new PillagerUnit());
+		register(new ZombieUnit());
+		register(new SkeletonUnit());
+		register(new SlimeUnit());
+		register(new CreeperUnit());
+		register(new ZombieVeteranUnit());
+		register(new SkeletonSniperUnit());
+		register(new SlimeBruteUnit());
+		register(new ChargedCreeperUnit());
+		register(new PiglinUnit());
+		register(new ZombifiedPiglinUnit());
+		register(new BlazeUnit());
+		register(new PiglinBruteUnit());
 	}
 
 	public UnitClass get(String unitId) {
 		return unitClasses.get(unitId);
+	}
+
+	public java.util.Collection<ConfiguredUnitClass> configuredUnits() {
+		return unitClasses.values();
 	}
 
 	public void validateAgainst(UnitRegistry unitRegistry) {
@@ -55,7 +59,7 @@ public class UnitClassRegistry {
 		}
 	}
 
-	private void register(String unitId, UnitClass unitClass) {
-		unitClasses.put(unitId, unitClass);
+	private void register(ConfiguredUnitClass unitClass) {
+		unitClasses.put(unitClass.definition().id(), unitClass);
 	}
 }

@@ -1,12 +1,58 @@
 package karn.minecraftsnap.unit.monster;
 
+import karn.minecraftsnap.game.FactionId;
+import karn.minecraftsnap.game.UnitDefinition;
+import karn.minecraftsnap.unit.ConfiguredUnitClass;
 import karn.minecraftsnap.unit.UnitContext;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.sound.SoundCategory;
 import net.minecraft.sound.SoundEvents;
 
-public class CreeperUnit extends AbstractMonsterUnit {
+import java.util.List;
+
+import static karn.minecraftsnap.unit.UnitSpecSupport.advanceOption;
+import static karn.minecraftsnap.unit.UnitSpecSupport.disguise;
+import static karn.minecraftsnap.unit.UnitSpecSupport.item;
+import static karn.minecraftsnap.unit.UnitSpecSupport.none;
+import static karn.minecraftsnap.unit.UnitSpecSupport.unit;
+
+public class CreeperUnit extends AbstractMonsterUnit implements ConfiguredUnitClass {
 	private static final String BOMB_TICK_KEY = "creeper_bomb_tick";
+	public static final UnitDefinition DEFINITION = unit(
+		"creeper",
+		"크리퍼",
+		FactionId.MONSTER,
+		true,
+		5,
+		25,
+		20.0,
+		1.0,
+		item("minecraft:tnt"),
+		none(),
+		none(),
+		none(),
+		none(),
+		none(),
+		none(),
+		"자폭",
+		20,
+		UnitDefinition.AmmoType.NONE,
+		disguise("minecraft:creeper"),
+		List.of("&71초 뒤 자폭", "&7근접 폭발 특화"),
+		List.of(advanceOption(
+			"charged_creeper",
+			"대전된 크리퍼",
+			List.of("&7천둥 아래에서 대전됨"),
+			List.of("minecraft:plains", "minecraft:forest", "minecraft:dark_forest"),
+			List.of("thunder"),
+			10
+		))
+	);
+
+	@Override
+	public UnitDefinition definition() {
+		return DEFINITION;
+	}
 
 	@Override
 	public void onTick(UnitContext context) {

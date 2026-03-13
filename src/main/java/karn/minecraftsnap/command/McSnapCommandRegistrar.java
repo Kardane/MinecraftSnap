@@ -69,6 +69,7 @@ public class McSnapCommandRegistrar {
 					.then(CommandManager.literal("game_running").executes(ctx -> setPhase(ctx.getSource(), MatchPhase.GAME_RUNNING)))
 					.then(CommandManager.literal("game_end").executes(ctx -> setPhase(ctx.getSource(), MatchPhase.GAME_END))))
 				.then(CommandManager.literal("teamsel").executes(ctx -> startTeamSelection(ctx.getSource())))
+				.then(CommandManager.literal("autostart").executes(ctx -> toggleAutoStart(ctx.getSource())))
 				.then(CommandManager.literal("gamestart").executes(ctx -> forceStartGame(ctx.getSource())))
 				.then(CommandManager.literal("gamestop").executes(ctx -> setPhase(ctx.getSource(), MatchPhase.GAME_END)))
 				.then(CommandManager.literal("biomeshow")
@@ -147,13 +148,21 @@ public class McSnapCommandRegistrar {
 	}
 
 	private int startTeamSelection(ServerCommandSource source) {
-		mod.startTeamSelection();
-		return send(source, "&a팀 자동 배정과 사령관 선출 시작");
+		mod.assignTeamsOnly();
+		return send(source, "&a팀 배정과 사령관 선출 완료 &7(자동 진행 없음)");
 	}
 
 	private int forceStartGame(ServerCommandSource source) {
 		mod.forceStartGame();
 		return send(source, "&a기본값 보정 후 게임 강제 시작");
+	}
+
+	private int toggleAutoStart(ServerCommandSource source) {
+		var enabled = mod.toggleAutoStart();
+		var message = enabled
+			? mod.getSystemConfig().announcements.autoStartEnabledMessage
+			: mod.getSystemConfig().announcements.autoStartDisabledMessage;
+		return send(source, message);
 	}
 
 	private int setPhase(ServerCommandSource source, MatchPhase phase) {

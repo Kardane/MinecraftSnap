@@ -1,5 +1,6 @@
 package karn.minecraftsnap.game;
 
+import karn.minecraftsnap.config.AdvanceOptionEntry;
 import karn.minecraftsnap.config.EntitySpecEntry;
 import karn.minecraftsnap.config.UnitItemEntry;
 import net.minecraft.item.Item;
@@ -26,7 +27,8 @@ public record UnitDefinition(
 	int abilityCooldownSeconds,
 	AmmoType ammoType,
 	EntitySpecEntry disguise,
-	List<String> descriptionLines
+	List<String> descriptionLines,
+	List<AdvanceOptionEntry> advanceOptions
 ) {
 	public Item mainHandItem() {
 		return mainHand == null ? null : mainHand.resolve();
@@ -54,6 +56,12 @@ public record UnitDefinition(
 
 	public Item abilityItem() {
 		return abilityItemSpec == null ? null : abilityItemSpec.resolve();
+	}
+
+	public boolean hasActiveSkill() {
+		return (abilityName != null && !abilityName.isBlank())
+			|| abilityCooldownSeconds > 0
+			|| (abilityItemSpec != null && !abilityItemSpec.isEmpty());
 	}
 
 	public enum AmmoType {

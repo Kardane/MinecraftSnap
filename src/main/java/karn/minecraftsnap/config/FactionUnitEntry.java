@@ -95,7 +95,8 @@ public class FactionUnitEntry {
 			abilityCooldownSeconds,
 			parseAmmoType(ammoType),
 			disguise,
-			List.copyOf(descriptionLines)
+			List.copyOf(descriptionLines),
+			List.copyOf(advanceOptions)
 		);
 	}
 
