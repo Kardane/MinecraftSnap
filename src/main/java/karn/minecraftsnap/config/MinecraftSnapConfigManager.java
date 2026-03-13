@@ -39,6 +39,8 @@ public class MinecraftSnapConfigManager {
 			Files.createDirectories(configDirectory);
 			systemConfig = loadSystemConfig(configDirectory.resolve("system.json"));
 			textConfig = loadOrCreate(configDirectory.resolve("texts.json"), TextConfigFile.class, new TextConfigFile());
+			textConfig.normalize();
+			writeJson(configDirectory.resolve("texts.json"), textConfig);
 			textConfig.applyTo(systemConfig);
 			biomeCatalog = loadOrCreate(configDirectory.resolve("biomes.json"), BiomeCatalog.class, createDefaultBiomeCatalog());
 			biomeCatalog.normalize();
@@ -54,6 +56,7 @@ public class MinecraftSnapConfigManager {
 			logger.error("MCsnap 컨픽 디렉터리 초기화 실패", exception);
 			systemConfig = new SystemConfig();
 			textConfig = new TextConfigFile();
+			textConfig.normalize();
 			textConfig.applyTo(systemConfig);
 			biomeCatalog = createDefaultBiomeCatalog();
 			factionConfigs.clear();
@@ -428,22 +431,22 @@ public class MinecraftSnapConfigManager {
 	private BiomeCatalog createDefaultBiomeCatalog() {
 		var catalog = new BiomeCatalog();
 		catalog.biomes = List.of(
-			createBiome("forest", "숲", "minecraft:forest", List.of("&a고요한 숲 라인 공개", "&7울창한 나무가 시야를 가름"), 90, List.of("&2숲의 바람이 라인을 감쌈")),
-			createBiome("desert", "사막", "minecraft:desert", List.of("&e사막 라인 공개", "&7건조한 지형이 시야를 비움"), 90, List.of("&6사막의 열기가 다시 퍼짐")),
-			createBiome("swamp", "늪", "minecraft:swamp", List.of("&2늪 라인 공개", "&7축축한 기운이 라인을 덮음"), 90, List.of("&a늪의 안개가 다시 짙어짐")),
-			createBiome("badlands", "악지", "minecraft:badlands", List.of("&c악지 라인 공개", "&7붉은 절벽이 전장을 감쌈"), 120, List.of("&6악지의 모래먼지가 다시 이는 중"))
+			createBiome("forest", "숲", "minecraft:forest", "minecraftsnap:forest_lane", List.of("&a고요한 숲 라인 공개", "&7울창한 나무가 시야를 가름"), 90, List.of("&2숲의 바람이 라인을 감쌈")),
+			createBiome("desert", "사막", "minecraft:desert", "minecraftsnap:desert_lane", List.of("&e사막 라인 공개", "&7건조한 지형이 시야를 비움"), 90, List.of("&6사막의 열기가 다시 퍼짐")),
+			createBiome("swamp", "늪", "minecraft:swamp", "minecraftsnap:swamp_lane", List.of("&2늪 라인 공개", "&7축축한 기운이 라인을 덮음"), 90, List.of("&a늪의 안개가 다시 짙어짐")),
+			createBiome("badlands", "악지", "minecraft:badlands", "minecraftsnap:badlands_lane", List.of("&c악지 라인 공개", "&7붉은 절벽이 전장을 감쌈"), 120, List.of("&6악지의 모래먼지가 다시 이는 중"))
 		);
 		catalog.normalize();
 		return catalog;
 	}
 
-	private BiomeEntry createBiome(String id, String name, String minecraftBiomeId, List<String> revealMessages, int pulseIntervalSeconds, List<String> pulseMessages) {
+	private BiomeEntry createBiome(String id, String name, String minecraftBiomeId, String structureId, List<String> revealMessages, int pulseIntervalSeconds, List<String> pulseMessages) {
 		var entry = new BiomeEntry();
 		entry.id = id;
 		entry.displayName = name;
 		entry.minecraftBiomeId = minecraftBiomeId;
 		entry.effectType = id;
-		entry.structureId = "";
+		entry.structureId = structureId;
 		entry.descriptionLines = List.of("&7대표 바이옴: &f" + minecraftBiomeId, "&7공개 후 분위기 설명 표시");
 		entry.revealMessages = revealMessages;
 		entry.pulseIntervalSeconds = pulseIntervalSeconds;

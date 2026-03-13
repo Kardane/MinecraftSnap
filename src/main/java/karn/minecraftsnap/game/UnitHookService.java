@@ -1,8 +1,10 @@
 package karn.minecraftsnap.game;
 
 import karn.minecraftsnap.audio.UiSoundService;
+import karn.minecraftsnap.MinecraftSnap;
 import karn.minecraftsnap.config.StatsRepository;
 import karn.minecraftsnap.config.SystemConfig;
+import karn.minecraftsnap.config.TextConfigFile;
 import karn.minecraftsnap.integration.DisguiseSupport;
 import karn.minecraftsnap.lane.LaneCaptureStatus;
 import karn.minecraftsnap.lane.LaneRuntime;
@@ -179,14 +181,12 @@ public class UnitHookService {
 			applyLoadout(player, definition, systemConfig);
 			DisguiseSupport.applyDisguise(player, definition.disguise());
 			player.setHealth((float) definition.maxHealth());
-			var statsRepository = currentStatsRepository();
-			if (statsRepository != null) {
-				statsRepository.addLadder(player.getUuid(), player.getName().getString(), 5);
-			}
 			if (playerDisplayNameService != null && matchManager != null && matchManager.getServer() != null) {
 				playerDisplayNameService.refreshAll(matchManager.getServer(), matchManager, currentStatsRepository(), systemConfig);
 				matchManager.getServer().getPlayerManager().broadcast(
-					textTemplateResolver.format("&d전직: &f" + player.getName().getString() + " &7-> &a" + definition.displayName()),
+					textTemplateResolver.format(textConfig().advanceBroadcastMessage
+						.replace("{player}", player.getName().getString())
+						.replace("{unit}", definition.displayName())),
 					false
 				);
 				if (uiSoundService != null) {
@@ -196,7 +196,7 @@ public class UnitHookService {
 			if (uiSoundService != null) {
 				uiSoundService.playUiConfirm(player);
 			}
-			player.sendMessage(textTemplateResolver.format("&a전직 완료: &f" + definition.displayName()), false);
+			player.sendMessage(textTemplateResolver.format(textConfig().advanceCompleteMessage.replace("{unit}", definition.displayName())), false);
 		});
 	}
 
@@ -292,6 +292,11 @@ public class UnitHookService {
 
 	private StatsRepository currentStatsRepository() {
 		return statsRepositorySupplier == null ? null : statsRepositorySupplier.get();
+	}
+
+	private TextConfigFile textConfig() {
+		var mod = MinecraftSnap.getInstance();
+		return mod == null ? new TextConfigFile() : mod.getTextConfig();
 	}
 
 	private UnitClass unitClassOf(String unitId) {

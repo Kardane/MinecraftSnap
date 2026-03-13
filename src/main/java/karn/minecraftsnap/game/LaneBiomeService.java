@@ -127,21 +127,25 @@ public class LaneBiomeService {
 
 	private List<Cell> collectCells(SystemConfig.LaneRegionConfig region) {
 		var cells = new ArrayList<Cell>();
-		int minX = (int) Math.floor(region.minX);
-		int minY = (int) Math.floor(region.minY);
-		int minZ = (int) Math.floor(region.minZ);
-		int maxX = (int) Math.floor(region.maxX);
-		int maxY = (int) Math.floor(region.maxY);
-		int maxZ = (int) Math.floor(region.maxZ);
+		int minBiomeX = Math.floorDiv((int) Math.floor(region.minX), 4);
+		int minBiomeY = Math.floorDiv((int) Math.floor(region.minY), 4);
+		int minBiomeZ = Math.floorDiv((int) Math.floor(region.minZ), 4);
+		int maxBiomeX = Math.floorDiv((int) Math.floor(region.maxX), 4);
+		int maxBiomeY = Math.floorDiv((int) Math.floor(region.maxY), 4);
+		int maxBiomeZ = Math.floorDiv((int) Math.floor(region.maxZ), 4);
 
-		for (int x = minX; x <= maxX; x += 4) {
-			for (int y = minY; y <= maxY; y += 4) {
-				for (int z = minZ; z <= maxZ; z += 4) {
-					cells.add(new Cell(x, y, z));
+		for (int biomeX = minBiomeX; biomeX <= maxBiomeX; biomeX++) {
+			for (int biomeY = minBiomeY; biomeY <= maxBiomeY; biomeY++) {
+				for (int biomeZ = minBiomeZ; biomeZ <= maxBiomeZ; biomeZ++) {
+					cells.add(new Cell(biomeX * 4, biomeY * 4, biomeZ * 4));
 				}
 			}
 		}
 		return cells;
+	}
+
+	static int biomeCellCount(SystemConfig.LaneRegionConfig region) {
+		return new LaneBiomeService().collectCells(region).size();
 	}
 
 	static Set<Long> collectChunkPositions(SystemConfig.LaneRegionConfig region) {
@@ -194,22 +198,12 @@ public class LaneBiomeService {
 			}
 
 			var snapshots = new ArrayList<BiomeCellSnapshot>();
-			int minX = (int) Math.floor(region.minX);
-			int minY = (int) Math.floor(region.minY);
-			int minZ = (int) Math.floor(region.minZ);
-			int maxX = (int) Math.floor(region.maxX);
-			int maxY = (int) Math.floor(region.maxY);
-			int maxZ = (int) Math.floor(region.maxZ);
-			for (int x = minX; x <= maxX; x += 4) {
-				for (int y = minY; y <= maxY; y += 4) {
-					for (int z = minZ; z <= maxZ; z += 4) {
-						var biomeId = world.getBiome(new BlockPos(x, y, z)).getKey()
-							.map(key -> key.getValue().toString())
-							.orElse("minecraft:plains");
-						snapshots.add(BiomeCellSnapshot.at(worldId, x, y, z, biomeId));
-					}
+			for (var cell : new LaneBiomeService().collectCells(region)) {
+				var biomeId = world.getBiome(new BlockPos(cell.blockX(), cell.blockY(), cell.blockZ())).getKey()
+					.map(key -> key.getValue().toString())
+					.orElse("minecraft:plains");
+				snapshots.add(BiomeCellSnapshot.at(worldId, cell.blockX(), cell.blockY(), cell.blockZ(), biomeId));
 				}
-			}
 			return snapshots;
 		}
 

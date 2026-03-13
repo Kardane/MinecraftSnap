@@ -1,6 +1,8 @@
 package karn.minecraftsnap.ui;
 
 import karn.minecraftsnap.config.SystemConfig;
+import karn.minecraftsnap.config.TextConfigFile;
+import karn.minecraftsnap.MinecraftSnap;
 import karn.minecraftsnap.game.MatchManager;
 import karn.minecraftsnap.game.MatchPhase;
 import karn.minecraftsnap.util.TextTemplateResolver;
@@ -18,7 +20,7 @@ public class BossBarService {
 	public BossBarService(MatchManager matchManager, TextTemplateResolver textTemplateResolver) {
 		this.matchManager = matchManager;
 		this.textTemplateResolver = textTemplateResolver;
-		this.bossBar = new ServerBossBar(textTemplateResolver.format("&fMCsnap"), BossBar.Color.WHITE, BossBar.Style.PROGRESS);
+		this.bossBar = new ServerBossBar(textTemplateResolver.format(textConfig().bossBarTitle), BossBar.Color.WHITE, BossBar.Style.PROGRESS);
 		this.bossBar.setVisible(false);
 	}
 
@@ -69,7 +71,7 @@ public class BossBarService {
 		}
 
 		bossBar.setPercent(BossBarFormatter.percent(matchManager.getRemainingSeconds(), matchManager.getTotalSeconds()));
-		bossBar.setColor(parseColor(bossBarConfig.color));
+		bossBar.setColor(gameRunningColor(matchManager.getRedScore(), matchManager.getBlueScore()));
 		bossBar.setStyle(parseStyle(bossBarConfig.style));
 		bossBar.setVisible(true);
 
@@ -98,6 +100,16 @@ public class BossBarService {
 		return Math.max(0.0f, Math.min(1.0f, remaining / (float) durationSeconds));
 	}
 
+	static BossBar.Color gameRunningColor(int redScore, int blueScore) {
+		if (redScore > blueScore) {
+			return BossBar.Color.RED;
+		}
+		if (blueScore > redScore) {
+			return BossBar.Color.BLUE;
+		}
+		return BossBar.Color.YELLOW;
+	}
+
 	private BossBar.Color parseColor(String color) {
 		try {
 			return BossBar.Color.valueOf(color.toUpperCase(java.util.Locale.ROOT));
@@ -112,5 +124,10 @@ public class BossBarService {
 		} catch (IllegalArgumentException exception) {
 			return BossBar.Style.PROGRESS;
 		}
+	}
+
+	private TextConfigFile textConfig() {
+		var mod = MinecraftSnap.getInstance();
+		return mod == null ? new TextConfigFile() : mod.getTextConfig();
 	}
 }

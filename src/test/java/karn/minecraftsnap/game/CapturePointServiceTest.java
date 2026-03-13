@@ -62,7 +62,7 @@ class CapturePointServiceTest {
 	void particleBorderYUsesTopEdge() {
 		var capture = SystemConfig.CaptureRegionConfig.create("inside", -4.0, 60.0, -4.0, 4.0, 68.0, 4.0);
 
-		assertEquals(68.1D, CapturePointService.particleBorderY(capture));
-		assertEquals(0.5D, CapturePointService.particleSpacing());
+		assertEquals(1.1D, CapturePointService.particleBorderY(capture));
+		assertEquals(0.25D, CapturePointService.particleSpacing());
 	}
 }

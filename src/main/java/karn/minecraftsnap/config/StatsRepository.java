@@ -101,6 +101,14 @@ public class StatsRepository {
 		return getOrCreate(playerId, name).ladder;
 	}
 
+	public String getLastKnownName(UUID playerId, String fallback) {
+		var stats = statsFile.players.get(playerId.toString());
+		if (stats == null || stats.lastKnownName == null || stats.lastKnownName.isBlank()) {
+			return fallback;
+		}
+		return stats.lastKnownName;
+	}
+
 	public void addLadder(UUID playerId, String name, int amount) {
 		var stats = getOrCreate(playerId, name);
 		stats.ladder += amount;

@@ -1,6 +1,8 @@
 package karn.minecraftsnap.game;
 
 import karn.minecraftsnap.audio.UiSoundService;
+import karn.minecraftsnap.MinecraftSnap;
+import karn.minecraftsnap.config.TextConfigFile;
 import karn.minecraftsnap.config.SystemConfig;
 import karn.minecraftsnap.integration.DisguiseSupport;
 import karn.minecraftsnap.util.TextTemplateResolver;
@@ -125,8 +127,10 @@ public class UnitSpawnService {
 			unitLoadoutService.applyUnitLoadout(target, definition, textTemplateResolver);
 		}
 		DisguiseSupport.applyDisguise(target, definition.disguise());
-		target.sendMessage(textTemplateResolver.format("&a소환됨: &f" + definition.displayName()), false);
-		captain.sendMessage(textTemplateResolver.format("&a유닛 소환 완료: &f" + target.getName().getString() + " &7-> &f" + definition.displayName()), false);
+		target.sendMessage(textTemplateResolver.format(textConfig().unitSpawnedMessage.replace("{unit}", definition.displayName())), false);
+		captain.sendMessage(textTemplateResolver.format(textConfig().captainSpawnSuccessMessage
+			.replace("{player}", target.getName().getString())
+			.replace("{unit}", definition.displayName())), false);
 		playSuccess(captain);
 		playSuccess(target);
 		return SpawnResult.success(target.getUuid(), definition.id());
@@ -195,7 +199,7 @@ public class UnitSpawnService {
 		}
 	}
 
-	static LaneId nearestLaneForCaptain(ServerPlayerEntity captain, SystemConfig systemConfig) {
+	public static LaneId nearestLaneForCaptain(ServerPlayerEntity captain, SystemConfig systemConfig) {
 		if (captain == null || systemConfig == null || systemConfig.inGame == null) {
 			return LaneId.LANE_1;
 		}
@@ -260,6 +264,11 @@ public class UnitSpawnService {
 		if (uiSoundService != null) {
 			uiSoundService.playUiConfirm(player);
 		}
+	}
+
+	private TextConfigFile textConfig() {
+		var mod = MinecraftSnap.getInstance();
+		return mod == null ? new TextConfigFile() : mod.getTextConfig();
 	}
 
 	public record SpawnCandidate(UUID playerId, String preferredUnitId, boolean spectator) {

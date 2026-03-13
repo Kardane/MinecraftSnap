@@ -1,10 +1,12 @@
 package karn.minecraftsnap.ui;
 
 import karn.minecraftsnap.audio.UiSoundService;
+import karn.minecraftsnap.MinecraftSnap;
 import eu.pb4.sgui.api.elements.GuiElementBuilder;
 import eu.pb4.sgui.api.gui.SimpleGui;
 import karn.minecraftsnap.config.BiomeCatalog;
 import karn.minecraftsnap.config.BiomeEntry;
+import karn.minecraftsnap.config.TextConfigFile;
 import karn.minecraftsnap.game.FactionId;
 import karn.minecraftsnap.game.FactionSpec;
 import karn.minecraftsnap.game.MatchPhase;
@@ -41,30 +43,30 @@ public class WikiGuiService {
 
 	public void open(ServerPlayerEntity player, MatchPhase phase) {
 		var gui = new SimpleGui(ScreenHandlerType.GENERIC_9X3, player, false);
-		gui.setTitle(textTemplateResolver.format("&6MCsnap 위키"));
-		gui.setSlot(10, action(Items.BOOK, "&e게임 개요", List.of(
-			"&f현재 페이즈: &a" + phase.getDisplayName(),
-			"&79분 동안 3개 라인의 점령 점수 경쟁",
-			"&7Shift+F로 상황별 GUI 열기"
+		gui.setTitle(textTemplateResolver.format(textConfig().wikiMainTitle));
+		gui.setSlot(10, action(Items.BOOK, textConfig().wikiOverviewName, List.of(
+			textConfig().wikiOverviewPhaseLoreTemplate.replace("{phase}", phase.getDisplayName()),
+			textConfig().wikiOverviewRuleLore,
+			textConfig().wikiOverviewHintLore
 		), null));
-		gui.setSlot(12, action(Items.EMERALD, "&a팩션", List.of(
-			"&7주민&우민 / 몬스터 / 네더",
-			"&7요약과 사령관 스킬 설명 보기"
+		gui.setSlot(12, action(Items.EMERALD, textConfig().wikiFactionButtonName, List.of(
+			textConfig().wikiFactionButtonLore1,
+			textConfig().wikiFactionButtonLore2
 		), () -> openFactionIndex(player)));
-		gui.setSlot(14, action(Items.IRON_SWORD, "&c유닛", List.of(
-			"&7팩션별 유닛 목록과 상세 보기",
-			"&7전직 유닛도 포함"
+		gui.setSlot(14, action(Items.IRON_SWORD, textConfig().wikiUnitButtonName, List.of(
+			textConfig().wikiUnitButtonLore1,
+			textConfig().wikiUnitButtonLore2
 		), () -> openUnitFactionIndex(player)));
-		gui.setSlot(16, action(Items.GRASS_BLOCK, "&2바이옴", List.of(
-			"&7출현 가능한 바이옴 목록",
-			"&7공개 메시지와 설명 확인"
+		gui.setSlot(16, action(Items.GRASS_BLOCK, textConfig().wikiBiomeButtonName, List.of(
+			textConfig().wikiBiomeButtonLore1,
+			textConfig().wikiBiomeButtonLore2
 		), () -> openBiomeIndex(player)));
 		gui.open();
 	}
 
 	private void openFactionIndex(ServerPlayerEntity player) {
 		var gui = new SimpleGui(ScreenHandlerType.GENERIC_9X3, player, false);
-		gui.setTitle(textTemplateResolver.format("&a팩션 도감"));
+		gui.setTitle(textTemplateResolver.format(textConfig().wikiFactionIndexTitle));
 		gui.setSlot(11, factionAction(player, FactionId.VILLAGER, Items.EMERALD));
 		gui.setSlot(13, factionAction(player, FactionId.MONSTER, Items.IRON_SWORD));
 		gui.setSlot(15, factionAction(player, FactionId.NETHER, Items.BLAZE_ROD));
@@ -82,25 +84,25 @@ public class WikiGuiService {
 			lines.add("&8사령관 스킬: &d" + config.captainSkillName());
 			lines.addAll(config.captainSkillDescriptionLines());
 		}
-		gui.setSlot(13, action(iconOf(factionId), "&f개요", lines, null));
+		gui.setSlot(13, action(iconOf(factionId), textConfig().wikiSummaryName, lines, null));
 		gui.setSlot(18, homeAction(player));
-		gui.setSlot(22, action(Items.ARROW, "&e뒤로", List.of("&7팩션 목록으로 복귀"), () -> openFactionIndex(player)));
+		gui.setSlot(22, action(Items.ARROW, textConfig().wikiBackName, List.of(textConfig().wikiBackFactionLore), () -> openFactionIndex(player)));
 		gui.open();
 	}
 
 	private void openUnitFactionIndex(ServerPlayerEntity player) {
 		var gui = new SimpleGui(ScreenHandlerType.GENERIC_9X3, player, false);
-		gui.setTitle(textTemplateResolver.format("&c유닛 도감"));
-		gui.setSlot(11, action(Items.EMERALD, "&a주민&우민", List.of("&7주민 계열 유닛 보기"), () -> openUnitList(player, FactionId.VILLAGER)));
-		gui.setSlot(13, action(Items.IRON_SWORD, "&c몬스터", List.of("&7몬스터 및 전직 유닛 보기"), () -> openUnitList(player, FactionId.MONSTER)));
-		gui.setSlot(15, action(Items.BLAZE_ROD, "&6네더", List.of("&7네더 유닛 보기"), () -> openUnitList(player, FactionId.NETHER)));
+		gui.setTitle(textTemplateResolver.format(textConfig().wikiUnitIndexTitle));
+		gui.setSlot(11, action(Items.EMERALD, textConfig().wikiVillagerCategoryName, List.of(textConfig().wikiVillagerCategoryLore), () -> openUnitList(player, FactionId.VILLAGER)));
+		gui.setSlot(13, action(Items.IRON_SWORD, textConfig().wikiMonsterCategoryName, List.of(textConfig().wikiMonsterCategoryLore), () -> openUnitList(player, FactionId.MONSTER)));
+		gui.setSlot(15, action(Items.BLAZE_ROD, textConfig().wikiNetherCategoryName, List.of(textConfig().wikiNetherCategoryLore), () -> openUnitList(player, FactionId.NETHER)));
 		gui.setSlot(18, homeAction(player));
 		gui.open();
 	}
 
 	private void openUnitList(ServerPlayerEntity player, FactionId factionId) {
 		var gui = new SimpleGui(ScreenHandlerType.GENERIC_9X3, player, false);
-		gui.setTitle(textTemplateResolver.format("&f" + unitRegistry.getFactionSpec(factionId).displayName() + " 유닛"));
+		gui.setTitle(textTemplateResolver.format(textConfig().wikiFactionUnitListTitleTemplate.replace("{faction}", unitRegistry.getFactionSpec(factionId).displayName())));
 		int slot = 9;
 		for (var unit : unitRegistry.allByFaction(factionId)) {
 			if (slot >= 27) {
@@ -109,7 +111,7 @@ public class WikiGuiService {
 			gui.setSlot(slot++, action(unit.mainHandItem(), "&f" + unit.displayName(), unitLore(unit), () -> openUnitDetail(player, factionId, unit)));
 		}
 		gui.setSlot(18, homeAction(player));
-		gui.setSlot(22, action(Items.ARROW, "&e뒤로", List.of("&7유닛 분류로 복귀"), () -> openUnitFactionIndex(player)));
+		gui.setSlot(22, action(Items.ARROW, textConfig().wikiBackName, List.of(textConfig().wikiBackUnitFactionLore), () -> openUnitFactionIndex(player)));
 		gui.open();
 	}
 
@@ -118,13 +120,13 @@ public class WikiGuiService {
 		gui.setTitle(textTemplateResolver.format("&f" + unit.displayName()));
 		gui.setSlot(13, action(unit.mainHandItem(), "&f" + unit.displayName(), unitDetailLore(unit), null));
 		gui.setSlot(18, homeAction(player));
-		gui.setSlot(22, action(Items.ARROW, "&e뒤로", List.of("&7이전 유닛 목록으로 복귀"), () -> openUnitList(player, factionId)));
+		gui.setSlot(22, action(Items.ARROW, textConfig().wikiBackName, List.of(textConfig().wikiBackUnitListLore), () -> openUnitList(player, factionId)));
 		gui.open();
 	}
 
 	private void openBiomeIndex(ServerPlayerEntity player) {
 		var gui = new SimpleGui(ScreenHandlerType.GENERIC_9X3, player, false);
-		gui.setTitle(textTemplateResolver.format("&2바이옴 도감"));
+		gui.setTitle(textTemplateResolver.format(textConfig().wikiBiomeIndexTitle));
 		int slot = 9;
 		for (var biome : biomeCatalogSupplier.get().biomes) {
 			if (slot >= 27) {
@@ -141,17 +143,17 @@ public class WikiGuiService {
 		gui.setTitle(textTemplateResolver.format("&a" + biome.displayName));
 		gui.setSlot(13, action(Items.GRASS_BLOCK, "&a" + biome.displayName, biomeDetailLore(biome), null));
 		gui.setSlot(18, homeAction(player));
-		gui.setSlot(22, action(Items.ARROW, "&e뒤로", List.of("&7바이옴 목록으로 복귀"), () -> openBiomeIndex(player)));
+		gui.setSlot(22, action(Items.ARROW, textConfig().wikiBackName, List.of(textConfig().wikiBackBiomeLore), () -> openBiomeIndex(player)));
 		gui.open();
 	}
 
 	private eu.pb4.sgui.api.elements.GuiElementInterface homeAction(ServerPlayerEntity player) {
-		return action(Items.COMPASS, "&6위키 메인", List.of("&7위키 첫 화면으로 복귀"), () -> open(player, phaseSupplier.get()));
+		return action(Items.COMPASS, textConfig().wikiHomeName, List.of(textConfig().wikiHomeLore), () -> open(player, phaseSupplier.get()));
 	}
 
 	private eu.pb4.sgui.api.elements.GuiElementInterface factionAction(ServerPlayerEntity player, FactionId factionId, Item item) {
 		var config = unitRegistry.getFactionSpec(factionId);
-		var lore = config == null ? List.of("&7데이터 없음") : config.summaryLines();
+		var lore = config == null ? List.of(textConfig().wikiNoDataLore) : config.summaryLines();
 		return action(item, "&f" + (config == null ? factionId.name() : config.displayName()), lore, () -> openFactionDetail(player, factionId));
 	}
 
@@ -218,5 +220,10 @@ public class WikiGuiService {
 			case MONSTER -> Items.IRON_SWORD;
 			case NETHER -> Items.BLAZE_ROD;
 		};
+	}
+
+	private TextConfigFile textConfig() {
+		var mod = MinecraftSnap.getInstance();
+		return mod == null ? new TextConfigFile() : mod.getTextConfig();
 	}
 }

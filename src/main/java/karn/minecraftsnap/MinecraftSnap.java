@@ -20,6 +20,7 @@ import karn.minecraftsnap.game.GameEndService;
 import karn.minecraftsnap.game.GameStartCountdownService;
 import karn.minecraftsnap.game.InGameRuleService;
 import karn.minecraftsnap.game.LaneBiomeService;
+import karn.minecraftsnap.game.LaneId;
 import karn.minecraftsnap.game.LaneStructureService;
 import karn.minecraftsnap.game.LobbyCoordinator;
 import karn.minecraftsnap.game.MatchManager;
@@ -54,6 +55,7 @@ import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.fabricmc.fabric.api.message.v1.ServerMessageEvents;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
+import net.fabricmc.fabric.api.event.player.UseEntityCallback;
 import net.fabricmc.fabric.api.event.player.UseBlockCallback;
 import net.fabricmc.fabric.api.event.player.UseItemCallback;
 import net.fabricmc.api.DedicatedServerModInitializer;
@@ -274,6 +276,12 @@ public class MinecraftSnap implements DedicatedServerModInitializer {
 			}
 			return handleUseItem(serverPlayer, hand) ? ActionResult.SUCCESS : ActionResult.PASS;
 		});
+		UseEntityCallback.EVENT.register((player, world, hand, entity, hitResult) -> {
+			if (!(player instanceof net.minecraft.server.network.ServerPlayerEntity serverPlayer)) {
+				return ActionResult.PASS;
+			}
+			return handleUseItem(serverPlayer, hand) ? ActionResult.SUCCESS : ActionResult.PASS;
+		});
 		ServerLivingEntityEvents.ALLOW_DAMAGE.register((entity, source, amount) ->
 			inGameRuleService.allowDamage(entity, source, amount));
 		ServerLivingEntityEvents.ALLOW_DEATH.register((entity, source, amount) ->
@@ -438,6 +446,10 @@ public class MinecraftSnap implements DedicatedServerModInitializer {
 		return configManager.getSystemConfig();
 	}
 
+	public karn.minecraftsnap.config.TextConfigFile getTextConfig() {
+		return configManager.getTextConfig();
+	}
+
 	public boolean forceAdvance(ServerPlayerEntity player) {
 		return player != null && advanceService.forceAdvance(matchManager.getPlayerState(player.getUuid()));
 	}
@@ -463,6 +475,65 @@ public class MinecraftSnap implements DedicatedServerModInitializer {
 		karn.minecraftsnap.integration.DisguiseSupport.applyDisguise(player, definition.disguise());
 		playerDisplayNameService.refreshAll(matchManager.getServer(), matchManager, configManager.getStatsRepository(), configManager.getSystemConfig());
 		return "&a유닛 강제 배정 완료: &f" + definition.displayName();
+	}
+
+	public String placeNearestBiomeStructure(ServerPlayerEntity player) {
+		return placeNearestBiomeStructure(player, null);
+	}
+
+	public String placeNearestBiomeStructure(ServerPlayerEntity player, String structureId) {
+		if (player == null) {
+			return "&c플레이어를 찾지 못함";
+		}
+		var laneId = UnitSpawnService.nearestLaneForCaptain(player, configManager.getSystemConfig());
+		var resolvedStructureId = structureId;
+		if (resolvedStructureId == null || resolvedStructureId.isBlank()) {
+			var assignedBiomeId = matchManager.getAssignedBiomeId(laneId);
+			if (assignedBiomeId == null || assignedBiomeId.isBlank()) {
+				return "&c" + laneLabel(laneId) + "에 배정된 바이옴이 없음";
+			}
+			var biomeEntry = configManager.getBiomeCatalog().biomes.stream()
+				.filter(entry -> assignedBiomeId.equals(entry.id))
+				.findFirst()
+				.orElse(null);
+			if (biomeEntry == null || biomeEntry.structureId == null || biomeEntry.structureId.isBlank()) {
+				return "&c" + laneLabel(laneId) + "의 structureId 가 비어 있음";
+			}
+			resolvedStructureId = biomeEntry.structureId;
+		}
+		var placed = laneStructureService.forcePlaceStructure(
+			matchManager.getServer(),
+			configManager.getSystemConfig().world,
+			laneId,
+			resolvedStructureId,
+			laneStructureService.originFor(laneRegionOf(laneId))
+		);
+		return placed
+			? "&a" + laneLabel(laneId) + " 구조물 설치 완료: &f" + resolvedStructureId
+			: "&c" + laneLabel(laneId) + " 구조물 설치 실패";
+	}
+
+	public String resetAllBiomeStructures() {
+		var server = matchManager.getServer();
+		if (server == null) {
+			return "&c서버가 아직 바인딩되지 않음";
+		}
+		int success = 0;
+		for (var laneId : LaneId.values()) {
+			if (laneStructureService.forcePlaceStructure(
+				server,
+				configManager.getSystemConfig().world,
+				laneId,
+				"minecraft:default",
+				laneStructureService.originFor(laneRegionOf(laneId))
+			)) {
+				success++;
+			}
+		}
+		laneStructureService.reset();
+		return success == LaneId.values().length
+			? "&a모든 라인 구조물을 minecraft:default 로 초기화 완료"
+			: "&c일부 라인 구조물 초기화 실패 (&f" + success + "&7/&f" + LaneId.values().length + "&c)";
 	}
 
 	public String openAdminGui(ServerPlayerEntity player, String guiId) {
@@ -526,11 +597,11 @@ public class MinecraftSnap implements DedicatedServerModInitializer {
 			if (!canCaptainUseItems(matchManager.getPhase())) {
 				return false;
 			}
-			if (unitLoadoutService.isCaptainMenuItem(stack)) {
+			if (unitLoadoutService.matchesCaptainMenuTrigger(stack)) {
 				openCaptainSpawnGui(player);
 				return true;
 			}
-			if (unitLoadoutService.isCaptainSkillItem(stack)) {
+			if (unitLoadoutService.matchesCaptainSkillTrigger(stack)) {
 				return unitAbilityService.useCaptainSkill(player, matchManager, captainManaService);
 			}
 			return false;
@@ -739,7 +810,47 @@ public class MinecraftSnap implements DedicatedServerModInitializer {
 			var penalty = loserTeam == TeamId.RED ? matchManager.getRedScore() : matchManager.getBlueScore();
 			configManager.getStatsRepository().addLadder(loserCaptainId, name, -penalty);
 		}
+		applyUnitLadderRewards(server, winnerTeam, loserTeam);
 		playerDisplayNameService.refreshAll(server, matchManager, configManager.getStatsRepository(), configManager.getSystemConfig());
+	}
+
+	private void applyUnitLadderRewards(net.minecraft.server.MinecraftServer server, TeamId winnerTeam, TeamId loserTeam) {
+		applyTeamUnitLadder(server, winnerTeam, 1);
+		applyTeamUnitLadder(server, loserTeam, -1);
+	}
+
+	private void applyTeamUnitLadder(net.minecraft.server.MinecraftServer server, TeamId teamId, int sign) {
+		var unitEntries = matchManager.getPlayerStatesSnapshot().entrySet().stream()
+			.filter(entry -> {
+				var state = entry.getValue();
+				return state.getTeamId() == teamId && state.getRoleType() == RoleType.UNIT;
+			})
+			.toList();
+		if (unitEntries.isEmpty()) {
+			return;
+		}
+		int maxPerformance = unitEntries.stream()
+			.mapToInt(entry -> entry.getValue().getMatchKills() + entry.getValue().getMatchCaptureScore())
+			.max()
+			.orElse(0);
+		for (var entry : unitEntries) {
+			var playerId = entry.getKey();
+			var state = entry.getValue();
+			int performance = state.getMatchKills() + state.getMatchCaptureScore();
+			int amount = unitMatchLadderAmount(performance, maxPerformance);
+			var player = server.getPlayerManager().getPlayer(playerId);
+			var name = player == null
+				? configManager.getStatsRepository().getLastKnownName(playerId, playerId.toString())
+				: player.getName().getString();
+			configManager.getStatsRepository().addLadder(playerId, name, amount * sign);
+		}
+	}
+
+	static int unitMatchLadderAmount(int performance, int maxPerformance) {
+		if (maxPerformance <= 0 || performance <= 0) {
+			return 10;
+		}
+		return Math.max(10, Math.min(20, 10 + Math.round(10.0f * performance / maxPerformance)));
 	}
 
 	private void applyTickRate(int tickRate) {
@@ -781,5 +892,21 @@ public class MinecraftSnap implements DedicatedServerModInitializer {
 		}
 		server.getPlayerManager().broadcast(textTemplateResolver.format(message), false);
 		uiSoundService.playGlobalAnnouncement(server);
+	}
+
+	private SystemConfig.LaneRegionConfig laneRegionOf(LaneId laneId) {
+		return switch (laneId) {
+			case LANE_1 -> configManager.getSystemConfig().inGame.lane1Region;
+			case LANE_2 -> configManager.getSystemConfig().inGame.lane2Region;
+			case LANE_3 -> configManager.getSystemConfig().inGame.lane3Region;
+		};
+	}
+
+	private String laneLabel(LaneId laneId) {
+		return switch (laneId) {
+			case LANE_1 -> "1번 라인";
+			case LANE_2 -> "2번 라인";
+			case LANE_3 -> "3번 라인";
+		};
 	}
 }

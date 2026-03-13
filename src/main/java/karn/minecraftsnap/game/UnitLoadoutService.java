@@ -1,5 +1,7 @@
 package karn.minecraftsnap.game;
 
+import karn.minecraftsnap.MinecraftSnap;
+import karn.minecraftsnap.config.TextConfigFile;
 import karn.minecraftsnap.config.UnitItemEntry;
 import karn.minecraftsnap.util.TextTemplateResolver;
 import net.minecraft.component.ComponentChanges;
@@ -119,6 +121,20 @@ public class UnitLoadoutService {
 		return hasKind(stack, KIND_CAPTAIN_SKILL);
 	}
 
+	public boolean matchesCaptainMenuTrigger(ItemStack stack) {
+		if (stack == null || stack.isEmpty()) {
+			return false;
+		}
+		return isCaptainMenuItem(stack) || matchesCaptainMenuTriggerItemId(Registries.ITEM.getId(stack.getItem()).toString());
+	}
+
+	public boolean matchesCaptainSkillTrigger(ItemStack stack) {
+		if (stack == null || stack.isEmpty()) {
+			return false;
+		}
+		return isCaptainSkillItem(stack) || matchesCaptainSkillTriggerItemId(Registries.ITEM.getId(stack.getItem()).toString());
+	}
+
 	public boolean isUnitAbilityItem(ItemStack stack, String unitId) {
 		if (!hasKind(stack, KIND_UNIT_ABILITY)) {
 			return false;
@@ -149,6 +165,14 @@ public class UnitLoadoutService {
 		};
 	}
 
+	boolean matchesCaptainMenuTriggerItemId(String itemId) {
+		return "minecraft:bell".equals(itemId);
+	}
+
+	boolean matchesCaptainSkillTriggerItemId(String itemId) {
+		return "minecraft:nether_star".equals(itemId);
+	}
+
 	private void restockAmmo(ServerPlayerEntity player, UnitDefinition definition) {
 		if (definition.ammoType() == UnitDefinition.AmmoType.ARROW && !player.getInventory().contains(new ItemStack(Items.ARROW))) {
 			player.getInventory().insertStack(new ItemStack(Items.ARROW));
@@ -160,20 +184,20 @@ public class UnitLoadoutService {
 
 	ItemStack createCaptainMenuItem(FactionId factionId, TextTemplateResolver textTemplateResolver) {
 		var stack = createTaggedStack(Items.BELL, KIND_CAPTAIN_MENU, factionId, null);
-		stack.set(DataComponentTypes.CUSTOM_NAME, textTemplateResolver.format("&e유닛 소환"));
+		stack.set(DataComponentTypes.CUSTOM_NAME, textTemplateResolver.format(textConfig().captainMenuItemName));
 		stack.set(DataComponentTypes.LORE, new LoreComponent(List.of(
-			textTemplateResolver.format("&7우클릭으로 소환 GUI 열기"),
-			textTemplateResolver.format("&8현재 팩션: &f" + factionLabel(factionId))
+			textTemplateResolver.format(textConfig().captainMenuItemUseLore),
+			textTemplateResolver.format(textConfig().captainMenuItemFactionLoreTemplate.replace("{faction}", factionLabel(factionId)))
 		)));
 		return stack;
 	}
 
 	ItemStack createCaptainSkillItem(FactionId factionId, TextTemplateResolver textTemplateResolver) {
 		var stack = createTaggedStack(Items.NETHER_STAR, KIND_CAPTAIN_SKILL, factionId, null);
-		stack.set(DataComponentTypes.CUSTOM_NAME, textTemplateResolver.format("&d사령관 스킬"));
+		stack.set(DataComponentTypes.CUSTOM_NAME, textTemplateResolver.format(textConfig().captainSkillItemName));
 		stack.set(DataComponentTypes.LORE, new LoreComponent(List.of(
-			textTemplateResolver.format("&7우클릭으로 팩션 전용 임시 스킬 발동"),
-			textTemplateResolver.format("&8현재 팩션: &f" + factionLabel(factionId))
+			textTemplateResolver.format(textConfig().captainSkillItemUseLore),
+			textTemplateResolver.format(textConfig().captainSkillItemFactionLoreTemplate.replace("{faction}", factionLabel(factionId)))
 		)));
 		return stack;
 	}
@@ -336,6 +360,11 @@ public class UnitLoadoutService {
 	private boolean hasKind(ItemStack stack, String kind) {
 		var customData = stack.get(DataComponentTypes.CUSTOM_DATA);
 		return customData != null && kind.equals(customData.copyNbt().getString(CUSTOM_DATA_KIND));
+	}
+
+	private TextConfigFile textConfig() {
+		var mod = MinecraftSnap.getInstance();
+		return mod == null ? new TextConfigFile() : mod.getTextConfig();
 	}
 
 	private void markUnbreakable(ItemStack stack) {

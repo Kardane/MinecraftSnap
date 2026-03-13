@@ -1,7 +1,7 @@
 package karn.minecraftsnap.config;
 
 public class SystemConfig {
-	public String prefix = "&7[&6!&7]&f ";
+	public transient String prefix = "&7[&6!&7]&f ";
 	public String world = "minecraft:overworld";
 	public int gameDurationSeconds = 9 * 60;
 	public BossBarConfig bossBar = new BossBarConfig();
@@ -19,7 +19,7 @@ public class SystemConfig {
 	public AnnouncementConfig announcements = new AnnouncementConfig();
 
 	public static class BossBarConfig {
-		public String template = "&c레드 {red_score} &8| &f남은 시간 {time} &8| &9블루 {blue_score}";
+		public transient String template = "&c레드 {red_score} &8| &f남은 시간 {time} &8| &9블루 {blue_score}";
 		public String color = "WHITE";
 		public String style = "PROGRESS";
 	}
@@ -43,20 +43,20 @@ public class SystemConfig {
 	}
 
 	public static class TeamChatConfig {
-		public String format = "&8[&a팀&8] &7[{team} / {role}] &f{player}&7: {message}";
-		public String noTeamMessage = "&c팀 채팅은 팀 배정 이후에만 사용할 수 있음";
-		public String emptyMessage = "&c팀 채팅 내용이 비어있음";
+		public transient String format = "&8[&a팀&8] &7[{team} / {role}] &f{player}&7: {message}";
+		public transient String noTeamMessage = "&c팀 채팅은 팀 배정 이후에만 사용할 수 있음";
+		public transient String emptyMessage = "&c팀 채팅 내용이 비어있음";
 	}
 
 	public static class CaptureConfig {
 		public int captureStepSeconds = 5;
 		public int scoreIntervalTicks = 20;
 		public int allPointsHoldSeconds = 30;
-		public String defaultBossBarText = "&f점령";
-		public String contestedBossBarText = "&e격돌중!";
-		public String redOwnerBossBarText = "레드 점령지";
-		public String blueOwnerBossBarText = "블루 점령지";
-		public String neutralOwnerBossBarText = "중립 점령지";
+		public transient String defaultBossBarText = "&f점령";
+		public transient String contestedBossBarText = "&e격돌중!";
+		public transient String redOwnerBossBarText = "레드 점령지";
+		public transient String blueOwnerBossBarText = "블루 점령지";
+		public transient String neutralOwnerBossBarText = "중립 점령지";
 		public CaptureRegionConfig lane1 = CaptureRegionConfig.create("1번 라인", -4.0, 60.0, -4.0, 4.0, 68.0, 4.0);
 		public CaptureRegionConfig lane2 = CaptureRegionConfig.create("2번 라인", 16.0, 60.0, -4.0, 24.0, 68.0, 4.0);
 		public CaptureRegionConfig lane3 = CaptureRegionConfig.create("3번 라인", 36.0, 60.0, -4.0, 44.0, 68.0, 4.0);
@@ -71,17 +71,17 @@ public class SystemConfig {
 		public int factionSelectDelaySeconds = 5;
 		public int factionSelectDurationSeconds = 15;
 		public int gameStartDelaySeconds = 0;
-		public String factionSelectBossBarTemplate = "&6팩션 선택 남은 시간 &f{time}";
+		public transient String factionSelectBossBarTemplate = "&6팩션 선택 남은 시간 &f{time}";
 	}
 
 	public static class GameStartConfig {
 		public int waitSeconds = 15;
 		public boolean allowShiftF = true;
-		public String captainSpawnGuiTitle = "&6유닛 소환";
-		public String captainSpawnNoFactionMessage = "&c팩션이 정해지지 않았음";
-		public String captainSpawnBlockedLaneMessage = "&c{lane}은 아직 공개되지 않아 소환 불가";
-		public String countdownTitle = "&e게임 시작";
-		public String countdownSubtitleTemplate = "&f{seconds}초";
+		public transient String captainSpawnGuiTitle = "&6유닛 소환";
+		public transient String captainSpawnNoFactionMessage = "&c팩션이 정해지지 않았음";
+		public transient String captainSpawnBlockedLaneMessage = "&c{lane}은 아직 공개되지 않아 소환 불가";
+		public transient String countdownTitle = "&e게임 시작";
+		public transient String countdownSubtitleTemplate = "&f{seconds}초";
 		public PositionConfig redCaptainSpawn = PositionConfig.create(-10.0, 64.0, 10.0);
 		public PositionConfig blueCaptainSpawn = PositionConfig.create(10.0, 64.0, 10.0);
 		public PositionConfig redLane1UnitSpawn = PositionConfig.create(-10.0, 64.0, -10.0);
@@ -127,9 +127,9 @@ public class SystemConfig {
 		public int restoreTickRate = 20;
 		public int returnToLobbyDelaySeconds = 5;
 		public int winnerGlowSeconds = 5;
-		public String titleTemplate = "&6승리: &f{winner}";
-		public String drawTitleTemplate = "&e무승부";
-		public String victoryCountdownSubtitleTemplate = "&e{team} 팀 승리 임박 &7({seconds}초)";
+		public transient String titleTemplate = "&6승리: &f{winner}";
+		public transient String drawTitleTemplate = "&e무승부";
+		public transient String victoryCountdownSubtitleTemplate = "&e{team} 팀 승리 임박 &7({seconds}초)";
 	}
 
 	public static class PositionConfig {
@@ -169,7 +169,7 @@ public class SystemConfig {
 	}
 
 	public static class InGameConfig {
-		public String closedLaneMessage = "&c아직 공개되지 않은 라인임";
+		public transient String closedLaneMessage = "&c아직 공개되지 않은 라인임";
 		public int laneWarningCooldownTicks = 40;
 		public double captainMinY = 0.0;
 		public float captainFlySpeed = 1.0f;
@@ -180,33 +180,33 @@ public class SystemConfig {
 	}
 
 	public static class DisplayConfig {
-		public String ladderPrefixFormat = "[{ladder}] ";
-		public String captainStar = "★ ";
-		public String unitHudTemplate = "&f{unit} &8| &b{skill} &8| {cooldown}";
-		public String unitHudReadyMessage = "&a준비 완료";
-		public String unitHudFallbackSkillName = "기본 스킬";
-		public String unitHudUnknownUnitName = "알 수 없는 유닛";
+		public transient String ladderPrefixFormat = "[{ladder}] ";
+		public transient String captainStar = "★ ";
+		public transient String unitHudTemplate = "&f{unit} &8| &b{skill} &8| {cooldown}";
+		public transient String unitHudReadyMessage = "&a준비 완료";
+		public transient String unitHudFallbackSkillName = "기본 스킬";
+		public transient String unitHudUnknownUnitName = "알 수 없는 유닛";
 	}
 
 	public static class AnnouncementConfig {
-		public String lobbyPhaseMessage = "&e로비로 복귀";
-		public String teamSelectPhaseMessage = "&a팀 배정 시작";
-		public String factionSelectPhaseMessage = "&6팩션 선택 시작";
-		public String gameStartPhaseMessage = "&b게임 준비 시작";
-		public String gameRunningPhaseMessage = "&c게임 시작";
-		public String gameEndPhaseMessage = "&d게임 종료";
-		public String factionSelectionMessage = "&f{team} 팀 사령관이 &6{faction} &f팩션 선택";
-		public String villagerFactionName = "주민";
-		public String monsterFactionName = "몬스터";
-		public String netherFactionName = "네더";
-		public String customDeathMessage = "&8[사망] &f{victim} &7사망";
-		public String autoStartEnabledMessage = "&a팀 선택 자동 시작: &f켜짐";
-		public String autoStartDisabledMessage = "&c팀 선택 자동 시작: &f꺼짐";
+		public transient String lobbyPhaseMessage = "&e로비로 복귀";
+		public transient String teamSelectPhaseMessage = "&a팀 배정 시작";
+		public transient String factionSelectPhaseMessage = "&6팩션 선택 시작";
+		public transient String gameStartPhaseMessage = "&b게임 준비 시작";
+		public transient String gameRunningPhaseMessage = "&c게임 시작";
+		public transient String gameEndPhaseMessage = "&d게임 종료";
+		public transient String factionSelectionMessage = "&f{team} 팀 사령관이 &6{faction} &f팩션 선택";
+		public transient String villagerFactionName = "주민";
+		public transient String monsterFactionName = "몬스터";
+		public transient String netherFactionName = "네더";
+		public transient String customDeathMessage = "&8[사망] &f{victim} &7사망";
+		public transient String autoStartEnabledMessage = "&a팀 선택 자동 시작: &f켜짐";
+		public transient String autoStartDisabledMessage = "&c팀 선택 자동 시작: &f꺼짐";
 	}
 
 	public static class AdvanceConfig {
-		public String notAvailableMessage = "&c아직 전직할 수 없음";
-		public String readyMessage = "&a전직 가능 상태가 됨";
+		public transient String notAvailableMessage = "&c아직 전직할 수 없음";
+		public transient String readyMessage = "&a전직 가능 상태가 됨";
 		public java.util.List<AdvanceConditionConfig> conditions = new java.util.ArrayList<>();
 	}
 

@@ -44,4 +44,15 @@ class McSnapCommandRegistrarTest {
 		assertNotNull(admin.getChild("unit"));
 		assertEquals("player", admin.getChild("unit").getChildren().iterator().next().getName());
 	}
+
+	@Test
+	void adminRegistersBiomeStructureCommandTree() {
+		var dispatcher = new CommandDispatcher<ServerCommandSource>();
+		new McSnapCommandRegistrar(null).register(dispatcher, null, null);
+
+		var biomestructure = dispatcher.getRoot().getChild("mcsnap").getChild("admin").getChild("biomestructure");
+		assertNotNull(biomestructure.getChild("place_nearest"));
+		assertNotNull(biomestructure.getChild("place_nearest").getChild("structure_id"));
+		assertNotNull(biomestructure.getChild("reset_all"));
+	}
 }

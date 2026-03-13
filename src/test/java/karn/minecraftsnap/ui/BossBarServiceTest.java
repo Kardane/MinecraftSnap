@@ -12,4 +12,11 @@ class BossBarServiceTest {
 		assertEquals(8.0f / 15.0f, BossBarService.factionSelectPercent(150L, 15));
 		assertEquals(0.0f, BossBarService.factionSelectPercent(400L, 15));
 	}
+
+	@Test
+	void gameRunningColorFollowsLeadingTeamAndUsesYellowOnTie() {
+		assertEquals(net.minecraft.entity.boss.BossBar.Color.RED, BossBarService.gameRunningColor(5, 3));
+		assertEquals(net.minecraft.entity.boss.BossBar.Color.BLUE, BossBarService.gameRunningColor(3, 5));
+		assertEquals(net.minecraft.entity.boss.BossBar.Color.YELLOW, BossBarService.gameRunningColor(4, 4));
+	}
 }

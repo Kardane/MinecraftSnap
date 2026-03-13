@@ -177,7 +177,9 @@ public class InGameRuleService {
 			var killerState = matchManager.getPlayerState(killerId);
 			if (victimState.getTeamId() != null && killerState.getTeamId() != null && victimState.getTeamId() != killerState.getTeamId()) {
 				statsRepository.addKill(killerId, killerName, 1);
-				statsRepository.addLadder(killerId, killerName, 3);
+				if (killerState.isUnit() && killerState.getCurrentUnitId() != null) {
+					killerState.addMatchKill(1);
+				}
 				if (unitHookService == null) {
 					rewardKillCurrency(killerId, killerName, killerState);
 				}

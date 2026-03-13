@@ -1,6 +1,8 @@
 package karn.minecraftsnap.game;
 
+import karn.minecraftsnap.MinecraftSnap;
 import karn.minecraftsnap.biome.BiomeRuntimeContext;
+import karn.minecraftsnap.config.TextConfigFile;
 import karn.minecraftsnap.lane.LaneRuntimeRegistry;
 import karn.minecraftsnap.util.TextTemplateResolver;
 import net.minecraft.entity.effect.StatusEffectInstance;
@@ -45,7 +47,7 @@ public class UnitAbilityService {
 
 		var captainState = captainManaService.getOrCreate(captain.getUuid());
 		if (captainState.getSkillCooldownSeconds() > 0) {
-			captain.sendMessage(textTemplateResolver.format("&c사령관 스킬 쿨다운: &f" + captainState.getSkillCooldownSeconds() + "초"), true);
+			captain.sendMessage(textTemplateResolver.format(textConfig().captainSkillCooldownMessage.replace("{seconds}", Integer.toString(captainState.getSkillCooldownSeconds()))), true);
 			return false;
 		}
 
@@ -60,7 +62,7 @@ public class UnitAbilityService {
 
 		captainManaService.triggerSkillCooldown(captain.getUuid(), CAPTAIN_SKILL_COOLDOWN_SECONDS);
 		notifyActiveSkillHook(captain, null, matchManager);
-		captain.sendMessage(textTemplateResolver.format("&d사령관 스킬 발동"), true);
+		captain.sendMessage(textTemplateResolver.format(textConfig().captainSkillActivatedMessage), true);
 		return true;
 	}
 
@@ -70,8 +72,6 @@ public class UnitAbilityService {
 		}
 		var nextUseTick = unitCooldownTicks.getOrDefault(player.getUuid(), Long.MIN_VALUE);
 		if (matchManager.getServerTicks() < nextUseTick) {
-			var remaining = (int) Math.ceil((nextUseTick - matchManager.getServerTicks()) / 20.0D);
-			player.sendMessage(textTemplateResolver.format("&c유닛 스킬 쿨다운: &f" + remaining + "초"), true);
 			return false;
 		}
 		if (!action.getAsBoolean()) {
@@ -116,5 +116,10 @@ public class UnitAbilityService {
 			matchManager.getTotalSeconds() - matchManager.getRemainingSeconds()
 		);
 		runtime.biomeEffect().onActiveSkill(context, player, definition);
+	}
+
+	private TextConfigFile textConfig() {
+		var mod = MinecraftSnap.getInstance();
+		return mod == null ? new TextConfigFile() : mod.getTextConfig();
 	}
 }

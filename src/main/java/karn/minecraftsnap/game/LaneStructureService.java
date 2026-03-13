@@ -1,6 +1,5 @@
 package karn.minecraftsnap.game;
 
-import karn.minecraftsnap.config.BiomeEntry;
 import karn.minecraftsnap.config.SystemConfig;
 import net.minecraft.block.Block;
 import net.minecraft.registry.RegistryKey;
@@ -14,6 +13,9 @@ import net.minecraft.util.math.BlockPos;
 import java.util.EnumSet;
 
 public class LaneStructureService {
+	static final int STRUCTURE_WIDTH = 109;
+	static final int STRUCTURE_HEIGHT = 30;
+	static final int STRUCTURE_DEPTH = 17;
 	private final EnumSet<LaneId> placedLanes = EnumSet.noneOf(LaneId.class);
 	private final StructurePlacer structurePlacer;
 
@@ -36,11 +38,23 @@ public class LaneStructureService {
 		return placed;
 	}
 
-	public BlockPos originFor(SystemConfig.LaneRegionConfig region, BiomeEntry biomeEntry) {
+	public boolean forcePlaceStructure(MinecraftServer server, String worldId, LaneId laneId, String structureId, BlockPos originPos) {
+		if (laneId == null || originPos == null || structureId == null || structureId.isBlank()) {
+			return false;
+		}
+		return structurePlacer.place(server, worldId, structureId, originPos);
+	}
+
+	public BlockPos originFor(SystemConfig.LaneRegionConfig region) {
+		if (region == null) {
+			return BlockPos.ORIGIN;
+		}
+		var centerX = Math.floor((region.minX + region.maxX) / 2.0D);
+		var centerZ = Math.floor((region.minZ + region.maxZ) / 2.0D);
 		return new BlockPos(
-			(int) Math.floor(region.minX) + biomeEntry.structureOffsetX,
-			(int) Math.floor(region.minY) + biomeEntry.structureOffsetY,
-			(int) Math.floor(region.minZ) + biomeEntry.structureOffsetZ
+			(int) centerX - (STRUCTURE_WIDTH / 2),
+			(int) Math.floor(region.minY),
+			(int) centerZ - (STRUCTURE_DEPTH / 2)
 		);
 	}
 

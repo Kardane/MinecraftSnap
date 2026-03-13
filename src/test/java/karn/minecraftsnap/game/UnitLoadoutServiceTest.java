@@ -81,6 +81,18 @@ class UnitLoadoutServiceTest {
 		assertFalse(service.matchesUnitAbilityTriggerItemId("minecraft:bow", definition));
 	}
 
+	@Test
+	void captainMenuFallsBackToBellWithoutTag() {
+		assertTrue(service.matchesCaptainMenuTriggerItemId("minecraft:bell"));
+		assertFalse(service.matchesCaptainMenuTriggerItemId("minecraft:stick"));
+	}
+
+	@Test
+	void captainSkillFallsBackToNetherStarWithoutTag() {
+		assertTrue(service.matchesCaptainSkillTriggerItemId("minecraft:nether_star"));
+		assertFalse(service.matchesCaptainSkillTriggerItemId("minecraft:stick"));
+	}
+
 	private TestUnitDefinitionBuilder unit(String id, UnitItemEntry mainHand, UnitItemEntry offHand, String abilityName, int cooldown) {
 		return new TestUnitDefinitionBuilder(id, mainHand, offHand, abilityName, cooldown);
 	}

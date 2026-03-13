@@ -87,8 +87,9 @@ class InGameRuleServiceTest {
 		var repository = service.getStatsRepository();
 		assertEquals(1, repository.getOrCreate(victimId, "victim").deaths);
 		assertEquals(1, repository.getOrCreate(killerId, "killer").kills);
-		assertEquals(303, repository.getLadder(killerId, "killer"));
+		assertEquals(300, repository.getLadder(killerId, "killer"));
 		assertEquals(1, repository.getOrCreate(killerId, "killer").emeralds);
+		assertEquals(1, manager.getPlayerState(killerId).getMatchKills());
 		assertTrue(service.isPendingSpectator(victimId));
 	}
 

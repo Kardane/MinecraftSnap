@@ -1,8 +1,10 @@
 package karn.minecraftsnap.ui;
 
 import karn.minecraftsnap.audio.UiSoundService;
+import karn.minecraftsnap.MinecraftSnap;
 import eu.pb4.sgui.api.elements.GuiElementBuilder;
 import eu.pb4.sgui.api.gui.SimpleGui;
+import karn.minecraftsnap.config.TextConfigFile;
 import karn.minecraftsnap.game.FactionId;
 import karn.minecraftsnap.game.PlayerMatchState;
 import karn.minecraftsnap.game.RoleType;
@@ -30,17 +32,17 @@ public class PreparationGuiService {
 
 	public void open(ServerPlayerEntity player, PlayerMatchState state) {
 		var gui = new SimpleGui(ScreenHandlerType.GENERIC_9X3, player, false);
-		gui.setTitle(textTemplateResolver.format("&6게임 준비"));
+		gui.setTitle(textTemplateResolver.format(textConfig().preparationGuiTitle));
 
 		var units = unitsFor(state.getFactionId());
 		for (int i = 0; i < units.size(); i++) {
 			var unit = units.get(i);
 			boolean selected = unit.id().equals(state.getPreferredUnitId());
 			var lore = new java.util.ArrayList<String>();
-			lore.add(state.getRoleType() == RoleType.UNIT ? "&7클릭해서 우선 배정 토글" : "&7사령관은 읽기 전용");
-			lore.add("&7코스트: &b" + unit.cost());
+			lore.add(state.getRoleType() == RoleType.UNIT ? textConfig().preparationToggleLore : textConfig().preparationReadonlyLore);
+			lore.add(textConfig().preparationCostLoreTemplate.replace("{cost}", Integer.toString(unit.cost())));
 			lore.addAll(unit.descriptionLines());
-			lore.add(selected ? "&a현재 우선 배정됨" : "&8미선택");
+			lore.add(selected ? textConfig().preparationSelectedLore : textConfig().preparationUnselectedLore);
 			var builder = new GuiElementBuilder(unit.mainHandItem())
 				.setName(textTemplateResolver.format("&f" + unit.displayName()))
 				.setLore(lore.stream().map(textTemplateResolver::format).toList());
@@ -67,5 +69,10 @@ public class PreparationGuiService {
 			return List.of();
 		}
 		return unitRegistry.byFaction(factionId).stream().toList();
+	}
+
+	private TextConfigFile textConfig() {
+		var mod = MinecraftSnap.getInstance();
+		return mod == null ? new TextConfigFile() : mod.getTextConfig();
 	}
 }

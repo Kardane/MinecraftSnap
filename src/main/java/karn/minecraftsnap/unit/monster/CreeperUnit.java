@@ -1,5 +1,7 @@
 package karn.minecraftsnap.unit.monster;
 
+import karn.minecraftsnap.MinecraftSnap;
+import karn.minecraftsnap.config.TextConfigFile;
 import karn.minecraftsnap.game.FactionId;
 import karn.minecraftsnap.game.UnitDefinition;
 import karn.minecraftsnap.unit.ConfiguredUnitClass;
@@ -69,7 +71,7 @@ public class CreeperUnit extends AbstractMonsterUnit implements ConfiguredUnitCl
 	public void onSkillUse(UnitContext context) {
 		context.activateSkill(() -> {
 			context.setUnitRuntimeLong(BOMB_TICK_KEY, context.serverTicks() + 20L);
-			context.player().sendMessage(context.format("&c자폭 준비"), true);
+			context.player().sendMessage(context.format(textConfig().creeperSelfDestructPrimedMessage), true);
 			return true;
 		});
 	}
@@ -99,5 +101,10 @@ public class CreeperUnit extends AbstractMonsterUnit implements ConfiguredUnitCl
 			.filter(target -> player.squaredDistanceTo(target) <= squaredRadius)
 			.filter(context::isEnemyUnit)
 			.toList();
+	}
+
+	private TextConfigFile textConfig() {
+		var mod = MinecraftSnap.getInstance();
+		return mod == null ? new TextConfigFile() : mod.getTextConfig();
 	}
 }

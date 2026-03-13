@@ -15,6 +15,8 @@ public class PlayerMatchState {
 	private int advanceExp;
 	private String advanceTargetUnitId;
 	private LaneId lastLaneId;
+	private int matchKills;
+	private int matchCaptureScore;
 	private final Map<String, Long> unitRuntimeLongs = new HashMap<>();
 	private final Map<String, Integer> advanceOptionTicks = new HashMap<>();
 
@@ -37,6 +39,8 @@ public class PlayerMatchState {
 		this.advanceExp = 0;
 		this.advanceTargetUnitId = null;
 		this.lastLaneId = null;
+		this.matchKills = 0;
+		this.matchCaptureScore = 0;
 		this.unitRuntimeLongs.clear();
 		this.advanceOptionTicks.clear();
 	}
@@ -173,6 +177,27 @@ public class PlayerMatchState {
 
 	public void setLastLaneId(LaneId lastLaneId) {
 		this.lastLaneId = lastLaneId;
+	}
+
+	public int getMatchKills() {
+		return matchKills;
+	}
+
+	public void addMatchKill(int amount) {
+		this.matchKills += amount;
+	}
+
+	public int getMatchCaptureScore() {
+		return matchCaptureScore;
+	}
+
+	public void addMatchCaptureScore(int amount) {
+		this.matchCaptureScore += amount;
+	}
+
+	public void resetMatchPerformance() {
+		this.matchKills = 0;
+		this.matchCaptureScore = 0;
 	}
 
 	public Long getUnitRuntimeLong(String key) {

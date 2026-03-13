@@ -80,6 +80,12 @@ public class McSnapCommandRegistrar {
 					.then(CommandManager.literal("lane1").executes(ctx -> setLaneState(ctx.getSource(), LaneId.LANE_1, false)))
 					.then(CommandManager.literal("lane2").executes(ctx -> setLaneState(ctx.getSource(), LaneId.LANE_2, false)))
 					.then(CommandManager.literal("lane3").executes(ctx -> setLaneState(ctx.getSource(), LaneId.LANE_3, false))))
+				.then(CommandManager.literal("biomestructure")
+					.then(CommandManager.literal("place_nearest")
+						.executes(ctx -> placeNearestBiomeStructure(ctx.getSource(), null))
+						.then(CommandManager.argument("structure_id", StringArgumentType.greedyString())
+							.executes(ctx -> placeNearestBiomeStructure(ctx.getSource(), StringArgumentType.getString(ctx, "structure_id")))))
+					.then(CommandManager.literal("reset_all").executes(ctx -> resetAllBiomeStructures(ctx.getSource()))))
 				.then(registerOpenGuiTree())
 				.then(CommandManager.literal("manacharge")
 					.executes(ctx -> chargeMana(ctx.getSource(), ctx.getSource().getPlayer()))
@@ -178,6 +184,18 @@ public class McSnapCommandRegistrar {
 		return send(source, "&a" + laneLabel(laneId) + " 상태: &f" + (active ? "공개" : "비공개"));
 	}
 
+	private int placeNearestBiomeStructure(ServerCommandSource source, String structureId) {
+		var player = source.getPlayer();
+		if (player == null) {
+			return send(source, "&c플레이어만 가장 가까운 라인 구조물 설치 가능");
+		}
+		return send(source, mod.placeNearestBiomeStructure(player, structureId));
+	}
+
+	private int resetAllBiomeStructures(ServerCommandSource source) {
+		return send(source, mod.resetAllBiomeStructures());
+	}
+
 	private int chargeMana(ServerCommandSource source, ServerPlayerEntity player) {
 		if (player == null || !mod.chargeCaptainMana(player)) {
 			return send(source, "&c사령관이 아니라 마나 충전 불가");
@@ -202,7 +220,7 @@ public class McSnapCommandRegistrar {
 	private int forceUnit(ServerCommandSource source, ServerPlayerEntity player, String unitId) {
 		var result = mod.forceAssignUnit(player, unitId);
 		if (player != null && result.startsWith("&a")) {
-			player.sendMessage(mod.getTextTemplateResolver().format("&e관리자 유닛 강제 배정: &f" + unitId), false);
+			player.sendMessage(mod.getTextTemplateResolver().format(mod.getTextConfig().adminForceUnitMessage.replace("{unit}", unitId)), false);
 		}
 		return send(source, result);
 	}

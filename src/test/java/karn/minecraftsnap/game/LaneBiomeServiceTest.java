@@ -63,4 +63,17 @@ class LaneBiomeServiceTest {
 		assertEquals("minecraft:plains", applied.get(0).get(0).biomeId());
 		assertTrue(service.getSnapshot(LaneId.LANE_1).isEmpty());
 	}
+
+	@Test
+	void biomeCellCountCoversEntireRegionWithoutSkippingCells() {
+		var region = new karn.minecraftsnap.config.SystemConfig.LaneRegionConfig();
+		region.minX = 0.0;
+		region.maxX = 7.0;
+		region.minY = 0.0;
+		region.maxY = 7.0;
+		region.minZ = 0.0;
+		region.maxZ = 7.0;
+
+		assertEquals(8, LaneBiomeService.biomeCellCount(region));
+	}
 }

@@ -136,7 +136,6 @@ public class CapturePointService {
 				continue;
 			}
 			ownerPresent = true;
-			statsRepository.addLadder(player.getUuid(), player.getName().getString(), 1);
 		}
 
 		if (ownerPresent) {
@@ -191,6 +190,7 @@ public class CapturePointService {
 				playerState.addEmeralds(1);
 				statsRepository.addEmeralds(player.getUuid(), player.getName().getString(), 1);
 			}
+			playerState.addMatchCaptureScore(1);
 			player.getWorld().playSound(
 				null,
 				player.getBlockPos(),
@@ -250,7 +250,9 @@ public class CapturePointService {
 	}
 
 	private void spawnDust(ServerWorld world, DustParticleEffect effect, double x, double y, double z) {
-		world.spawnParticles(effect, x + 0.5, y, z + 0.5, 1, 0.0, 0.0, 0.0, 0.0);
+		for (var player : world.getPlayers()) {
+			world.spawnParticles(player, effect, true, false, x + 0.5, y, z + 0.5, 3, 0.0, 0.0, 0.0, 0.0);
+		}
 	}
 
 	static int color(CaptureOwner owner) {
@@ -262,11 +264,11 @@ public class CapturePointService {
 	}
 
 	static double particleBorderY(SystemConfig.CaptureRegionConfig region) {
-		return region.maxY + 0.1D;
+		return 1.1D;
 	}
 
 	static double particleSpacing() {
-		return 0.5D;
+		return 0.25D;
 	}
 
 	private boolean isCaptureInProgress(CapturePointState state, TeamId occupyingTeam, boolean contested) {

@@ -1,8 +1,10 @@
 package karn.minecraftsnap.ui;
 
 import karn.minecraftsnap.audio.UiSoundService;
+import karn.minecraftsnap.MinecraftSnap;
 import eu.pb4.sgui.api.elements.GuiElementBuilder;
 import eu.pb4.sgui.api.gui.SimpleGui;
+import karn.minecraftsnap.config.TextConfigFile;
 import karn.minecraftsnap.game.AdvanceService;
 import karn.minecraftsnap.game.UnitDefinition;
 import karn.minecraftsnap.util.TextTemplateResolver;
@@ -33,11 +35,11 @@ public class AdvanceGuiService {
 		Consumer<String> onAdvance
 	) {
 		var gui = new SimpleGui(ScreenHandlerType.HOPPER, player, false);
-		gui.setTitle(textTemplateResolver.format("&c전직"));
+		gui.setTitle(textTemplateResolver.format(textConfig().advanceGuiTitle));
 		if (options == null || options.isEmpty()) {
 			gui.setSlot(0, new GuiElementBuilder(Items.BARRIER)
-				.setName(textTemplateResolver.format("&c전직 대상 없음"))
-				.setLore(lines("&7현재 유닛은 전직 옵션이 없음"))
+				.setName(textTemplateResolver.format(textConfig().advanceNoOptionName))
+				.setLore(lines(textConfig().advanceNoOptionLore))
 				.build());
 			gui.open();
 			return;
@@ -66,17 +68,20 @@ public class AdvanceGuiService {
 	}
 
 	static List<String> buildOptionLore(AdvanceOptionView option) {
+		var textConfig = textConfigStatic();
 		var lines = new ArrayList<String>();
 		lines.addAll(option.descriptionLines());
-		lines.add("&7요구 바이옴: &f" + String.join(", ", option.biomes()));
-		lines.add("&7요구 날씨: &f" + String.join(", ", option.weathers()));
-		lines.add("&7진행도: &b" + option.currentTicks() + "&7/&f" + option.requiredTicks());
+		lines.add(textConfig.advanceRequiredBiomeLoreTemplate.replace("{biomes}", String.join(", ", option.biomes())));
+		lines.add(textConfig.advanceRequiredWeatherLoreTemplate.replace("{weathers}", String.join(", ", option.weathers())));
+		lines.add(textConfig.advanceProgressLoreTemplate
+			.replace("{current}", Integer.toString(option.currentTicks()))
+			.replace("{required}", Integer.toString(option.requiredTicks())));
 		if (!option.conditionsMet()) {
-			lines.add("&c조건이 충족되지 않음");
+			lines.add(textConfig.advanceConditionUnmetLore);
 		} else if (!option.ready()) {
-			lines.add("&e잔류 중");
+			lines.add(textConfig.advanceWaitingLore);
 		} else {
-			lines.add("&a클릭해서 전직");
+			lines.add(textConfig.advanceClickLore);
 		}
 		return lines;
 	}
@@ -85,6 +90,16 @@ public class AdvanceGuiService {
 		return java.util.Arrays.stream(values)
 			.map(textTemplateResolver::format)
 			.toList();
+	}
+
+	private TextConfigFile textConfig() {
+		var mod = MinecraftSnap.getInstance();
+		return mod == null ? new TextConfigFile() : mod.getTextConfig();
+	}
+
+	private static TextConfigFile textConfigStatic() {
+		var mod = MinecraftSnap.getInstance();
+		return mod == null ? new TextConfigFile() : mod.getTextConfig();
 	}
 
 	public record AdvanceOptionView(

@@ -169,7 +169,7 @@ public class BiomeRevealService {
 					systemConfig.world,
 					laneId,
 					biomeEntry.structureId,
-					laneStructureService.originFor(laneRegion, biomeEntry)
+					laneStructureService.originFor(laneRegion)
 				);
 			}
 		}

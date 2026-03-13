@@ -85,6 +85,7 @@ public class MatchManager {
 			hideAllLanes();
 			fillMissingRoles();
 			applySelectedFactionsToPlayers();
+			playerStates.values().forEach(PlayerMatchState::resetMatchPerformance);
 		} else if (phase == MatchPhase.GAME_RUNNING) {
 			redScore = 0;
 			blueScore = 0;
@@ -95,6 +96,7 @@ public class MatchManager {
 			hideAllLanes();
 			fillMissingRoles();
 			applySelectedFactionsToPlayers();
+			playerStates.values().forEach(PlayerMatchState::resetMatchPerformance);
 			revealLane(LaneId.LANE_1);
 		} else if (phase == MatchPhase.LOBBY) {
 			redScore = 0;
@@ -110,7 +112,10 @@ public class MatchManager {
 			factionSelections.clear();
 			hideAllLanes();
 			clearAssignedBiomes();
-			playerStates.values().forEach(state -> state.setFactionId(null));
+			playerStates.values().forEach(state -> {
+				state.setFactionId(null);
+				state.resetMatchPerformance();
+			});
 		} else if (phase == MatchPhase.GAME_END) {
 			deactivateAllLanes();
 		}

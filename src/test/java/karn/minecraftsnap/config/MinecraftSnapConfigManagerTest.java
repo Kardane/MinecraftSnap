@@ -8,12 +8,13 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class MinecraftSnapConfigManagerTest {
 	@Test
-	void loadCreatesAndParsesAllRuntimeConfigFiles(@TempDir Path tempDir) {
+	void loadCreatesAndParsesAllRuntimeConfigFiles(@TempDir Path tempDir) throws Exception {
 		var manager = new MinecraftSnapConfigManager(tempDir, LoggerFactory.getLogger("test"));
 
 		manager.load();
@@ -21,6 +22,7 @@ class MinecraftSnapConfigManagerTest {
 		assertTrue(Files.exists(tempDir.resolve("system.json")));
 		assertTrue(Files.exists(tempDir.resolve("stats.json")));
 		assertTrue(Files.exists(tempDir.resolve("biomes.json")));
+		assertTrue(Files.exists(tempDir.resolve("texts.json")));
 		assertTrue(Files.notExists(tempDir.resolve("faction_villager.json")));
 		assertTrue(Files.notExists(tempDir.resolve("faction_monster.json")));
 		assertTrue(Files.notExists(tempDir.resolve("faction_nether.json")));
@@ -30,9 +32,17 @@ class MinecraftSnapConfigManagerTest {
 		assertEquals("unique_random", manager.getSystemConfig().biomeReveal.assignmentPolicy);
 		assertEquals("minecraft:overworld", manager.getSystemConfig().world);
 		assertEquals("forest", manager.getBiomeCatalog().biomes.getFirst().effectType);
-		assertEquals("", manager.getBiomeCatalog().biomes.getFirst().structureId);
+		assertEquals("minecraftsnap:forest_lane", manager.getBiomeCatalog().biomes.getFirst().structureId);
 		assertTrue(manager.getShopConfig(karn.minecraftsnap.game.FactionId.VILLAGER).entries.size() >= 1);
 		assertTrue(manager.getShopConfig(karn.minecraftsnap.game.FactionId.NETHER).entries.size() >= 1);
+		var storedSystem = Files.readString(tempDir.resolve("system.json"));
+		var storedTexts = Files.readString(tempDir.resolve("texts.json"));
+		assertFalse(storedSystem.contains("captainSpawnGuiTitle"));
+		assertFalse(storedSystem.contains("countdownTitle"));
+		assertFalse(storedSystem.contains("victoryCountdownSubtitleTemplate"));
+		assertTrue(storedTexts.contains("tradePurchaseSuccessMessage"));
+		assertTrue(storedTexts.contains("captainMenuItemName"));
+		assertTrue(storedTexts.contains("lobbyScoreboardTitle"));
 	}
 
 	@Test

@@ -1,6 +1,8 @@
 package karn.minecraftsnap.ui;
 
 import karn.minecraftsnap.audio.UiSoundService;
+import karn.minecraftsnap.MinecraftSnap;
+import karn.minecraftsnap.config.TextConfigFile;
 import eu.pb4.sgui.api.elements.GuiElementBuilder;
 import eu.pb4.sgui.api.gui.SimpleGui;
 import karn.minecraftsnap.game.CaptainState;
@@ -36,11 +38,11 @@ public class CaptainSpawnGuiService {
 		for (var definition : unitRegistry.byFaction(factionId)) {
 			var blocked = captainState.getCurrentMana() < definition.cost() || captainState.getSpawnCooldownSeconds() > 0;
 			var lore = new java.util.ArrayList<String>();
-			lore.add("&7코스트: &b" + definition.cost());
-			lore.add("&7생성 쿨다운: &e" + definition.spawnCooldownSeconds() + "초");
-			lore.add("&7체력: &c" + (int) definition.maxHealth());
+			lore.add(textConfig().captainSpawnCostLoreTemplate.replace("{cost}", Integer.toString(definition.cost())));
+			lore.add(textConfig().captainSpawnCooldownLoreTemplate.replace("{seconds}", Integer.toString(definition.spawnCooldownSeconds())));
+			lore.add(textConfig().captainSpawnHealthLoreTemplate.replace("{health}", Integer.toString((int) definition.maxHealth())));
 			lore.addAll(definition.descriptionLines());
-			lore.add(blocked ? "&c현재 소환 불가" : "&a클릭해서 소환");
+			lore.add(blocked ? textConfig().captainSpawnBlockedLore : textConfig().captainSpawnReadyLore);
 			var builder = new GuiElementBuilder(definition.mainHandItem())
 				.setName(textTemplateResolver.format("&f" + definition.displayName()))
 				.setLore(lore.stream().map(textTemplateResolver::format).toList());
@@ -63,5 +65,10 @@ public class CaptainSpawnGuiService {
 			gui.setSlot(slot++, builder.build());
 		}
 		gui.open();
+	}
+
+	private TextConfigFile textConfig() {
+		var mod = MinecraftSnap.getInstance();
+		return mod == null ? new TextConfigFile() : mod.getTextConfig();
 	}
 }

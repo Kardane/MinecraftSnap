@@ -2,6 +2,8 @@ package karn.minecraftsnap.ui;
 
 import eu.pb4.sgui.api.elements.GuiElementBuilder;
 import eu.pb4.sgui.api.gui.SimpleGui;
+import karn.minecraftsnap.MinecraftSnap;
+import karn.minecraftsnap.config.TextConfigFile;
 import karn.minecraftsnap.audio.UiSoundService;
 import karn.minecraftsnap.config.ShopConfigFile;
 import karn.minecraftsnap.config.ShopEntry;
@@ -85,9 +87,8 @@ public class TradeGuiService {
 		Runnable inventoryCurrencySpendAction,
 		BooleanSupplier rewardGrantAction
 	) {
-		var stateBalance = balanceOf(factionId, state);
 		var inventoryCurrencySpent = Math.min(price, Math.max(0, inventoryCurrencyAvailable));
-		if (stateBalance + inventoryCurrencySpent < price) {
+		if (inventoryCurrencySpent < price) {
 			return PurchaseResult.INSUFFICIENT_FUNDS;
 		}
 		if (!rewardGrantAction.getAsBoolean()) {
@@ -96,21 +97,11 @@ public class TradeGuiService {
 		if (inventoryCurrencySpendAction != null && inventoryCurrencySpent > 0) {
 			inventoryCurrencySpendAction.run();
 		}
-		var remainingStateCost = Math.max(0, price - inventoryCurrencySpent);
 		switch (factionId) {
-			case VILLAGER -> state.addEmeralds(-remainingStateCost);
-			case NETHER -> state.addGoldIngots(-remainingStateCost);
+			case VILLAGER, NETHER -> {
+			}
 			default -> {
 				return PurchaseResult.UNSUPPORTED_FACTION;
-			}
-		}
-		var repository = statsRepositorySupplier == null ? null : statsRepositorySupplier.get();
-		if (repository != null) {
-			switch (factionId) {
-				case VILLAGER -> repository.addEmeralds(playerId, playerName, -remainingStateCost);
-				case NETHER -> repository.addGoldIngots(playerId, playerName, -remainingStateCost);
-				default -> {
-				}
 			}
 		}
 		return PurchaseResult.SUCCESS;
@@ -118,7 +109,7 @@ public class TradeGuiService {
 
 	private void openInternal(ServerPlayerEntity player, PlayerMatchState state, FactionId factionId) {
 		var gui = new SimpleGui(ScreenHandlerType.GENERIC_9X3, player, false);
-		gui.setTitle(textTemplateResolver.format(factionId == FactionId.NETHER ? "&6네더 상점" : "&a주민 상점"));
+		gui.setTitle(textTemplateResolver.format(factionId == FactionId.NETHER ? textConfig().tradeNetherTitle : textConfig().tradeVillagerTitle));
 		renderMerchandise(gui, player, state, factionId);
 		gui.open();
 	}
@@ -144,31 +135,31 @@ public class TradeGuiService {
 							if (uiSoundService != null) {
 								uiSoundService.playUiConfirm(player);
 							}
-							player.sendMessage(textTemplateResolver.format("&a구매 완료"), false);
+							player.sendMessage(textTemplateResolver.format(textConfig().tradePurchaseSuccessMessage), false);
 						}
 						case INSUFFICIENT_FUNDS -> {
 							if (uiSoundService != null) {
 								uiSoundService.playUiDeny(player);
 							}
-							player.sendMessage(textTemplateResolver.format("&c재화가 부족함"), false);
+							player.sendMessage(textTemplateResolver.format(textConfig().tradeInsufficientFundsMessage), false);
 						}
 						case INVENTORY_FULL -> {
 							if (uiSoundService != null) {
 								uiSoundService.playUiDeny(player);
 							}
-							player.sendMessage(textTemplateResolver.format("&c인벤토리 공간 부족"), false);
+							player.sendMessage(textTemplateResolver.format(textConfig().tradeInventoryFullMessage), false);
 						}
 						case INVALID_ENTRY -> {
 							if (uiSoundService != null) {
 								uiSoundService.playUiDeny(player);
 							}
-							player.sendMessage(textTemplateResolver.format("&c상점 품목 설정 오류"), false);
+							player.sendMessage(textTemplateResolver.format(textConfig().tradeInvalidEntryMessage), false);
 						}
 						case UNSUPPORTED_FACTION -> {
 							if (uiSoundService != null) {
 								uiSoundService.playUiDeny(player);
 							}
-							player.sendMessage(textTemplateResolver.format("&c이 팩션은 상점을 사용할 수 없음"), false);
+							player.sendMessage(textTemplateResolver.format(textConfig().tradeUnsupportedFactionMessage), false);
 						}
 					}
 				});
@@ -182,8 +173,10 @@ public class TradeGuiService {
 		if (existingLore != null) {
 			mergedLore.addAll(existingLore.lines());
 		}
-		mergedLore.add(textTemplateResolver.format("&f가격: " + currencyColor(factionId) + price));
-		mergedLore.add(textTemplateResolver.format("&7클릭해서 구매"));
+		mergedLore.add(textTemplateResolver.format(textConfig().tradePriceLoreTemplate
+			.replace("{color}", currencyColor(factionId))
+			.replace("{price}", Integer.toString(price))));
+		mergedLore.add(textTemplateResolver.format(textConfig().tradeClickLore));
 		displayStack.set(net.minecraft.component.DataComponentTypes.LORE, new net.minecraft.component.type.LoreComponent(mergedLore));
 	}
 
@@ -247,14 +240,6 @@ public class TradeGuiService {
 			}
 		}
 		return false;
-	}
-
-	private int balanceOf(FactionId factionId, PlayerMatchState state) {
-		return switch (factionId) {
-			case VILLAGER -> state.getEmeralds();
-			case NETHER -> state.getGoldIngots();
-			default -> 0;
-		};
 	}
 
 	static int countInventoryCurrency(FactionId factionId, List<ItemStack> stacks) {
@@ -331,6 +316,11 @@ public class TradeGuiService {
 
 	private String currencyColor(FactionId factionId) {
 		return factionId == FactionId.NETHER ? "&6" : "&a";
+	}
+
+	private TextConfigFile textConfig() {
+		var mod = MinecraftSnap.getInstance();
+		return mod == null ? new TextConfigFile() : mod.getTextConfig();
 	}
 
 	enum PurchaseResult {

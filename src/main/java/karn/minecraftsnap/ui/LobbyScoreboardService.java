@@ -1,5 +1,7 @@
 package karn.minecraftsnap.ui;
 
+import karn.minecraftsnap.MinecraftSnap;
+import karn.minecraftsnap.config.TextConfigFile;
 import karn.minecraftsnap.config.StatsRepository;
 import karn.minecraftsnap.game.MatchManager;
 import karn.minecraftsnap.game.MatchPhase;
@@ -46,17 +48,17 @@ public class LobbyScoreboardService {
 			objective = scoreboard.addObjective(
 				OBJECTIVE_NAME,
 				ScoreboardCriterion.DUMMY,
-				textTemplateResolver.format("&6MCsnap 로비"),
+				textTemplateResolver.format(textConfig().lobbyScoreboardTitle),
 				ScoreboardCriterion.RenderType.INTEGER,
 				false,
 				null
 			);
 		} else {
-			objective.setDisplayName(textTemplateResolver.format("&6MCsnap 로비"));
+			objective.setDisplayName(textTemplateResolver.format(textConfig().lobbyScoreboardTitle));
 		}
 
 		scoreboard.setObjectiveSlot(ScoreboardDisplaySlot.SIDEBAR, objective);
-		updateLine(scoreboard, objective, 0, textTemplateResolver.format("&f페이즈: &e" + matchManager.getPhase().getDisplayName()));
+		updateLine(scoreboard, objective, 0, textTemplateResolver.format(textConfig().lobbyScoreboardPhaseTemplate.replace("{phase}", matchManager.getPhase().getDisplayName())));
 
 		var players = server.getPlayerManager().getPlayerList().stream()
 			.sorted(Comparator.comparingInt((ServerPlayerEntity player) ->
@@ -69,13 +71,16 @@ public class LobbyScoreboardService {
 			if (i < players.size()) {
 				var player = players.get(i);
 				var ladder = statsRepository.getLadder(player.getUuid(), player.getName().getString());
-				updateLine(scoreboard, objective, i + 1, textTemplateResolver.format("&f" + (i + 1) + ". &e" + player.getName().getString() + " &7- &b" + ladder));
+				updateLine(scoreboard, objective, i + 1, textTemplateResolver.format(textConfig().lobbyScoreboardPlayerTemplate
+					.replace("{rank}", Integer.toString(i + 1))
+					.replace("{player}", player.getName().getString())
+					.replace("{ladder}", Integer.toString(ladder))));
 			} else {
 				updateLine(scoreboard, objective, i + 1, Text.literal(" "));
 			}
 		}
 
-		updateLine(scoreboard, objective, 6, textTemplateResolver.format("&7/mcsnap wiki 로 안내 확인"));
+		updateLine(scoreboard, objective, 6, textTemplateResolver.format(textConfig().lobbyScoreboardWikiHint));
 	}
 
 	private void clearPlayerTeams(Scoreboard scoreboard, MinecraftServer server) {
@@ -97,6 +102,11 @@ public class LobbyScoreboardService {
 		var score = scoreboard.getOrCreateScore(holder, objective);
 		score.setScore(LINE_HOLDERS.length - index);
 		score.setDisplayText(displayText);
+	}
+
+	private TextConfigFile textConfig() {
+		var mod = MinecraftSnap.getInstance();
+		return mod == null ? new TextConfigFile() : mod.getTextConfig();
 	}
 
 }
