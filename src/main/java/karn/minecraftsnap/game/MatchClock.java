@@ -30,4 +30,12 @@ public class MatchClock {
 	public int getRemainingSeconds() {
 		return remainingSeconds;
 	}
+
+	public boolean reduceRemainingSeconds(int amount) {
+		if (amount <= 0) {
+			return remainingSeconds <= 0;
+		}
+		remainingSeconds = Math.max(0, remainingSeconds - amount);
+		return remainingSeconds <= 0;
+	}
 }

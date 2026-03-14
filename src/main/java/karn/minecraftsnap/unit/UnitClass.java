@@ -1,6 +1,7 @@
 package karn.minecraftsnap.unit;
 
 import karn.minecraftsnap.game.LaneId;
+import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.damage.DamageSource;
 import net.minecraft.server.network.ServerPlayerEntity;
 
@@ -8,7 +9,7 @@ public interface UnitClass {
 	default void onTick(UnitContext context) {
 	}
 
-	default void onAttack(UnitContext context, ServerPlayerEntity victim, float amount) {
+	default void onAttack(UnitContext context, LivingEntity victim, float amount) {
 	}
 
 	default void onDamaged(UnitContext context, DamageSource source, float amount) {

@@ -79,6 +79,18 @@ public class UnitLoadoutService {
 		if (moveSpeed != null) {
 			moveSpeed.setBaseValue(0.1D * definition.moveSpeedScale());
 		}
+		var attackDamage = player.getAttributeInstance(EntityAttributes.ATTACK_DAMAGE);
+		if (attackDamage != null) {
+			attackDamage.setBaseValue(1.0D);
+		}
+		var attackSpeed = player.getAttributeInstance(EntityAttributes.ATTACK_SPEED);
+		if (attackSpeed != null) {
+			attackSpeed.setBaseValue(4.0D);
+		}
+		var scale = player.getAttributeInstance(EntityAttributes.SCALE);
+		if (scale != null) {
+			scale.setBaseValue(1.0D);
+		}
 		player.setHealth((float) definition.maxHealth());
 	}
 
@@ -98,6 +110,18 @@ public class UnitLoadoutService {
 		var moveSpeed = player.getAttributeInstance(EntityAttributes.MOVEMENT_SPEED);
 		if (moveSpeed != null) {
 			moveSpeed.setBaseValue(0.1D);
+		}
+		var attackDamage = player.getAttributeInstance(EntityAttributes.ATTACK_DAMAGE);
+		if (attackDamage != null) {
+			attackDamage.setBaseValue(1.0D);
+		}
+		var attackSpeed = player.getAttributeInstance(EntityAttributes.ATTACK_SPEED);
+		if (attackSpeed != null) {
+			attackSpeed.setBaseValue(4.0D);
+		}
+		var scale = player.getAttributeInstance(EntityAttributes.SCALE);
+		if (scale != null) {
+			scale.setBaseValue(1.0D);
 		}
 		player.clearStatusEffects();
 		player.setHealth(20.0f);
@@ -195,10 +219,17 @@ public class UnitLoadoutService {
 	ItemStack createCaptainSkillItem(FactionId factionId, TextTemplateResolver textTemplateResolver) {
 		var stack = createTaggedStack(Items.NETHER_STAR, KIND_CAPTAIN_SKILL, factionId, null);
 		stack.set(DataComponentTypes.CUSTOM_NAME, textTemplateResolver.format(textConfig().captainSkillItemName));
-		stack.set(DataComponentTypes.LORE, new LoreComponent(List.of(
-			textTemplateResolver.format(textConfig().captainSkillItemUseLore),
-			textTemplateResolver.format(textConfig().captainSkillItemFactionLoreTemplate.replace("{faction}", factionLabel(factionId)))
-		)));
+		var lore = new java.util.ArrayList<net.minecraft.text.Text>();
+		lore.add(textTemplateResolver.format(textConfig().captainSkillItemUseLore));
+		lore.add(textTemplateResolver.format(textConfig().captainSkillItemFactionLoreTemplate.replace("{faction}", factionLabel(factionId))));
+		var skillSpec = FactionSpecs.get(factionId);
+		if (skillSpec != null) {
+			lore.addAll(skillSpec.captainSkillDescriptionLines().stream()
+				.limit(2)
+				.map(textTemplateResolver::format)
+				.toList());
+		}
+		stack.set(DataComponentTypes.LORE, new LoreComponent(lore));
 		return stack;
 	}
 

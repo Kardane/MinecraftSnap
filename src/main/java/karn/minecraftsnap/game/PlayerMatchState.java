@@ -18,6 +18,7 @@ public class PlayerMatchState {
 	private int matchKills;
 	private int matchCaptureScore;
 	private final Map<String, Long> unitRuntimeLongs = new HashMap<>();
+	private final Map<String, Double> unitRuntimeDoubles = new HashMap<>();
 	private final Map<String, Integer> advanceOptionTicks = new HashMap<>();
 
 	public TeamId getTeamId() {
@@ -42,6 +43,7 @@ public class PlayerMatchState {
 		this.matchKills = 0;
 		this.matchCaptureScore = 0;
 		this.unitRuntimeLongs.clear();
+		this.unitRuntimeDoubles.clear();
 		this.advanceOptionTicks.clear();
 	}
 
@@ -85,10 +87,12 @@ public class PlayerMatchState {
 		if ((this.currentUnitId == null && currentUnitId != null)
 			|| (this.currentUnitId != null && !this.currentUnitId.equals(currentUnitId))) {
 			resetAdvanceState();
+			clearUnitRuntimeState();
 		}
 		this.currentUnitId = currentUnitId;
 		if (currentUnitId == null) {
 			this.lastLaneId = null;
+			clearUnitRuntimeState();
 			resetAdvanceState();
 		}
 	}
@@ -210,5 +214,23 @@ public class PlayerMatchState {
 
 	public void removeUnitRuntimeLong(String key) {
 		unitRuntimeLongs.remove(key);
+	}
+
+	public void clearUnitRuntimeState() {
+		this.lastLaneId = null;
+		this.unitRuntimeLongs.clear();
+		this.unitRuntimeDoubles.clear();
+	}
+
+	public Double getUnitRuntimeDouble(String key) {
+		return unitRuntimeDoubles.get(key);
+	}
+
+	public void setUnitRuntimeDouble(String key, double value) {
+		unitRuntimeDoubles.put(key, value);
+	}
+
+	public void removeUnitRuntimeDouble(String key) {
+		unitRuntimeDoubles.remove(key);
 	}
 }

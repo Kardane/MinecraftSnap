@@ -76,4 +76,38 @@ class LaneBiomeServiceTest {
 
 		assertEquals(8, LaneBiomeService.biomeCellCount(region));
 	}
+
+	@Test
+	void applyAssignedBiomeSplitsTransitionAcrossTicks() {
+		var applied = new ArrayList<List<LaneBiomeService.BiomeCellSnapshot>>();
+		var service = new LaneBiomeService(new LaneBiomeService.BiomeApplier() {
+			@Override
+			public List<LaneBiomeService.BiomeCellSnapshot> snapshot(net.minecraft.server.MinecraftServer server, String worldId, karn.minecraftsnap.config.SystemConfig.LaneRegionConfig region) {
+				return List.of();
+			}
+
+			@Override
+			public void apply(net.minecraft.server.MinecraftServer server, List<LaneBiomeService.BiomeCellSnapshot> snapshots) {
+				applied.add(List.copyOf(snapshots));
+			}
+		});
+		var region = new karn.minecraftsnap.config.SystemConfig.LaneRegionConfig();
+		region.minX = 0.0;
+		region.maxX = 7.0;
+		region.minY = 0.0;
+		region.maxY = 7.0;
+		region.minZ = 0.0;
+		region.maxZ = 7.0;
+
+		service.applyAssignedBiome(null, LaneId.LANE_1, "minecraft:overworld", region, "minecraft:forest");
+
+		assertEquals(1, applied.size());
+		assertEquals(1, applied.getFirst().size());
+
+		for (int i = 0; i < 7; i++) {
+			service.tick(null);
+		}
+
+		assertEquals(8, applied.stream().mapToInt(List::size).sum());
+	}
 }

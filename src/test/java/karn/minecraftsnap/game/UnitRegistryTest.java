@@ -10,10 +10,11 @@ class UnitRegistryTest {
 	void loadsUnitsFromJavaDefinitions() {
 		var registry = new UnitRegistry();
 
-		assertEquals(16, registry.all().size());
+		assertEquals(20, registry.all().size());
 		assertEquals(4, registry.byFaction(FactionId.VILLAGER).size());
-		assertEquals(8, registry.allByFaction(FactionId.MONSTER).size());
-		assertEquals(4, registry.byFaction(FactionId.NETHER).size());
+		assertEquals(11, registry.allByFaction(FactionId.MONSTER).size());
+		assertEquals(4, registry.byFaction(FactionId.MONSTER).size());
+		assertEquals(5, registry.byFaction(FactionId.NETHER).size());
 		assertFalse(registry.get("villager").descriptionLines().isEmpty());
 		assertEquals("주민&우민", registry.getFactionSpec(FactionId.VILLAGER).displayName());
 		assertFalse(registry.get("zombie").advanceOptions().isEmpty());

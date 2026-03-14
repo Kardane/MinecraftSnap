@@ -2,11 +2,8 @@ package karn.minecraftsnap.game;
 
 import karn.minecraftsnap.MinecraftSnap;
 import karn.minecraftsnap.biome.BiomeRuntimeContext;
-import karn.minecraftsnap.config.TextConfigFile;
 import karn.minecraftsnap.lane.LaneRuntimeRegistry;
 import karn.minecraftsnap.util.TextTemplateResolver;
-import net.minecraft.entity.effect.StatusEffectInstance;
-import net.minecraft.entity.effect.StatusEffects;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.server.world.ServerWorld;
@@ -17,11 +14,10 @@ import java.util.UUID;
 import java.util.function.BooleanSupplier;
 
 public class UnitAbilityService {
-	private static final int CAPTAIN_SKILL_COOLDOWN_SECONDS = 30;
-
 	private final TextTemplateResolver textTemplateResolver;
 	private final LaneRuntimeRegistry laneRuntimeRegistry;
 	private final Map<UUID, Long> unitCooldownTicks = new HashMap<>();
+	private CaptainSkillService captainSkillService;
 
 	public UnitAbilityService() {
 		this(new TextTemplateResolver(), null);
@@ -40,30 +36,15 @@ public class UnitAbilityService {
 	}
 
 	public boolean useCaptainSkill(ServerPlayerEntity captain, MatchManager matchManager, CaptainManaService captainManaService) {
-		var state = matchManager.getPlayerState(captain.getUuid());
-		if (!state.isCaptain() || state.getFactionId() == null) {
+		var mod = MinecraftSnap.getInstance();
+		if (captainSkillService == null || mod == null) {
 			return false;
 		}
-
-		var captainState = captainManaService.getOrCreate(captain.getUuid());
-		if (captainState.getSkillCooldownSeconds() > 0) {
-			captain.sendMessage(textTemplateResolver.format(textConfig().captainSkillCooldownMessage.replace("{seconds}", Integer.toString(captainState.getSkillCooldownSeconds()))), true);
-			return false;
+		var used = captainSkillService.useCaptainSkill(captain, mod.getSystemConfig());
+		if (used) {
+			notifyActiveSkillHook(captain, null, matchManager);
 		}
-
-		switch (state.getFactionId()) {
-			case VILLAGER -> captain.addStatusEffect(new StatusEffectInstance(StatusEffects.REGENERATION, 20 * 8, 1));
-			case MONSTER -> captain.addStatusEffect(new StatusEffectInstance(StatusEffects.STRENGTH, 20 * 8, 0));
-			case NETHER -> {
-				captain.addStatusEffect(new StatusEffectInstance(StatusEffects.FIRE_RESISTANCE, 20 * 8, 0));
-				captain.addStatusEffect(new StatusEffectInstance(StatusEffects.SPEED, 20 * 8, 0));
-			}
-		}
-
-		captainManaService.triggerSkillCooldown(captain.getUuid(), CAPTAIN_SKILL_COOLDOWN_SECONDS);
-		notifyActiveSkillHook(captain, null, matchManager);
-		captain.sendMessage(textTemplateResolver.format(textConfig().captainSkillActivatedMessage), true);
-		return true;
+		return used;
 	}
 
 	public boolean activateUnitSkill(ServerPlayerEntity player, MatchManager matchManager, UnitDefinition definition, BooleanSupplier action) {
@@ -109,6 +90,7 @@ public class UnitAbilityService {
 		var context = new BiomeRuntimeContext(
 			player.getServer(),
 			(ServerWorld) player.getWorld(),
+			matchManager,
 			runtime,
 			runtime.biomeEntry(),
 			textTemplateResolver,
@@ -118,8 +100,7 @@ public class UnitAbilityService {
 		runtime.biomeEffect().onActiveSkill(context, player, definition);
 	}
 
-	private TextConfigFile textConfig() {
-		var mod = MinecraftSnap.getInstance();
-		return mod == null ? new TextConfigFile() : mod.getTextConfig();
+	public void setCaptainSkillService(CaptainSkillService captainSkillService) {
+		this.captainSkillService = captainSkillService;
 	}
 }

@@ -2,6 +2,7 @@ package karn.minecraftsnap.command;
 
 import com.mojang.brigadier.Command;
 import com.mojang.brigadier.arguments.StringArgumentType;
+import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.suggestion.Suggestions;
 import com.mojang.brigadier.suggestion.SuggestionsBuilder;
 import karn.minecraftsnap.MinecraftSnap;
@@ -69,6 +70,9 @@ public class McSnapCommandRegistrar {
 					.then(CommandManager.literal("game_running").executes(ctx -> setPhase(ctx.getSource(), MatchPhase.GAME_RUNNING)))
 					.then(CommandManager.literal("game_end").executes(ctx -> setPhase(ctx.getSource(), MatchPhase.GAME_END))))
 				.then(CommandManager.literal("teamsel").executes(ctx -> startTeamSelection(ctx.getSource())))
+				.then(CommandManager.literal("bots")
+					.then(CommandManager.argument("count", IntegerArgumentType.integer(1))
+						.executes(ctx -> spawnBots(ctx.getSource(), IntegerArgumentType.getInteger(ctx, "count")))))
 				.then(CommandManager.literal("autostart").executes(ctx -> toggleAutoStart(ctx.getSource())))
 				.then(CommandManager.literal("gamestart").executes(ctx -> forceStartGame(ctx.getSource())))
 				.then(CommandManager.literal("gamestop").executes(ctx -> setPhase(ctx.getSource(), MatchPhase.GAME_END)))
@@ -156,6 +160,10 @@ public class McSnapCommandRegistrar {
 	private int startTeamSelection(ServerCommandSource source) {
 		mod.assignTeamsOnly();
 		return send(source, "&a팀 배정과 사령관 선출 완료 &7(자동 진행 없음)");
+	}
+
+	private int spawnBots(ServerCommandSource source, int count) {
+		return send(source, mod.spawnBots(source, count));
 	}
 
 	private int forceStartGame(ServerCommandSource source) {

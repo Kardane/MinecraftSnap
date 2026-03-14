@@ -2,6 +2,7 @@ package karn.minecraftsnap.mixin;
 
 import karn.minecraftsnap.MinecraftSnap;
 import net.minecraft.network.packet.c2s.play.PlayerActionC2SPacket;
+import net.minecraft.network.packet.c2s.play.PlayerMoveC2SPacket;
 import net.minecraft.server.network.ServerPlayNetworkHandler;
 import net.minecraft.server.network.ServerPlayerEntity;
 import org.spongepowered.asm.mixin.Mixin;
@@ -23,6 +24,14 @@ public abstract class ServerPlayNetworkHandlerMixin {
 
 		var mod = MinecraftSnap.getInstance();
 		if (mod != null && mod.handleShortcut(player)) {
+			ci.cancel();
+		}
+	}
+
+	@Inject(method = "onPlayerMove", at = @At("HEAD"), cancellable = true)
+	private void minecraftsnap$lockPrimedCreeperMovement(PlayerMoveC2SPacket packet, CallbackInfo ci) {
+		var mod = MinecraftSnap.getInstance();
+		if (mod != null && mod.shouldCancelPlayerMove(player, packet)) {
 			ci.cancel();
 		}
 	}

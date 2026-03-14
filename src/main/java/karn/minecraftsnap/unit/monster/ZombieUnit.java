@@ -3,7 +3,7 @@ package karn.minecraftsnap.unit.monster;
 import karn.minecraftsnap.game.FactionId;
 import karn.minecraftsnap.game.UnitDefinition;
 import karn.minecraftsnap.unit.ConfiguredUnitClass;
-import net.minecraft.server.network.ServerPlayerEntity;
+import net.minecraft.entity.damage.DamageSource;
 
 import java.util.List;
 
@@ -20,12 +20,12 @@ public class ZombieUnit extends AbstractMonsterUnit implements ConfiguredUnitCla
 		FactionId.MONSTER,
 		true,
 		1,
-		6,
+		7,
 		20.0,
 		0.8,
 		item("minecraft:iron_shovel"),
 		none(),
-		none(),
+		item("minecraft:leather_helmet"),
 		none(),
 		none(),
 		none(),
@@ -34,15 +34,27 @@ public class ZombieUnit extends AbstractMonsterUnit implements ConfiguredUnitCla
 		0,
 		UnitDefinition.AmmoType.NONE,
 		disguise("minecraft:zombie"),
-		List.of("&7적 처치 시 사령관 소환 쿨 2초 감소"),
-		List.of(advanceOption(
-			"zombie_veteran",
-			"강화 좀비",
-			List.of("&7늪과 비를 버티면 강화"),
-			List.of("minecraft:swamp", "minecraft:mangrove_swamp"),
-			List.of("rain", "thunder"),
-			15
-		))
+		List.of("&7사망 시 아군 사령관 소환 쿨 2초 감소"),
+		List.of(
+			advanceOption(
+				"husk",
+				"허스크",
+				List.of("&7사막/악지에서 20초 버티면 적응"),
+				List.of("minecraft:desert", "minecraft:badlands"),
+				List.of(),
+				400
+			),
+			advanceOption(
+				"drowned",
+				"드라운드",
+				List.of("&7바다에서 20초 버티면 적응"),
+				List.of(
+					"minecraft:ocean"
+				),
+				List.of(),
+				400
+			)
+		)
 	);
 
 	@Override
@@ -51,7 +63,11 @@ public class ZombieUnit extends AbstractMonsterUnit implements ConfiguredUnitCla
 	}
 
 	@Override
-	public void onKill(karn.minecraftsnap.unit.UnitContext context, ServerPlayerEntity victim) {
-		context.reduceCaptainSpawnCooldown(2);
+	public void onDeath(karn.minecraftsnap.unit.UnitContext context, DamageSource source) {
+		context.reduceCaptainSpawnCooldown(captainCooldownReductionOnDeathSeconds());
+	}
+
+	int captainCooldownReductionOnDeathSeconds() {
+		return 2;
 	}
 }

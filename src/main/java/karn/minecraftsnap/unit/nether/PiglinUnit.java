@@ -3,9 +3,10 @@ package karn.minecraftsnap.unit.nether;
 import karn.minecraftsnap.game.FactionId;
 import karn.minecraftsnap.game.UnitDefinition;
 import karn.minecraftsnap.unit.ConfiguredUnitClass;
-import net.minecraft.entity.damage.DamageSource;
-import net.minecraft.entity.EntityType;
-import net.minecraft.entity.SpawnReason;
+import karn.minecraftsnap.unit.UnitContext;
+import net.minecraft.item.ItemStack;
+import net.minecraft.item.Items;
+import net.minecraft.server.network.ServerPlayerEntity;
 
 import java.util.List;
 
@@ -20,8 +21,8 @@ public class PiglinUnit extends AbstractNetherUnit implements ConfiguredUnitClas
 		"피글린",
 		FactionId.NETHER,
 		true,
-		2,
-		5,
+		1,
+		10,
 		20.0,
 		1.0,
 		item("minecraft:golden_sword"),
@@ -35,7 +36,7 @@ public class PiglinUnit extends AbstractNetherUnit implements ConfiguredUnitClas
 		0,
 		UnitDefinition.AmmoType.NONE,
 		disguise("minecraft:piglin"),
-		List.of("&750% 확률로 좀비 피글린 생성"),
+		List.of("&7적 처치 시 금괴를 추가로 1개 더 획득", "&7금괴 3개 지급"),
 		List.of()
 	);
 
@@ -45,17 +46,22 @@ public class PiglinUnit extends AbstractNetherUnit implements ConfiguredUnitClas
 	}
 
 	@Override
-	public void onDeath(karn.minecraftsnap.unit.UnitContext context, DamageSource source) {
-		if (context.player().getRandom().nextFloat() >= 0.5f) {
-			return;
-		}
-		var world = context.world();
-		var player = context.player();
-		var piglin = EntityType.ZOMBIFIED_PIGLIN.create(world, SpawnReason.MOB_SUMMONED);
-		if (piglin == null) {
-			return;
-		}
-		piglin.refreshPositionAndAngles(player.getBlockPos(), player.getYaw(), player.getPitch());
-		world.spawnEntity(piglin);
+	public void buildLoadout(UnitContext context) {
+		context.baseBuildLoadout();
+		context.player().getInventory().insertStack(new ItemStack(Items.GOLD_INGOT, supportGoldCount()));
+	}
+
+	@Override
+	public void onKill(UnitContext context, ServerPlayerEntity victim) {
+		super.onKill(context, victim);
+		context.rewardGold(bonusGoldOnKill());
+	}
+
+	int supportGoldCount() {
+		return 3;
+	}
+
+	int bonusGoldOnKill() {
+		return 1;
 	}
 }

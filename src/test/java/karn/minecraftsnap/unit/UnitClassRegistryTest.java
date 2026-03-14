@@ -18,16 +18,20 @@ class UnitClassRegistryTest {
 			"vindicator",
 			"pillager",
 			"zombie",
+			"husk",
+			"drowned",
 			"skeleton",
+			"stray",
+			"bogged",
+			"wither_skeleton",
 			"slime",
+			"giant_slime",
 			"creeper",
-			"zombie_veteran",
-			"skeleton_sniper",
-			"slime_brute",
 			"charged_creeper",
 			"piglin",
 			"zombified_piglin",
 			"blaze",
+			"magma_cube",
 			"piglin_brute"
 		}) {
 			registry.registerUnit(new UnitDefinition(

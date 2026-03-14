@@ -75,7 +75,7 @@ public class SystemConfig {
 	}
 
 	public static class GameStartConfig {
-		public int waitSeconds = 15;
+		public int waitSeconds = 5;
 		public boolean allowShiftF = true;
 		public transient String captainSpawnGuiTitle = "&6유닛 소환";
 		public transient String captainSpawnNoFactionMessage = "&c팩션이 정해지지 않았음";
@@ -174,6 +174,7 @@ public class SystemConfig {
 		public double captainMinY = 0.0;
 		public float captainFlySpeed = 1.0f;
 		public float defaultFlySpeed = 0.05f;
+		public int captainManaRecoverySeconds = 10;
 		public LaneRegionConfig lane1Region = LaneRegionConfig.create(-8.0, 0.0, -8.0, 8.0, 320.0, 8.0);
 		public LaneRegionConfig lane2Region = LaneRegionConfig.create(12.0, 0.0, -8.0, 28.0, 320.0, 8.0);
 		public LaneRegionConfig lane3Region = LaneRegionConfig.create(32.0, 0.0, -8.0, 48.0, 320.0, 8.0);
@@ -200,6 +201,7 @@ public class SystemConfig {
 		public transient String monsterFactionName = "몬스터";
 		public transient String netherFactionName = "네더";
 		public transient String customDeathMessage = "&8[사망] &f{victim} &7사망";
+		public transient String customDeathMessageWithAttacker = "&8[사망] &f{victim} &7사망 &8(공격자: &f{attacker}&8)";
 		public transient String autoStartEnabledMessage = "&a팀 선택 자동 시작: &f켜짐";
 		public transient String autoStartDisabledMessage = "&c팀 선택 자동 시작: &f꺼짐";
 	}
@@ -314,6 +316,9 @@ public class SystemConfig {
 		}
 		if (inGame.lane3Region == null) {
 			inGame.lane3Region = LaneRegionConfig.create(32.0, 0.0, -8.0, 48.0, 320.0, 8.0);
+		}
+		if (inGame.captainManaRecoverySeconds <= 0) {
+			inGame.captainManaRecoverySeconds = 10;
 		}
 		if (capture.lane1 == null) {
 			capture.lane1 = CaptureRegionConfig.create("1번 라인", -4.0, 60.0, -4.0, 4.0, 68.0, 4.0);

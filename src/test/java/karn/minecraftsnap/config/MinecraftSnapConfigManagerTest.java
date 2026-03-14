@@ -28,11 +28,11 @@ class MinecraftSnapConfigManagerTest {
 		assertTrue(Files.notExists(tempDir.resolve("faction_nether.json")));
 		assertTrue(Files.exists(tempDir.resolve("villager_shop.json")));
 		assertTrue(Files.exists(tempDir.resolve("nether_shop.json")));
-		assertTrue(manager.getBiomeCatalog().biomes.size() >= 3);
+		assertEquals(8, manager.getBiomeCatalog().biomes.size());
 		assertEquals("unique_random", manager.getSystemConfig().biomeReveal.assignmentPolicy);
 		assertEquals("minecraft:overworld", manager.getSystemConfig().world);
-		assertEquals("forest", manager.getBiomeCatalog().biomes.getFirst().effectType);
-		assertEquals("minecraftsnap:forest_lane", manager.getBiomeCatalog().biomes.getFirst().structureId);
+		assertEquals("plain", manager.getBiomeCatalog().biomes.getFirst().effectType);
+		assertEquals("minecraft:plain", manager.getBiomeCatalog().biomes.getFirst().structureId);
 		assertTrue(manager.getShopConfig(karn.minecraftsnap.game.FactionId.VILLAGER).entries.size() >= 1);
 		assertTrue(manager.getShopConfig(karn.minecraftsnap.game.FactionId.NETHER).entries.size() >= 1);
 		var storedSystem = Files.readString(tempDir.resolve("system.json"));
@@ -121,6 +121,29 @@ class MinecraftSnapConfigManagerTest {
 
 		var stored = Files.readString(tempDir.resolve("system.json"));
 		assertEquals(1, stored.split("\"world\"").length - 1);
+	}
+
+	@Test
+	void loadAppendsMissingDefaultBiomesToLegacyCatalog(@TempDir Path tempDir) throws Exception {
+		Files.createDirectories(tempDir);
+		Files.writeString(tempDir.resolve("biomes.json"), """
+			{
+			  "biomes": [
+			    { "id": "plain", "displayName": "평원", "minecraftBiomeId": "minecraft:plains" },
+			    { "id": "desert", "displayName": "사막", "minecraftBiomeId": "minecraft:desert" },
+			    { "id": "swamp", "displayName": "늪", "minecraftBiomeId": "minecraft:swamp" },
+			    { "id": "badlands", "displayName": "악지", "minecraftBiomeId": "minecraft:badlands" }
+			  ]
+			}
+			""");
+
+		var manager = new MinecraftSnapConfigManager(tempDir, LoggerFactory.getLogger("test"));
+		manager.load();
+
+		assertEquals(8, manager.getBiomeCatalog().biomes.size());
+		assertTrue(manager.getBiomeCatalog().biomes.stream().anyMatch(entry -> "end".equals(entry.id)));
+		assertTrue(manager.getBiomeCatalog().biomes.stream().anyMatch(entry -> "taiga".equals(entry.id)));
+		assertEquals("plain", manager.getBiomeCatalog().biomes.getFirst().effectType);
 	}
 
 }

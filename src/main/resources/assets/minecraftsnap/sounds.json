@@ -1,0 +1,50 @@
+{
+  "music.lobby": {
+    "sounds": [
+      {
+        "name": "minecraftsnap:music/lobby",
+        "stream": true
+      }
+    ]
+  },
+  "music.lobby2": {
+    "sounds": [
+      {
+        "name": "minecraftsnap:music/lobby2",
+        "stream": true
+      }
+    ]
+  },
+  "music.ready": {
+    "sounds": [
+      {
+        "name": "minecraftsnap:music/ready",
+        "stream": true
+      }
+    ]
+  },
+  "music.game": {
+    "sounds": [
+      {
+        "name": "minecraftsnap:music/game",
+        "stream": true
+      }
+    ]
+  },
+  "music.start": {
+    "sounds": [
+      {
+        "name": "minecraftsnap:music/start",
+        "stream": true
+      }
+    ]
+  },
+  "music.end": {
+    "sounds": [
+      {
+        "name": "minecraftsnap:music/end",
+        "stream": true
+      }
+    ]
+  }
+}

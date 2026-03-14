@@ -10,7 +10,7 @@ class LobbyScoreboardServiceTest {
 	@Test
 	void hidesSidebarDuringGamePhases() {
 		assertTrue(LobbyScoreboardService.shouldHideSidebar(MatchPhase.GAME_START));
-		assertTrue(LobbyScoreboardService.shouldHideSidebar(MatchPhase.GAME_RUNNING));
+		assertFalse(LobbyScoreboardService.shouldHideSidebar(MatchPhase.GAME_RUNNING));
 		assertTrue(LobbyScoreboardService.shouldHideSidebar(MatchPhase.GAME_END));
 		assertFalse(LobbyScoreboardService.shouldHideSidebar(MatchPhase.FACTION_SELECT));
 	}

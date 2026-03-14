@@ -61,7 +61,7 @@ class UnitHookServiceTest {
 		}
 
 		@Override
-		public void onAttack(UnitContext context, net.minecraft.server.network.ServerPlayerEntity victim, float amount) {
+		public void onAttack(UnitContext context, net.minecraft.entity.LivingEntity victim, float amount) {
 			attackCalls++;
 		}
 

@@ -240,6 +240,7 @@ public class BiomeRevealService {
 		return new BiomeRuntimeContext(
 			server,
 			resolveWorld(server, worldId),
+			matchManager,
 			runtime,
 			biomeEntry,
 			textTemplateResolver,

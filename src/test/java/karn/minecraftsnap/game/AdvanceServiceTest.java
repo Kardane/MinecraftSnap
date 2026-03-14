@@ -13,30 +13,30 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class AdvanceServiceTest {
 	@Test
 	void matchingOptionBuildsTicksAndBecomesReady() {
-		var service = new AdvanceService(monsterRegistry(option("zombie_veteran", List.of("minecraft:swamp"), List.of("rain"), 2)));
+		var service = new AdvanceService(monsterRegistry(option("husk", List.of("minecraft:desert"), List.of("clear"), 2)));
 		var state = monsterState("zombie");
 
-		service.updateProgress(state, "minecraft:swamp", "rain");
-		service.updateProgress(state, "minecraft:swamp", "rain");
+		service.updateProgress(state, "minecraft:desert", "clear");
+		service.updateProgress(state, "minecraft:desert", "clear");
 
-		assertEquals(2, state.getAdvanceOptionTicks("zombie_veteran"));
-		assertTrue(state.isAdvanceReady("zombie_veteran", 2));
+		assertEquals(2, state.getAdvanceOptionTicks("husk"));
+		assertTrue(state.isAdvanceReady("husk", 2));
 	}
 
 	@Test
 	void mismatchedOptionResetsOnlyThatOptionProgress() {
 		var service = new AdvanceService(monsterRegistry(
-			option("zombie_veteran", List.of("minecraft:swamp"), List.of("rain"), 2),
+			option("husk", List.of("minecraft:desert"), List.of("clear"), 2),
 			option("zombie_alt", List.of("minecraft:plains"), List.of("clear"), 3)
 		));
 		var state = monsterState("zombie");
 
-		service.updateProgress(state, "minecraft:swamp", "rain");
-		assertEquals(1, state.getAdvanceOptionTicks("zombie_veteran"));
+		service.updateProgress(state, "minecraft:desert", "clear");
+		assertEquals(1, state.getAdvanceOptionTicks("husk"));
 		assertEquals(0, state.getAdvanceOptionTicks("zombie_alt"));
 
 		service.updateProgress(state, "minecraft:plains", "clear");
-		assertEquals(0, state.getAdvanceOptionTicks("zombie_veteran"));
+		assertEquals(0, state.getAdvanceOptionTicks("husk"));
 		assertEquals(1, state.getAdvanceOptionTicks("zombie_alt"));
 	}
 
@@ -55,15 +55,15 @@ class AdvanceServiceTest {
 
 	@Test
 	void applyAdvanceReplacesCurrentUnitAndClearsOptionTicks() {
-		var service = new AdvanceService(monsterRegistry(option("slime_brute", List.of("minecraft:swamp"), List.of("rain"), 2)));
+		var service = new AdvanceService(monsterRegistry(option("giant_slime", List.of("minecraft:swamp"), List.of("rain"), 2)));
 		var state = monsterState("zombie");
-		state.setAdvanceOptionTicks("slime_brute", 2);
+		state.setAdvanceOptionTicks("giant_slime", 2);
 
-		var result = service.applyAdvance(state, "slime_brute");
+		var result = service.applyAdvance(state, "giant_slime");
 
-		assertEquals("slime_brute", result.id());
-		assertEquals("slime_brute", state.getCurrentUnitId());
-		assertEquals(0, state.getAdvanceOptionTicks("slime_brute"));
+		assertEquals("giant_slime", result.id());
+		assertEquals("giant_slime", state.getCurrentUnitId());
+		assertEquals(0, state.getAdvanceOptionTicks("giant_slime"));
 	}
 
 	private UnitRegistry monsterRegistry(AdvanceOptionEntry... options) {
@@ -91,11 +91,12 @@ class AdvanceServiceTest {
 			List.of(),
 			List.of(options)
 		));
-		registry.registerUnit(targetUnit("zombie_veteran", "강화 좀비", "minecraft:iron_shovel", "minecraft:husk"));
+		registry.registerUnit(targetUnit("husk", "허스크", "minecraft:iron_sword", "minecraft:husk"));
+		registry.registerUnit(targetUnit("drowned", "드라운드", "minecraft:trident", "minecraft:drowned"));
 		registry.registerUnit(targetUnit("zombie_alt", "대체 전직", "minecraft:stone_sword", "minecraft:zombie"));
 		registry.registerUnit(targetUnit("charged_creeper", "대전된 크리퍼", "minecraft:tnt", "minecraft:creeper"));
 		registry.registerUnit(targetUnit("creeper_alt", "크리퍼 대체형", "minecraft:tnt", "minecraft:creeper"));
-		registry.registerUnit(targetUnit("slime_brute", "강화 슬라임", "minecraft:slime_ball", "minecraft:slime"));
+		registry.registerUnit(targetUnit("giant_slime", "거대 슬라임", "minecraft:slime_ball", "minecraft:slime"));
 		return registry;
 	}
 

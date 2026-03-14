@@ -14,13 +14,13 @@ import static karn.minecraftsnap.unit.UnitSpecSupport.unit;
 public class ArmorerVillagerUnit extends AbstractVillagerUnit implements ConfiguredUnitClass {
 	public static final UnitDefinition DEFINITION = unit(
 		"armorer_villager",
-		"대장장이 주민",
+		"갑옷 대장장이 주민",
 		FactionId.VILLAGER,
 		true,
 		2,
-		9,
-		30.0,
-		0.9,
+		10,
+		20.0,
+		0.8,
 		item("minecraft:wooden_sword"),
 		item("minecraft:shield"),
 		none(),
@@ -32,7 +32,7 @@ public class ArmorerVillagerUnit extends AbstractVillagerUnit implements Configu
 		0,
 		UnitDefinition.AmmoType.NONE,
 		disguise("minecraft:villager"),
-		List.of("&7방패와 흉갑 보유", "&7전선 유지용"),
+		List.of("&7철 흉갑과 방패 보유", "&7전선 유지용"),
 		List.of()
 	);
 

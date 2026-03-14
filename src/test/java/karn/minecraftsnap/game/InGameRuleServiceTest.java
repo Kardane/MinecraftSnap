@@ -44,6 +44,20 @@ class InGameRuleServiceTest {
 	}
 
 	@Test
+	void allowsAssignedEnemyUnitDamageOutsideGameRunning() {
+		var manager = new MatchManager();
+		var service = createService(manager);
+		var victim = new PlayerMatchState();
+		victim.setTeam(TeamId.RED, RoleType.UNIT);
+		victim.setCurrentUnitId("villager");
+		var attacker = new PlayerMatchState();
+		attacker.setTeam(TeamId.BLUE, RoleType.UNIT);
+		attacker.setCurrentUnitId("husk");
+
+		assertTrue(service.isDamageAllowed(victim, attacker, MatchPhase.LOBBY));
+	}
+
+	@Test
 	void allowsEnemyDamageInGameRunning() {
 		var manager = new MatchManager();
 		var service = createService(manager);
@@ -53,6 +67,21 @@ class InGameRuleServiceTest {
 		attacker.setTeam(TeamId.BLUE, RoleType.CAPTAIN);
 
 		assertTrue(service.isDamageAllowed(victim, attacker, MatchPhase.GAME_RUNNING));
+	}
+
+	@Test
+	void blocksCreeperBasicAttackInGameRunning() {
+		var manager = new MatchManager();
+		var service = createService(manager);
+		var victim = new PlayerMatchState();
+		victim.setTeam(TeamId.RED, RoleType.UNIT);
+		victim.setCurrentUnitId("villager");
+		var attacker = new PlayerMatchState();
+		attacker.setTeam(TeamId.BLUE, RoleType.UNIT);
+		attacker.setCurrentUnitId("creeper");
+
+		assertFalse(service.isDamageAllowed(victim, attacker, MatchPhase.GAME_RUNNING));
+		assertTrue(InGameRuleService.isAttackDisabledUnit(attacker));
 	}
 
 	@Test

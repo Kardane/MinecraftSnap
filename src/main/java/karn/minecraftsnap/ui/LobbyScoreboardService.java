@@ -1,6 +1,7 @@
 package karn.minecraftsnap.ui;
 
 import karn.minecraftsnap.MinecraftSnap;
+import karn.minecraftsnap.game.LaneId;
 import karn.minecraftsnap.config.TextConfigFile;
 import karn.minecraftsnap.config.StatsRepository;
 import karn.minecraftsnap.game.MatchManager;
@@ -58,6 +59,10 @@ public class LobbyScoreboardService {
 		}
 
 		scoreboard.setObjectiveSlot(ScoreboardDisplaySlot.SIDEBAR, objective);
+		if (matchManager.getPhase() == MatchPhase.GAME_RUNNING) {
+			renderRunningSidebar(scoreboard, objective, matchManager);
+			return;
+		}
 		updateLine(scoreboard, objective, 0, textTemplateResolver.format(textConfig().lobbyScoreboardPhaseTemplate.replace("{phase}", matchManager.getPhase().getDisplayName())));
 
 		var players = server.getPlayerManager().getPlayerList().stream()
@@ -83,6 +88,53 @@ public class LobbyScoreboardService {
 		updateLine(scoreboard, objective, 6, textTemplateResolver.format(textConfig().lobbyScoreboardWikiHint));
 	}
 
+	private void renderRunningSidebar(Scoreboard scoreboard, net.minecraft.scoreboard.ScoreboardObjective objective, MatchManager matchManager) {
+		updateLine(scoreboard, objective, 0, formatRunningLane(matchManager, LaneId.LANE_1));
+		updateLine(scoreboard, objective, 1, formatRunningLane(matchManager, LaneId.LANE_2));
+		updateLine(scoreboard, objective, 2, formatRunningLane(matchManager, LaneId.LANE_3));
+		for (int i = 3; i < LINE_HOLDERS.length; i++) {
+			scoreboard.removeScore(ScoreHolder.fromName(LINE_HOLDERS[i]), objective);
+		}
+	}
+
+	private Text formatRunningLane(MatchManager matchManager, LaneId laneId) {
+		var biomeName = "???";
+		if (matchManager.isLaneRevealed(laneId)) {
+			var assignedBiomeId = matchManager.getAssignedBiomeId(laneId);
+			var mod = MinecraftSnap.getInstance();
+			if (assignedBiomeId != null && mod != null) {
+				biomeName = mod.getBiomeCatalog().biomes.stream()
+					.filter(entry -> assignedBiomeId.equals(entry.id))
+					.findFirst()
+					.map(entry -> entry.displayName)
+					.orElse(assignedBiomeId);
+			}
+		}
+		var icon = runningIcon(matchManager, laneId);
+		return textTemplateResolver.format(textConfig().runningSidebarLaneTemplate
+			.replace("{icon}", icon)
+			.replace("{biome}", biomeName));
+	}
+
+	private String runningIcon(MatchManager matchManager, LaneId laneId) {
+		var mod = MinecraftSnap.getInstance();
+		if (mod == null || mod.getCapturePointService() == null) {
+			return "&f⬛";
+		}
+		var state = mod.getCapturePointService().getState(laneId);
+		if (state == null) {
+			return "&f⬛";
+		}
+		if (state.getProgress().isContested()) {
+			return "&e⬛";
+		}
+		return switch (state.getOwner()) {
+			case RED -> "&c⬛";
+			case BLUE -> "&9⬛";
+			case NEUTRAL -> "&f⬛";
+		};
+	}
+
 	private void clearPlayerTeams(Scoreboard scoreboard, MinecraftServer server) {
 		for (var player : server.getPlayerManager().getPlayerList()) {
 			var entryName = player.getNameForScoreboard();
@@ -94,7 +146,7 @@ public class LobbyScoreboardService {
 	}
 
 	static boolean shouldHideSidebar(MatchPhase phase) {
-		return phase == MatchPhase.GAME_START || phase == MatchPhase.GAME_RUNNING || phase == MatchPhase.GAME_END;
+		return phase == MatchPhase.GAME_START || phase == MatchPhase.GAME_END;
 	}
 
 	private void updateLine(Scoreboard scoreboard, net.minecraft.scoreboard.ScoreboardObjective objective, int index, Text displayText) {

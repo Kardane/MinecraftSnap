@@ -1,6 +1,7 @@
 package karn.minecraftsnap.biome;
 
 import karn.minecraftsnap.game.UnitDefinition;
+import karn.minecraftsnap.game.TeamId;
 import net.minecraft.entity.damage.DamageSource;
 import net.minecraft.server.network.ServerPlayerEntity;
 
@@ -27,5 +28,8 @@ public interface BiomeEffect {
 	}
 
 	default void onDeath(BiomeRuntimeContext context, ServerPlayerEntity victim, DamageSource source) {
+	}
+
+	default void onCaptureScore(BiomeRuntimeContext context, TeamId ownerTeam) {
 	}
 }

@@ -24,6 +24,7 @@ public class UnitSpawnService {
 	private final UnitLoadoutService unitLoadoutService;
 	private final UnitAbilityService unitAbilityService;
 	private final UiSoundService uiSoundService;
+	private CaptainSkillService captainSkillService;
 	private UnitHookService unitHookService;
 
 	public UnitSpawnService() {
@@ -117,17 +118,20 @@ public class UnitSpawnService {
 			return SpawnResult.error("&c대상 유닛 플레이어를 찾지 못함");
 		}
 
-		unitAbilityService.clearPlayerState(target.getUuid());
-		matchManager.setCurrentUnit(target.getUuid(), definition.id());
 		target.changeGameMode(GameMode.ADVENTURE);
 		teleport(target, systemConfig.world, safeUnitSpawn(systemConfig, captainState.getTeamId(), laneId));
 		if (unitHookService != null) {
-			unitHookService.applyLoadout(target, definition, systemConfig);
+			unitHookService.assignUnit(target, definition, systemConfig);
 		} else {
+			matchManager.setCurrentUnit(target.getUuid(), definition.id());
+			unitAbilityService.clearPlayerState(target.getUuid());
 			unitLoadoutService.applyUnitLoadout(target, definition, textTemplateResolver);
+			DisguiseSupport.applyDisguise(target, definition.disguise());
 		}
-		DisguiseSupport.applyDisguise(target, definition.disguise());
 		target.sendMessage(textTemplateResolver.format(textConfig().unitSpawnedMessage.replace("{unit}", definition.displayName())), false);
+		if (captainSkillService != null) {
+			captainSkillService.handleSpawnRefund(captain, definition, laneId);
+		}
 		captain.sendMessage(textTemplateResolver.format(textConfig().captainSpawnSuccessMessage
 			.replace("{player}", target.getName().getString())
 			.replace("{unit}", definition.displayName())), false);
@@ -175,6 +179,10 @@ public class UnitSpawnService {
 
 	public void setUnitHookService(UnitHookService unitHookService) {
 		this.unitHookService = unitHookService;
+	}
+
+	public void setCaptainSkillService(CaptainSkillService captainSkillService) {
+		this.captainSkillService = captainSkillService;
 	}
 
 	private void teleport(ServerPlayerEntity player, String worldId, SystemConfig.PositionConfig position) {

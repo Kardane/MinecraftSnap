@@ -23,8 +23,10 @@ import java.util.Map;
 import java.util.Set;
 
 public class LaneBiomeService {
+	private static final int TRANSITION_TICKS = 20;
 	private final Map<LaneId, List<BiomeCellSnapshot>> originalBiomes = new EnumMap<>(LaneId.class);
 	private final Map<LaneId, String> currentBiomeIds = new EnumMap<>(LaneId.class);
+	private final Map<LaneId, PendingTransition> pendingTransitions = new EnumMap<>(LaneId.class);
 	private final BiomeApplier biomeApplier;
 
 	public LaneBiomeService() {
@@ -92,6 +94,26 @@ public class LaneBiomeService {
 		}
 		originalBiomes.clear();
 		currentBiomeIds.clear();
+		pendingTransitions.clear();
+	}
+
+	public void tick(MinecraftServer server) {
+		if (pendingTransitions.isEmpty()) {
+			return;
+		}
+		for (var laneId : List.copyOf(pendingTransitions.keySet())) {
+			var transition = pendingTransitions.get(laneId);
+			if (transition == null) {
+				continue;
+			}
+			var nextIndex = Math.min(transition.index + transition.batchSize, transition.snapshots.size());
+			biomeApplier.apply(server, transition.snapshots.subList(transition.index, nextIndex));
+			if (nextIndex >= transition.snapshots.size()) {
+				pendingTransitions.remove(laneId);
+			} else {
+				pendingTransitions.put(laneId, new PendingTransition(transition.snapshots, nextIndex, transition.batchSize));
+			}
+		}
 	}
 
 	public void rememberSnapshot(LaneId laneId, List<BiomeCellSnapshot> snapshots) {
@@ -121,8 +143,23 @@ public class LaneBiomeService {
 		var snapshots = collectCells(region).stream()
 			.map(cell -> BiomeCellSnapshot.at(worldId, cell.blockX(), cell.blockY(), cell.blockZ(), biomeId))
 			.toList();
-		biomeApplier.apply(server, snapshots);
+		queueTransition(server, laneId, snapshots);
 		currentBiomeIds.put(laneId, biomeId);
+	}
+
+	private void queueTransition(MinecraftServer server, LaneId laneId, List<BiomeCellSnapshot> snapshots) {
+		if (snapshots.isEmpty()) {
+			pendingTransitions.remove(laneId);
+			return;
+		}
+		var batchSize = Math.max(1, (int) Math.ceil(snapshots.size() / (double) TRANSITION_TICKS));
+		var firstEnd = Math.min(batchSize, snapshots.size());
+		biomeApplier.apply(server, snapshots.subList(0, firstEnd));
+		if (firstEnd >= snapshots.size()) {
+			pendingTransitions.remove(laneId);
+			return;
+		}
+		pendingTransitions.put(laneId, new PendingTransition(List.copyOf(snapshots), firstEnd, batchSize));
 	}
 
 	private List<Cell> collectCells(SystemConfig.LaneRegionConfig region) {
@@ -187,6 +224,9 @@ public class LaneBiomeService {
 	}
 
 	private record Cell(int blockX, int blockY, int blockZ) {
+	}
+
+	private record PendingTransition(List<BiomeCellSnapshot> snapshots, int index, int batchSize) {
 	}
 
 	private static class WorldBiomeApplier implements BiomeApplier {

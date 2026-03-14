@@ -16,6 +16,7 @@ import karn.minecraftsnap.unit.UnitClass;
 import karn.minecraftsnap.unit.UnitClassRegistry;
 import karn.minecraftsnap.unit.UnitContext;
 import karn.minecraftsnap.util.TextTemplateResolver;
+import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.damage.DamageSource;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.network.ServerPlayerEntity;
@@ -119,7 +120,7 @@ public class UnitHookService {
 		}
 	}
 
-	public void handleAttack(ServerPlayerEntity attacker, ServerPlayerEntity victim, float amount, SystemConfig systemConfig) {
+	public void handleAttack(ServerPlayerEntity attacker, LivingEntity victim, float amount, SystemConfig systemConfig) {
 		var context = createContext(attacker, systemConfig, null);
 		if (context != null) {
 			dispatchOnAttack(unitClassOf(context.unitDefinition().id()), context, victim, amount);
@@ -157,6 +158,21 @@ public class UnitHookService {
 		unitClass.applyAttributes(context);
 	}
 
+	public void assignUnit(ServerPlayerEntity player, UnitDefinition definition, SystemConfig systemConfig) {
+		if (player == null || definition == null || systemConfig == null) {
+			return;
+		}
+		var state = matchManager.getPlayerState(player.getUuid());
+		state.setFactionId(definition.factionId());
+		matchManager.setCurrentUnit(player.getUuid(), definition.id());
+		if (unitAbilityService != null) {
+			unitAbilityService.clearPlayerState(player.getUuid());
+		}
+		applyLoadout(player, definition, systemConfig);
+		DisguiseSupport.applyDisguise(player, definition.disguise());
+		player.setHealth((float) definition.maxHealth());
+	}
+
 	public void openAdvanceGui(ServerPlayerEntity player, SystemConfig systemConfig) {
 		var context = createContext(player, systemConfig, null);
 		if (context == null) {
@@ -178,9 +194,7 @@ public class UnitHookService {
 				player.sendMessage(textTemplateResolver.format(systemConfig.advance.notAvailableMessage), false);
 				return;
 			}
-			applyLoadout(player, definition, systemConfig);
-			DisguiseSupport.applyDisguise(player, definition.disguise());
-			player.setHealth((float) definition.maxHealth());
+			assignUnit(player, definition, systemConfig);
 			if (playerDisplayNameService != null && matchManager != null && matchManager.getServer() != null) {
 				playerDisplayNameService.refreshAll(matchManager.getServer(), matchManager, currentStatsRepository(), systemConfig);
 				matchManager.getServer().getPlayerManager().broadcast(
@@ -206,7 +220,7 @@ public class UnitHookService {
 		}
 	}
 
-	public void dispatchOnAttack(UnitClass unitClass, UnitContext context, ServerPlayerEntity victim, float amount) {
+	public void dispatchOnAttack(UnitClass unitClass, UnitContext context, LivingEntity victim, float amount) {
 		if (unitClass != null && context != null) {
 			unitClass.onAttack(context, victim, amount);
 		}

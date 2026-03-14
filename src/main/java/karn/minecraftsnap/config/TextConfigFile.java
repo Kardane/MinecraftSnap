@@ -41,6 +41,7 @@ public class TextConfigFile {
 	public String gameStartCountdownSubtitleTemplate = "&f{seconds}초";
 	public String victoryCountdownSubtitleTemplate = "&e{team} 팀 승리 임박 &7({seconds}초)";
 	public String customDeathMessage = "&8[사망] &f{victim} &7사망";
+	public String customDeathMessageWithAttacker = "&8[사망] &f{victim} &7사망 &8(공격자: &f{attacker}&8)";
 	public String autoStartEnabledMessage = "&a팀 선택 자동 시작: &f켜짐";
 	public String autoStartDisabledMessage = "&c팀 선택 자동 시작: &f꺼짐";
 	public String lobbyScoreboardTitle = "&6MCsnap 로비";
@@ -89,8 +90,9 @@ public class TextConfigFile {
 	public String advanceGuiTitle = "&c전직";
 	public String advanceNoOptionName = "&c전직 대상 없음";
 	public String advanceNoOptionLore = "&7현재 유닛은 전직 옵션이 없음";
-	public String advanceRequiredBiomeLoreTemplate = "&7요구 바이옴: &f{biomes}";
-	public String advanceRequiredWeatherLoreTemplate = "&7요구 날씨: &f{weathers}";
+	public String advanceConditionBiomeDurationLoreTemplate = "&7조건: &f{biomes}&7에서 &f{seconds}초&7 동안 잔류";
+	public String advanceConditionBiomeWeatherDurationLoreTemplate = "&7조건: &f{biomes}&7에서 &f{weather}&7 상태로 &f{seconds}초&7 동안 잔류";
+	public String advanceConditionWeatherDurationLoreTemplate = "&7조건: &f{weather}&7 상태로 &f{seconds}초&7 동안 잔류";
 	public String advanceProgressLoreTemplate = "&7진행도: &b{current}&7/&f{required}";
 	public String advanceConditionUnmetLore = "&c조건이 충족되지 않음";
 	public String advanceWaitingLore = "&e잔류 중";
@@ -117,12 +119,31 @@ public class TextConfigFile {
 	public String captainMenuItemUseLore = "&7우클릭으로 소환 GUI 열기";
 	public String captainMenuItemFactionLoreTemplate = "&8현재 팩션: &f{faction}";
 	public String captainSkillItemName = "&d사령관 스킬";
-	public String captainSkillItemUseLore = "&7우클릭으로 팩션 전용 임시 스킬 발동";
+	public String captainSkillItemUseLore = "&7우클릭으로 팩션 전용 사령관 능력 발동";
 	public String captainSkillItemFactionLoreTemplate = "&8현재 팩션: &f{faction}";
 	public String captainSkillCooldownMessage = "&c사령관 스킬 쿨다운: &f{seconds}초";
 	public String captainSkillActivatedMessage = "&d사령관 스킬 발동";
+	public String captainSkillInsufficientManaMessage = "&c사령관 마나가 부족함";
+	public String captainVillagerSuccessMessage = "&a습격 소집 발동: &f{lane}";
+	public String captainVillagerNoTargetMessage = "&c소집할 다른 라인 아군 유닛이 없음";
+	public String captainMonsterWeatherGuiTitle = "&5날씨 변화";
+	public String captainMonsterWeatherClearName = "맑음";
+	public String captainMonsterWeatherRainName = "비";
+	public String captainMonsterWeatherThunderName = "천둥";
+	public String captainMonsterWeatherClearLore = "&7다음 변경 전까지 현재 날씨 유지";
+	public String captainMonsterWeatherRainLore = "&72분 유지, 5초마다 아군 신속 I";
+	public String captainMonsterWeatherThunderLore = "&760초 유지, 3초마다 회복/신속, 낮은 확률 번개";
+	public String captainMonsterWeatherRemainingLoreTemplate = "&7남은 시간: &f{seconds}초";
+	public String captainMonsterWeatherPersistentLore = "&7다음 변경 전까지 유지";
+	public String captainMonsterWeatherSuccessMessage = "&a날씨 변화 발동: &f{weather}";
+	public String captainNetherPortalSuccessMessage = "&a포탈 생성: &f{lane}";
+	public String captainPortalRefundMessage = "&6포탈 환급 &7(마나 +{mana}, 생성 쿨 -{cooldown}초)";
 	public String adminForceUnitMessage = "&e관리자 유닛 강제 배정: &f{unit}";
+	public String adminBotsSuccessMessage = "&a봇 생성 완료: &f{count}";
+	public String adminBotsPartialMessage = "&c일부 봇만 생성됨 &7({created}/{requested})";
+	public String adminBotsInvalidCountMessage = "&c봇 수는 1 이상이어야 함";
 	public String creeperSelfDestructPrimedMessage = "&c자폭 준비";
+	public String runningSidebarLaneTemplate = "{icon} &f({biome})";
 
 	public void normalize() {
 		var defaults = new TextConfigFile();
@@ -166,6 +187,7 @@ public class TextConfigFile {
 		gameStartCountdownSubtitleTemplate = value(gameStartCountdownSubtitleTemplate, defaults.gameStartCountdownSubtitleTemplate);
 		victoryCountdownSubtitleTemplate = value(victoryCountdownSubtitleTemplate, defaults.victoryCountdownSubtitleTemplate);
 		customDeathMessage = value(customDeathMessage, defaults.customDeathMessage);
+		customDeathMessageWithAttacker = value(customDeathMessageWithAttacker, defaults.customDeathMessageWithAttacker);
 		autoStartEnabledMessage = value(autoStartEnabledMessage, defaults.autoStartEnabledMessage);
 		autoStartDisabledMessage = value(autoStartDisabledMessage, defaults.autoStartDisabledMessage);
 		lobbyScoreboardTitle = value(lobbyScoreboardTitle, defaults.lobbyScoreboardTitle);
@@ -214,8 +236,9 @@ public class TextConfigFile {
 		advanceGuiTitle = value(advanceGuiTitle, defaults.advanceGuiTitle);
 		advanceNoOptionName = value(advanceNoOptionName, defaults.advanceNoOptionName);
 		advanceNoOptionLore = value(advanceNoOptionLore, defaults.advanceNoOptionLore);
-		advanceRequiredBiomeLoreTemplate = value(advanceRequiredBiomeLoreTemplate, defaults.advanceRequiredBiomeLoreTemplate);
-		advanceRequiredWeatherLoreTemplate = value(advanceRequiredWeatherLoreTemplate, defaults.advanceRequiredWeatherLoreTemplate);
+		advanceConditionBiomeDurationLoreTemplate = value(advanceConditionBiomeDurationLoreTemplate, defaults.advanceConditionBiomeDurationLoreTemplate);
+		advanceConditionBiomeWeatherDurationLoreTemplate = value(advanceConditionBiomeWeatherDurationLoreTemplate, defaults.advanceConditionBiomeWeatherDurationLoreTemplate);
+		advanceConditionWeatherDurationLoreTemplate = value(advanceConditionWeatherDurationLoreTemplate, defaults.advanceConditionWeatherDurationLoreTemplate);
 		advanceProgressLoreTemplate = value(advanceProgressLoreTemplate, defaults.advanceProgressLoreTemplate);
 		advanceConditionUnmetLore = value(advanceConditionUnmetLore, defaults.advanceConditionUnmetLore);
 		advanceWaitingLore = value(advanceWaitingLore, defaults.advanceWaitingLore);
@@ -246,8 +269,27 @@ public class TextConfigFile {
 		captainSkillItemFactionLoreTemplate = value(captainSkillItemFactionLoreTemplate, defaults.captainSkillItemFactionLoreTemplate);
 		captainSkillCooldownMessage = value(captainSkillCooldownMessage, defaults.captainSkillCooldownMessage);
 		captainSkillActivatedMessage = value(captainSkillActivatedMessage, defaults.captainSkillActivatedMessage);
+		captainSkillInsufficientManaMessage = value(captainSkillInsufficientManaMessage, defaults.captainSkillInsufficientManaMessage);
+		captainVillagerSuccessMessage = value(captainVillagerSuccessMessage, defaults.captainVillagerSuccessMessage);
+		captainVillagerNoTargetMessage = value(captainVillagerNoTargetMessage, defaults.captainVillagerNoTargetMessage);
+		captainMonsterWeatherGuiTitle = value(captainMonsterWeatherGuiTitle, defaults.captainMonsterWeatherGuiTitle);
+		captainMonsterWeatherClearName = value(captainMonsterWeatherClearName, defaults.captainMonsterWeatherClearName);
+		captainMonsterWeatherRainName = value(captainMonsterWeatherRainName, defaults.captainMonsterWeatherRainName);
+		captainMonsterWeatherThunderName = value(captainMonsterWeatherThunderName, defaults.captainMonsterWeatherThunderName);
+		captainMonsterWeatherClearLore = value(captainMonsterWeatherClearLore, defaults.captainMonsterWeatherClearLore);
+		captainMonsterWeatherRainLore = value(captainMonsterWeatherRainLore, defaults.captainMonsterWeatherRainLore);
+		captainMonsterWeatherThunderLore = value(captainMonsterWeatherThunderLore, defaults.captainMonsterWeatherThunderLore);
+		captainMonsterWeatherRemainingLoreTemplate = value(captainMonsterWeatherRemainingLoreTemplate, defaults.captainMonsterWeatherRemainingLoreTemplate);
+		captainMonsterWeatherPersistentLore = value(captainMonsterWeatherPersistentLore, defaults.captainMonsterWeatherPersistentLore);
+		captainMonsterWeatherSuccessMessage = value(captainMonsterWeatherSuccessMessage, defaults.captainMonsterWeatherSuccessMessage);
+		captainNetherPortalSuccessMessage = value(captainNetherPortalSuccessMessage, defaults.captainNetherPortalSuccessMessage);
+		captainPortalRefundMessage = value(captainPortalRefundMessage, defaults.captainPortalRefundMessage);
 		adminForceUnitMessage = value(adminForceUnitMessage, defaults.adminForceUnitMessage);
+		adminBotsSuccessMessage = value(adminBotsSuccessMessage, defaults.adminBotsSuccessMessage);
+		adminBotsPartialMessage = value(adminBotsPartialMessage, defaults.adminBotsPartialMessage);
+		adminBotsInvalidCountMessage = value(adminBotsInvalidCountMessage, defaults.adminBotsInvalidCountMessage);
 		creeperSelfDestructPrimedMessage = value(creeperSelfDestructPrimedMessage, defaults.creeperSelfDestructPrimedMessage);
+		runningSidebarLaneTemplate = value(runningSidebarLaneTemplate, defaults.runningSidebarLaneTemplate);
 	}
 
 	public void applyTo(SystemConfig systemConfig) {
@@ -283,6 +325,7 @@ public class TextConfigFile {
 		systemConfig.announcements.monsterFactionName = monsterFactionName;
 		systemConfig.announcements.netherFactionName = netherFactionName;
 		systemConfig.announcements.customDeathMessage = customDeathMessage;
+		systemConfig.announcements.customDeathMessageWithAttacker = customDeathMessageWithAttacker;
 		systemConfig.announcements.autoStartEnabledMessage = autoStartEnabledMessage;
 		systemConfig.announcements.autoStartDisabledMessage = autoStartDisabledMessage;
 		systemConfig.advance.notAvailableMessage = advanceNotAvailableMessage;

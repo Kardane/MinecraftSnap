@@ -7,6 +7,7 @@ import karn.minecraftsnap.config.SystemConfig;
 import karn.minecraftsnap.lane.LaneRuntimeRegistry;
 import karn.minecraftsnap.util.TextTemplateResolver;
 import net.minecraft.entity.LivingEntity;
+import net.minecraft.entity.projectile.ProjectileEntity;
 import net.minecraft.entity.damage.DamageSource;
 import net.minecraft.entity.effect.StatusEffectInstance;
 import net.minecraft.entity.effect.StatusEffects;
@@ -89,6 +90,10 @@ public class InGameRuleService {
 	}
 
 	public boolean allowDamage(LivingEntity entity, DamageSource source, float amount) {
+		var attacker = resolvePlayerAttacker(source);
+		if (attacker != null && unitHookService != null) {
+			unitHookService.handleAttack(attacker, entity, amount, nullSafeSystemConfig());
+		}
 		if (!(entity instanceof ServerPlayerEntity victim)) {
 			return true;
 		}
@@ -96,33 +101,50 @@ public class InGameRuleService {
 			unitHookService.handleDamaged(victim, source, amount, nullSafeSystemConfig());
 		}
 		notifyDamagedHook(victim, source, amount);
-		if (source.getAttacker() instanceof ServerPlayerEntity attacker) {
-			if (unitHookService != null) {
-				unitHookService.handleAttack(attacker, victim, amount, nullSafeSystemConfig());
-			}
+		if (attacker != null) {
 			notifyAttackHook(attacker, victim, amount);
 		}
 		if (matchManager.getPlayerState(victim.getUuid()).isCaptain()) {
 			return false;
 		}
 
-		if (!(source.getAttacker() instanceof ServerPlayerEntity attacker)) {
+		if (attacker == null) {
 			return true;
 		}
 
 		var victimState = matchManager.getPlayerState(victim.getUuid());
 		var attackerState = matchManager.getPlayerState(attacker.getUuid());
+		if (isAttackDisabledUnit(attackerState) && isExplosionDamage(source)) {
+			if (victim.getUuid().equals(attacker.getUuid())) {
+				return true;
+			}
+			return victimState.getTeamId() != null
+				&& attackerState.getTeamId() != null
+				&& victimState.getTeamId() != attackerState.getTeamId();
+		}
 		return isDamageAllowed(victimState, attackerState, matchManager.getPhase());
+	}
+
+	public void handleDamageApplied(LivingEntity entity, DamageSource source, boolean damaged) {
+		if (!damaged || entity == null || source == null) {
+			return;
+		}
+		if (source.getAttacker() instanceof ProjectileEntity || source.getSource() instanceof ProjectileEntity) {
+			entity.timeUntilRegen = 0;
+		}
 	}
 
 	public boolean isDamageAllowed(PlayerMatchState victimState, PlayerMatchState attackerState, MatchPhase phase) {
 		if (phase != MatchPhase.GAME_RUNNING) {
-			return false;
+			return isAssignedUnitDamageAllowed(victimState, attackerState);
 		}
 		if (victimState.getRoleType() == RoleType.SPECTATOR || attackerState.getRoleType() == RoleType.SPECTATOR) {
 			return false;
 		}
 		if (victimState.getTeamId() == null || attackerState.getTeamId() == null) {
+			return false;
+		}
+		if (isAttackDisabledUnit(attackerState)) {
 			return false;
 		}
 		return victimState.getTeamId() != attackerState.getTeamId();
@@ -134,7 +156,20 @@ public class InGameRuleService {
 		}
 
 		if (matchManager.getPhase() != MatchPhase.GAME_RUNNING) {
-			return !matchManager.getPlayerState(player.getUuid()).isCaptain() || !isCaptainProtectedPhase(matchManager.getPhase());
+			var state = matchManager.getPlayerState(player.getUuid());
+			if (state.isCaptain() && isCaptainProtectedPhase(matchManager.getPhase())) {
+				return false;
+			}
+			if (state.getRoleType() == RoleType.UNIT && state.getCurrentUnitId() != null) {
+				if (unitHookService != null) {
+					unitHookService.handleDeath(player, source, nullSafeSystemConfig());
+				}
+				var attacker = resolvePlayerAttacker(source);
+				if (attacker != null && unitHookService != null) {
+					unitHookService.handleKill(attacker, player, nullSafeSystemConfig());
+				}
+			}
+			return true;
 		}
 
 		var state = matchManager.getPlayerState(player.getUuid());
@@ -152,7 +187,7 @@ public class InGameRuleService {
 			unitHookService.handleDeath(player, source, nullSafeSystemConfig());
 		}
 
-		var attacker = source.getAttacker() instanceof ServerPlayerEntity attackerPlayer ? attackerPlayer : null;
+		var attacker = resolvePlayerAttacker(source);
 		recordKillAndDeath(player.getUuid(), player.getName().getString(), attacker == null ? null : attacker.getUuid(), attacker == null ? null : attacker.getName().getString());
 		if (attacker != null && unitHookService != null) {
 			unitHookService.handleKill(attacker, player, nullSafeSystemConfig());
@@ -167,6 +202,44 @@ public class InGameRuleService {
 		player.setHealth(player.getMaxHealth());
 		player.clearStatusEffects();
 		return false;
+	}
+
+	private boolean isAssignedUnitDamageAllowed(PlayerMatchState victimState, PlayerMatchState attackerState) {
+		if (victimState.getRoleType() == RoleType.SPECTATOR || attackerState.getRoleType() == RoleType.SPECTATOR) {
+			return false;
+		}
+		if (victimState.getRoleType() != RoleType.UNIT || attackerState.getRoleType() != RoleType.UNIT) {
+			return false;
+		}
+		if (victimState.getCurrentUnitId() == null || attackerState.getCurrentUnitId() == null) {
+			return false;
+		}
+		if (victimState.getTeamId() == null || attackerState.getTeamId() == null) {
+			return false;
+		}
+		if (isAttackDisabledUnit(attackerState)) {
+			return false;
+		}
+		return victimState.getTeamId() != attackerState.getTeamId();
+	}
+
+	private ServerPlayerEntity resolvePlayerAttacker(DamageSource source) {
+		if (source == null) {
+			return null;
+		}
+		if (source.getAttacker() instanceof ServerPlayerEntity player) {
+			return player;
+		}
+		if (source.getSource() instanceof ServerPlayerEntity player) {
+			return player;
+		}
+		if (source.getAttacker() instanceof ProjectileEntity projectile && projectile.getOwner() instanceof ServerPlayerEntity player) {
+			return player;
+		}
+		if (source.getSource() instanceof ProjectileEntity projectile && projectile.getOwner() instanceof ServerPlayerEntity player) {
+			return player;
+		}
+		return null;
 	}
 
 	public void recordKillAndDeath(UUID victimId, String victimName, UUID killerId, String killerName) {
@@ -425,6 +498,18 @@ public class InGameRuleService {
 		return phase == MatchPhase.GAME_START || phase == MatchPhase.GAME_RUNNING || phase == MatchPhase.GAME_END;
 	}
 
+	static boolean isAttackDisabledUnit(PlayerMatchState state) {
+		if (state == null || state.getRoleType() != RoleType.UNIT) {
+			return false;
+		}
+		var unitId = state.getCurrentUnitId();
+		return "creeper".equals(unitId) || "charged_creeper".equals(unitId);
+	}
+
+	static boolean isExplosionDamage(DamageSource source) {
+		return source != null && source.isIn(net.minecraft.registry.tag.DamageTypeTags.IS_EXPLOSION);
+	}
+
 	private void notifyDamagedHook(ServerPlayerEntity victim, DamageSource source, float amount) {
 		var context = createContext(victim);
 		if (context != null) {
@@ -451,7 +536,10 @@ public class InGameRuleService {
 		if (server == null || victim == null) {
 			return;
 		}
-		var template = nullSafeSystemConfig().announcements.customDeathMessage;
+		var textConfig = nullSafeSystemConfig().announcements;
+		var template = attacker == null
+			? textConfig.customDeathMessage
+			: textConfig.customDeathMessageWithAttacker;
 		if (template == null || template.isBlank()) {
 			return;
 		}
@@ -459,6 +547,7 @@ public class InGameRuleService {
 		server.getPlayerManager().broadcast(
 			textTemplateResolver.format(template
 				.replace("{victim}", victim.getName().getString())
+				.replace("{attacker}", killerName)
 				.replace("{killer}", killerName)
 				.replace("{damage_type}", source == null ? "unknown" : source.getName())),
 			false
@@ -480,6 +569,7 @@ public class InGameRuleService {
 		return new BiomeRuntimeContext(
 			player.getServer(),
 			(net.minecraft.server.world.ServerWorld) player.getWorld(),
+			matchManager,
 			runtime,
 			runtime.biomeEntry(),
 			textTemplateResolver,

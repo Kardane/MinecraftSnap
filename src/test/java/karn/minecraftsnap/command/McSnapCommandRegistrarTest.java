@@ -55,4 +55,14 @@ class McSnapCommandRegistrarTest {
 		assertNotNull(biomestructure.getChild("place_nearest").getChild("structure_id"));
 		assertNotNull(biomestructure.getChild("reset_all"));
 	}
+
+	@Test
+	void adminRegistersBotsCommandTree() {
+		var dispatcher = new CommandDispatcher<ServerCommandSource>();
+		new McSnapCommandRegistrar(null).register(dispatcher, null, null);
+
+		var bots = dispatcher.getRoot().getChild("mcsnap").getChild("admin").getChild("bots");
+		assertNotNull(bots);
+		assertNotNull(bots.getChild("count"));
+	}
 }

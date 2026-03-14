@@ -11,10 +11,15 @@ public class BiomeEffectRegistry {
 
 	public BiomeEffectRegistry() {
 		register("noop", NoOpBiomeEffect::new);
+		register("plain", PlainBiomeEffect::new);
 		register("forest", ForestBiomeEffect::new);
 		register("desert", DesertBiomeEffect::new);
 		register("swamp", SwampBiomeEffect::new);
 		register("badlands", BadlandsBiomeEffect::new);
+		register("taiga", TaigaBiomeEffect::new);
+		register("end", EndBiomeEffect::new);
+		register("deep_dark", DeepDarkBiomeEffect::new);
+		register("nether", NetherBiomeEffect::new);
 	}
 
 	public void register(String effectType, Supplier<BiomeEffect> factory) {

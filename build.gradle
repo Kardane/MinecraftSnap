@@ -83,6 +83,7 @@ dependencies {
 }
 
 processResources {
+	exclude("**/*.mp3", "**/*:Zone.Identifier")
     // fabric.mod.json에 버전 변수 주입
     filesMatching("fabric.mod.json") {
         expand(

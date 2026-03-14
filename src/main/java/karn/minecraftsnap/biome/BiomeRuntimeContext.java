@@ -1,6 +1,7 @@
 package karn.minecraftsnap.biome;
 
 import karn.minecraftsnap.config.BiomeEntry;
+import karn.minecraftsnap.game.MatchManager;
 import karn.minecraftsnap.lane.LaneRuntime;
 import karn.minecraftsnap.util.TextTemplateResolver;
 import net.minecraft.server.MinecraftServer;
@@ -16,6 +17,7 @@ import java.util.Map;
 public record BiomeRuntimeContext(
 	MinecraftServer server,
 	ServerWorld world,
+	MatchManager matchManager,
 	LaneRuntime laneRuntime,
 	BiomeEntry biomeEntry,
 	TextTemplateResolver textTemplateResolver,

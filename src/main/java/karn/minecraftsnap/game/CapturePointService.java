@@ -1,8 +1,13 @@
 package karn.minecraftsnap.game;
 
+import karn.minecraftsnap.MinecraftSnap;
 import karn.minecraftsnap.audio.UiSoundService;
+import karn.minecraftsnap.biome.BiomeRuntimeContext;
 import karn.minecraftsnap.config.StatsRepository;
 import karn.minecraftsnap.config.SystemConfig;
+import karn.minecraftsnap.config.TextConfigFile;
+import karn.minecraftsnap.lane.LaneRuntimeRegistry;
+import karn.minecraftsnap.util.TextTemplateResolver;
 import net.minecraft.particle.DustParticleEffect;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.network.ServerPlayerEntity;
@@ -20,16 +25,28 @@ public class CapturePointService {
 	private final StatsRepository statsRepository;
 	private final Map<LaneId, CapturePointState> states = new EnumMap<>(LaneId.class);
 	private final UiSoundService uiSoundService;
+	private final TextTemplateResolver textTemplateResolver;
+	private LaneRuntimeRegistry laneRuntimeRegistry;
 	private UnitHookService unitHookService;
 
 	public CapturePointService(MatchManager matchManager, StatsRepository statsRepository) {
-		this(matchManager, statsRepository, null);
+		this(matchManager, statsRepository, null, null);
 	}
 
 	public CapturePointService(MatchManager matchManager, StatsRepository statsRepository, UiSoundService uiSoundService) {
+		this(matchManager, statsRepository, uiSoundService, null);
+	}
+
+	public CapturePointService(
+		MatchManager matchManager,
+		StatsRepository statsRepository,
+		UiSoundService uiSoundService,
+		TextTemplateResolver textTemplateResolver
+	) {
 		this.matchManager = matchManager;
 		this.statsRepository = statsRepository;
 		this.uiSoundService = uiSoundService;
+		this.textTemplateResolver = textTemplateResolver;
 		for (var laneId : LaneId.values()) {
 			states.put(laneId, new CapturePointState(laneId));
 		}
@@ -61,6 +78,10 @@ public class CapturePointService {
 
 	public void setUnitHookService(UnitHookService unitHookService) {
 		this.unitHookService = unitHookService;
+	}
+
+	public void setLaneRuntimeRegistry(LaneRuntimeRegistry laneRuntimeRegistry) {
+		this.laneRuntimeRegistry = laneRuntimeRegistry;
 	}
 
 	private void processLane(
@@ -140,7 +161,15 @@ public class CapturePointService {
 
 		if (ownerPresent) {
 			matchManager.addScore(ownerTeam, 1);
+			notifyCaptureScoreBiomeEffect(server, systemConfig, laneId, ownerTeam);
 			rewardCaptureScore(occupants, ownerTeam, systemConfig);
+		}
+	}
+
+	private void notifyCaptureScoreBiomeEffect(MinecraftServer server, SystemConfig systemConfig, LaneId laneId, TeamId ownerTeam) {
+		var context = createBiomeContext(server, systemConfig, laneId);
+		if (context != null) {
+			context.laneRuntime().biomeEffect().onCaptureScore(context, ownerTeam);
 		}
 	}
 
@@ -238,20 +267,47 @@ public class CapturePointService {
 			return;
 		}
 		var effect = new DustParticleEffect(color(owner), 1.0f);
-		double y = particleBorderY(region);
-		for (double x = region.minX; x <= region.maxX; x += particleSpacing()) {
-			spawnDust(world, effect, x, y, region.minZ);
-			spawnDust(world, effect, x, y, region.maxZ);
-		}
-		for (double z = region.minZ + particleSpacing(); z < region.maxZ; z += particleSpacing()) {
-			spawnDust(world, effect, region.minX, y, z);
-			spawnDust(world, effect, region.maxX, y, z);
-		}
+		var minX = region.minX;
+		var maxX = region.maxX;
+		var minY = region.minY;
+		var maxY = region.maxY;
+		var minZ = region.minZ;
+		var maxZ = region.maxZ;
+		sampleEdge(world, effect, minX, minY, minZ, maxX, minY, minZ);
+		sampleEdge(world, effect, minX, minY, maxZ, maxX, minY, maxZ);
+		sampleEdge(world, effect, minX, maxY, minZ, maxX, maxY, minZ);
+		sampleEdge(world, effect, minX, maxY, maxZ, maxX, maxY, maxZ);
+		sampleEdge(world, effect, minX, minY, minZ, minX, maxY, minZ);
+		sampleEdge(world, effect, maxX, minY, minZ, maxX, maxY, minZ);
+		sampleEdge(world, effect, minX, minY, maxZ, minX, maxY, maxZ);
+		sampleEdge(world, effect, maxX, minY, maxZ, maxX, maxY, maxZ);
+		sampleEdge(world, effect, minX, minY, minZ, minX, minY, maxZ);
+		sampleEdge(world, effect, maxX, minY, minZ, maxX, minY, maxZ);
+		sampleEdge(world, effect, minX, maxY, minZ, minX, maxY, maxZ);
+		sampleEdge(world, effect, maxX, maxY, minZ, maxX, maxY, maxZ);
 	}
 
 	private void spawnDust(ServerWorld world, DustParticleEffect effect, double x, double y, double z) {
 		for (var player : world.getPlayers()) {
-			world.spawnParticles(player, effect, true, false, x + 0.5, y, z + 0.5, 3, 0.0, 0.0, 0.0, 0.0);
+			world.spawnParticles(player, effect, true, false, x + 0.5, y + 0.5, z + 0.5, 8, 0.04, 0.04, 0.04, 0.0);
+		}
+	}
+
+	private void sampleEdge(ServerWorld world, DustParticleEffect effect, double startX, double startY, double startZ, double endX, double endY, double endZ) {
+		var dx = endX - startX;
+		var dy = endY - startY;
+		var dz = endZ - startZ;
+		var length = Math.max(Math.max(Math.abs(dx), Math.abs(dy)), Math.abs(dz));
+		var steps = Math.max(1, (int) Math.ceil(length / particleSpacing()));
+		for (int i = 0; i <= steps; i++) {
+			var progress = i / (double) steps;
+			spawnDust(
+				world,
+				effect,
+				startX + dx * progress,
+				startY + dy * progress,
+				startZ + dz * progress
+			);
 		}
 	}
 
@@ -264,11 +320,11 @@ public class CapturePointService {
 	}
 
 	static double particleBorderY(SystemConfig.CaptureRegionConfig region) {
-		return 1.1D;
+		return region == null ? 0.0D : region.maxY;
 	}
 
 	static double particleSpacing() {
-		return 0.25D;
+		return 0.5D;
 	}
 
 	private boolean isCaptureInProgress(CapturePointState state, TeamId occupyingTeam, boolean contested) {
@@ -324,5 +380,25 @@ public class CapturePointService {
 		} catch (Exception ignored) {
 			return server.getOverworld();
 		}
+	}
+
+	private BiomeRuntimeContext createBiomeContext(MinecraftServer server, SystemConfig systemConfig, LaneId laneId) {
+		if (server == null || systemConfig == null || laneRuntimeRegistry == null || textTemplateResolver == null) {
+			return null;
+		}
+		var runtime = laneRuntimeRegistry.get(laneId);
+		if (runtime == null || !runtime.hasActiveBiome()) {
+			return null;
+		}
+		return new BiomeRuntimeContext(
+			server,
+			resolveWorld(server, systemConfig.world),
+			matchManager,
+			runtime,
+			runtime.biomeEntry(),
+			textTemplateResolver,
+			matchManager.getServerTicks(),
+			matchManager.getTotalSeconds() - matchManager.getRemainingSeconds()
+		);
 	}
 }

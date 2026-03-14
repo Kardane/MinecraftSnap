@@ -4,6 +4,7 @@
 	"package": "karn.minecraftsnap.mixin",
 	"compatibilityLevel": "JAVA_21",
 	"mixins": [
+		"LivingEntityMixin",
 		"PlayerEntityMixin",
 		"ServerPlayNetworkHandlerMixin",
 		"ServerPlayerEntityMixin"

@@ -43,7 +43,9 @@ public class MinecraftSnapConfigManager {
 			writeJson(configDirectory.resolve("texts.json"), textConfig);
 			textConfig.applyTo(systemConfig);
 			biomeCatalog = loadOrCreate(configDirectory.resolve("biomes.json"), BiomeCatalog.class, createDefaultBiomeCatalog());
+			biomeCatalog = mergeDefaultBiomes(biomeCatalog);
 			biomeCatalog.normalize();
+			writeJson(configDirectory.resolve("biomes.json"), biomeCatalog);
 			factionConfigs.clear();
 			shopConfigs.clear();
 			shopConfigs.put(FactionId.VILLAGER, loadOrCreate(configDirectory.resolve("villager_shop.json"), ShopConfigFile.class, createDefaultShopConfig(FactionId.VILLAGER)));
@@ -58,7 +60,7 @@ public class MinecraftSnapConfigManager {
 			textConfig = new TextConfigFile();
 			textConfig.normalize();
 			textConfig.applyTo(systemConfig);
-			biomeCatalog = createDefaultBiomeCatalog();
+			biomeCatalog = mergeDefaultBiomes(createDefaultBiomeCatalog());
 			factionConfigs.clear();
 			shopConfigs.clear();
 			shopConfigs.put(FactionId.VILLAGER, createDefaultShopConfig(FactionId.VILLAGER));
@@ -430,14 +432,86 @@ public class MinecraftSnapConfigManager {
 
 	private BiomeCatalog createDefaultBiomeCatalog() {
 		var catalog = new BiomeCatalog();
-		catalog.biomes = List.of(
-			createBiome("forest", "숲", "minecraft:forest", "minecraftsnap:forest_lane", List.of("&a고요한 숲 라인 공개", "&7울창한 나무가 시야를 가름"), 90, List.of("&2숲의 바람이 라인을 감쌈")),
-			createBiome("desert", "사막", "minecraft:desert", "minecraftsnap:desert_lane", List.of("&e사막 라인 공개", "&7건조한 지형이 시야를 비움"), 90, List.of("&6사막의 열기가 다시 퍼짐")),
-			createBiome("swamp", "늪", "minecraft:swamp", "minecraftsnap:swamp_lane", List.of("&2늪 라인 공개", "&7축축한 기운이 라인을 덮음"), 90, List.of("&a늪의 안개가 다시 짙어짐")),
-			createBiome("badlands", "악지", "minecraft:badlands", "minecraftsnap:badlands_lane", List.of("&c악지 라인 공개", "&7붉은 절벽이 전장을 감쌈"), 120, List.of("&6악지의 모래먼지가 다시 이는 중"))
-		);
+		catalog.biomes = defaultBiomeEntries();
 		catalog.normalize();
 		return catalog;
+	}
+
+	private BiomeCatalog mergeDefaultBiomes(BiomeCatalog loaded) {
+		var merged = new BiomeCatalog();
+		if (loaded == null || loaded.biomes == null) {
+			merged.biomes = defaultBiomeEntries();
+			return merged;
+		}
+		var defaultsById = new java.util.LinkedHashMap<String, BiomeEntry>();
+		for (var defaultEntry : defaultBiomeEntries()) {
+			defaultsById.put(defaultEntry.id, defaultEntry);
+		}
+		var seen = new java.util.LinkedHashSet<String>();
+		for (var entry : loaded.biomes) {
+			var defaults = defaultsById.get(entry.id);
+			merged.biomes.add(mergeBiomeEntry(entry, defaults));
+			seen.add(entry.id);
+		}
+		for (var defaultEntry : defaultBiomeEntries()) {
+			if (!seen.contains(defaultEntry.id)) {
+				merged.biomes.add(defaultEntry);
+			}
+		}
+		return merged;
+	}
+
+	private BiomeEntry mergeBiomeEntry(BiomeEntry current, BiomeEntry defaults) {
+		if (current == null) {
+			return defaults;
+		}
+		if (defaults == null) {
+			return current;
+		}
+		if (current.displayName == null || current.displayName.isBlank()) {
+			current.displayName = defaults.displayName;
+		}
+		if (current.descriptionLines == null || current.descriptionLines.isEmpty()) {
+			current.descriptionLines = defaults.descriptionLines;
+		}
+		if (current.minecraftBiomeId == null || current.minecraftBiomeId.isBlank() || "minecraft:plains".equals(current.minecraftBiomeId) && !"minecraft:plains".equals(defaults.minecraftBiomeId)) {
+			current.minecraftBiomeId = defaults.minecraftBiomeId;
+		}
+		if (current.effectType == null || current.effectType.isBlank() || "noop".equals(current.effectType)) {
+			current.effectType = defaults.effectType;
+		}
+		if (current.structureId == null || current.structureId.isBlank()) {
+			current.structureId = defaults.structureId;
+		}
+		if (current.revealMessages == null || current.revealMessages.isEmpty()) {
+			current.revealMessages = defaults.revealMessages;
+		}
+		if (current.revealSoundId == null || current.revealSoundId.isBlank()) {
+			current.revealSoundId = defaults.revealSoundId;
+		}
+		if (current.pulseIntervalSeconds <= 0) {
+			current.pulseIntervalSeconds = defaults.pulseIntervalSeconds;
+		}
+		if (current.pulseMessages == null || current.pulseMessages.isEmpty()) {
+			current.pulseMessages = defaults.pulseMessages;
+		}
+		if (current.pulseSoundId == null || current.pulseSoundId.isBlank()) {
+			current.pulseSoundId = defaults.pulseSoundId;
+		}
+		return current;
+	}
+
+	private List<BiomeEntry> defaultBiomeEntries() {
+		return List.of(
+			createBiome("plain", "평원", "minecraft:plains", "minecraft:plain", List.of("&a====================", "&a 바이옴 공개 - 평원", "&a  기본적인 필드다.", "&a===================="), 0, List.of()),
+			createBiome("desert", "사막", "minecraft:desert", "minecraft:desert", List.of("&a====================", "&a 바이옴 공개 - 사막", "&a  해당 라인의 모든 유닛이 신속 2를 얻습니다.", "&a===================="), 0, List.of()),
+			createBiome("swamp", "늪", "minecraft:swamp", "minecraft:swamp", List.of("&a====================", "&a 바이옴 공개 - 늪", "&a  30초마다 해당 라인의 유닛이 독 효과를 얻습니다.", "&a===================="), 0, List.of()),
+			createBiome("badlands", "악지", "minecraft:badlands", "minecraft:badlands", List.of("&c악지 라인 공개", "&7붉은 절벽이 전장을 감쌈"), 120, List.of("&a====================", "&a 바이옴 공개 - 악지", "&a  점령 유지시 점령 포인트를 추가로 1 얻습니다.", "&a====================")),
+			createBiome("end", "엔드", "minecraft:the_end", "minecraft:end", List.of("&5====================", "&5 바이옴 공개 - 엔드", "&5  남은 시간이 60초 감소합니다.", "&5===================="), 0, List.of()),
+			createBiome("deep_dark", "딥다크", "minecraft:deep_dark", "minecraft:deep_dark", List.of("&1====================", "&1 바이옴 공개 - 딥다크", "&1  고요한 어둠이 내려앉는다.", "&1===================="), 0, List.of()),
+			createBiome("nether", "네더", "minecraft:nether_wastes", "minecraft:nether", List.of("&4====================", "&4 바이옴 공개 - 네더", "&4  뜨거운 열기가 라인을 감싼다.", "&4===================="), 0, List.of()),
+			createBiome("taiga", "타이가", "minecraft:taiga", "minecraft:taiga", List.of("&b====================", "&b 바이옴 공개 - 타이가", "&b  해당 라인의 모든 유닛이 구속 1을 얻습니다.", "&b===================="), 0, List.of())
+		);
 	}
 
 	private BiomeEntry createBiome(String id, String name, String minecraftBiomeId, String structureId, List<String> revealMessages, int pulseIntervalSeconds, List<String> pulseMessages) {
@@ -506,12 +580,19 @@ public class MinecraftSnapConfigManager {
 		config.summaryLines = List.of("&7전직과 기습 중심", "&7환경 적응이 핵심");
 		config.captainSkill.name = "날씨 변화";
 		config.captainSkill.descriptionLines = List.of("&7실제 스킬 로직은 기존 구현 유지", "&7위키와 GUI 설명은 JSON 기준");
-		var zombie = unit("zombie", "좀비", true, 1, 6, 20.0, 0.8, "minecraft:iron_shovel", "", "", "", "", "", "", "", 0, "NONE", "minecraft:zombie", List.of("&7적 처치 시 사령관 소환 쿨 2초 감소"));
-		zombie.advanceOptions = List.of(advanceOption("zombie_veteran", "강화 좀비", List.of("&7늪과 비를 버티면 강화"), List.of("minecraft:swamp", "minecraft:mangrove_swamp"), List.of("rain", "thunder"), 15));
-		var skeleton = unit("skeleton", "스켈레톤", true, 2, 13, 14.0, 1.0, "minecraft:bow", "", "", "", "", "", "minecraft:bone", "뼈 폭발", 15, "ARROW", "minecraft:skeleton", List.of("&74칸 내 적 둔화 타격"));
-		skeleton.advanceOptions = List.of(advanceOption("skeleton_sniper", "강화 스켈레톤", List.of("&7설원 계열에서 정찰병화"), List.of("minecraft:snowy_plains", "minecraft:snowy_taiga"), List.of("clear", "rain"), 15));
-		var slime = unit("slime", "슬라임", true, 2, 10, 10.0, 1.1, "minecraft:slime_ball", "", "", "", "", "", "", "", 0, "NONE", "minecraft:slime", List.of("&7사망 시 작은 슬라임 3마리"));
-		slime.advanceOptions = List.of(advanceOption("slime_brute", "강화 슬라임", List.of("&7늪지에서 더 거대해짐"), List.of("minecraft:swamp", "minecraft:mangrove_swamp"), List.of("clear", "rain", "thunder"), 12));
+		var zombie = unit("zombie", "좀비", true, 1, 7, 20.0, 0.8, "minecraft:iron_shovel", "", "minecraft:leather_helmet", "", "", "", "", "", 0, "NONE", "minecraft:zombie", List.of("&7사망 시 아군 사령관 소환 쿨 2초 감소"));
+		zombie.advanceOptions = List.of(
+			advanceOption("husk", "허스크", List.of("&7사막/악지에서 20초 버티면 적응"), List.of("minecraft:desert", "minecraft:badlands", "minecraft:eroded_badlands", "minecraft:wooded_badlands"), List.of(), 400),
+			advanceOption("drowned", "드라운드", List.of("&7바다에서 20초 버티면 적응"), List.of("minecraft:ocean", "minecraft:deep_ocean", "minecraft:cold_ocean", "minecraft:deep_cold_ocean", "minecraft:lukewarm_ocean", "minecraft:deep_lukewarm_ocean", "minecraft:warm_ocean", "minecraft:frozen_ocean", "minecraft:deep_frozen_ocean"), List.of(), 400)
+		);
+		var skeleton = unit("skeleton", "스켈레톤", true, 3, 12, 16.0, 0.9, "minecraft:bow", "", "", "", "", "", "minecraft:bone", "뼈 폭발", 12, "ARROW", "minecraft:skeleton", List.of("&74칸 내 적에게 피해 5와 넉백"));
+		skeleton.advanceOptions = List.of(
+			advanceOption("stray", "스트레이", List.of("&7타이가에서 20초 버티면 적응"), List.of("minecraft:taiga", "minecraft:snowy_taiga", "minecraft:old_growth_pine_taiga", "minecraft:old_growth_spruce_taiga"), List.of(), 400),
+			advanceOption("bogged", "보그드", List.of("&7늪에서 20초 버티면 적응"), List.of("minecraft:swamp", "minecraft:mangrove_swamp"), List.of(), 400),
+			advanceOption("wither_skeleton", "위더 스켈레톤", List.of("&7네더에서 30초 버티면 적응"), List.of("minecraft:nether_wastes", "minecraft:soul_sand_valley", "minecraft:crimson_forest", "minecraft:warped_forest", "minecraft:basalt_deltas"), List.of(), 600)
+		);
+		var slime = unit("slime", "슬라임", true, 2, 8, 14.0, 1.0, "minecraft:slime_ball", "", "", "", "", "", "", "", 0, "NONE", "minecraft:slime", List.of("&7사망 시 사이즈 2 슬라임 3마리"));
+		slime.advanceOptions = List.of(advanceOption("giant_slime", "거대 슬라임", List.of("&7늪에서 15초 버티면 적응"), List.of("minecraft:swamp", "minecraft:mangrove_swamp"), List.of(), 300));
 		var creeper = unit("creeper", "크리퍼", true, 5, 25, 20.0, 1.0, "minecraft:tnt", "", "", "", "", "", "minecraft:tnt", "자폭", 20, "NONE", "minecraft:creeper", List.of("&71초 뒤 자폭", "&7근접 폭발 특화"));
 		creeper.advanceOptions = List.of(advanceOption("charged_creeper", "대전된 크리퍼", List.of("&7천둥 아래에서 대전됨"), List.of("minecraft:plains", "minecraft:forest", "minecraft:dark_forest"), List.of("thunder"), 10));
 		config.units = List.of(
@@ -519,9 +600,12 @@ public class MinecraftSnapConfigManager {
 			skeleton,
 			slime,
 			creeper,
-			unit("zombie_veteran", "강화 좀비", false, 0, 0, 26.0, 0.95, "minecraft:iron_shovel", "", "", "minecraft:iron_chestplate", "", "", "", "", 0, "NONE", "minecraft:husk", List.of("&7늪/비 조건 전직 결과")),
-			unit("skeleton_sniper", "강화 스켈레톤", false, 0, 0, 18.0, 1.05, "minecraft:bow", "", "", "", "", "", "minecraft:bone", "뼈 폭발", 12, "ARROW", "minecraft:stray", List.of("&7설원 계열 전직 결과")),
-			unit("slime_brute", "강화 슬라임", false, 0, 0, 18.0, 1.2, "minecraft:slime_ball", "", "", "", "", "", "", "", 0, "NONE", "minecraft:slime", List.of("&7늪 지형 전직 결과")),
+			unit("husk", "허스크", false, 0, 0, 20.0, 0.9, "minecraft:iron_sword", "", "", "", "", "", "", "", 0, "NONE", "minecraft:husk", List.of("&7공격 시 구속 I, 나약함 I 3초")),
+			unit("drowned", "드라운드", false, 0, 0, 18.0, 1.0, "minecraft:trident", "", "", "", "", "", "", "", 0, "NONE", "minecraft:drowned", List.of("&7수중 호흡 무한, 물속 이동 강화")),
+			unit("stray", "스트레이", false, 0, 0, 16.0, 0.8, "minecraft:bow", "", "", "", "", "", "", "", 0, "ARROW", "minecraft:stray", List.of("&7공격 시 구속 II 3초")),
+			unit("bogged", "보그드", false, 0, 0, 16.0, 0.8, "minecraft:bow", "", "", "", "", "", "", "", 0, "ARROW", "minecraft:bogged", List.of("&7공격 시 독 III 5초")),
+			unit("wither_skeleton", "위더 스켈레톤", false, 0, 0, 24.0, 1.1, "minecraft:stone_sword", "", "", "", "", "", "minecraft:stone_sword", "위더 해골", 8, "NONE", "minecraft:wither_skeleton", List.of("&7공격 시 시듦 II 4초")),
+			unit("giant_slime", "거대 슬라임", false, 0, 0, 30.0, 1.0, "minecraft:slime_ball", "", "", "", "", "", "", "", 0, "NONE", "minecraft:slime", List.of("&7사망 시 사이즈 4 슬라임 2마리")),
 			unit("charged_creeper", "대전된 크리퍼", false, 0, 0, 24.0, 1.05, "minecraft:tnt", "", "", "", "", "", "minecraft:tnt", "자폭", 15, "NONE", "minecraft:creeper", List.of("&7천둥 조건 전직 결과"))
 		);
 		config.normalize();

@@ -1,15 +1,19 @@
 package karn.minecraftsnap.unit;
 
 import karn.minecraftsnap.game.UnitRegistry;
+import karn.minecraftsnap.unit.monster.BoggedUnit;
 import karn.minecraftsnap.unit.monster.ChargedCreeperUnit;
 import karn.minecraftsnap.unit.monster.CreeperUnit;
-import karn.minecraftsnap.unit.monster.SkeletonSniperUnit;
+import karn.minecraftsnap.unit.monster.DrownedUnit;
+import karn.minecraftsnap.unit.monster.GiantSlimeUnit;
+import karn.minecraftsnap.unit.monster.HuskUnit;
 import karn.minecraftsnap.unit.monster.SkeletonUnit;
-import karn.minecraftsnap.unit.monster.SlimeBruteUnit;
 import karn.minecraftsnap.unit.monster.SlimeUnit;
+import karn.minecraftsnap.unit.monster.StrayUnit;
+import karn.minecraftsnap.unit.monster.WitherSkeletonUnit;
 import karn.minecraftsnap.unit.monster.ZombieUnit;
-import karn.minecraftsnap.unit.monster.ZombieVeteranUnit;
 import karn.minecraftsnap.unit.nether.BlazeUnit;
+import karn.minecraftsnap.unit.nether.MagmaCubeUnit;
 import karn.minecraftsnap.unit.nether.PiglinBruteUnit;
 import karn.minecraftsnap.unit.nether.PiglinUnit;
 import karn.minecraftsnap.unit.nether.ZombifiedPiglinUnit;
@@ -30,16 +34,20 @@ public class UnitClassRegistry {
 		register(new VindicatorUnit());
 		register(new PillagerUnit());
 		register(new ZombieUnit());
+		register(new HuskUnit());
+		register(new DrownedUnit());
 		register(new SkeletonUnit());
+		register(new StrayUnit());
+		register(new BoggedUnit());
+		register(new WitherSkeletonUnit());
 		register(new SlimeUnit());
+		register(new GiantSlimeUnit());
 		register(new CreeperUnit());
-		register(new ZombieVeteranUnit());
-		register(new SkeletonSniperUnit());
-		register(new SlimeBruteUnit());
 		register(new ChargedCreeperUnit());
 		register(new PiglinUnit());
 		register(new ZombifiedPiglinUnit());
 		register(new BlazeUnit());
+		register(new MagmaCubeUnit());
 		register(new PiglinBruteUnit());
 	}
 

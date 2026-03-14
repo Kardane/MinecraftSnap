@@ -15,6 +15,7 @@ import karn.minecraftsnap.lane.LaneRuntime;
 import karn.minecraftsnap.ui.AdvanceGuiService;
 import karn.minecraftsnap.ui.TradeGuiService;
 import karn.minecraftsnap.util.TextTemplateResolver;
+import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.damage.DamageSource;
 import net.minecraft.entity.effect.StatusEffectInstance;
 import net.minecraft.server.world.ServerWorld;
@@ -231,13 +232,29 @@ public class UnitContext {
 		}
 	}
 
-	public void dealMobDamage(ServerPlayerEntity target, float amount) {
+	public Double getUnitRuntimeDouble(String key) {
+		return state == null ? null : state.getUnitRuntimeDouble(key);
+	}
+
+	public void setUnitRuntimeDouble(String key, double value) {
+		if (state != null) {
+			state.setUnitRuntimeDouble(key, value);
+		}
+	}
+
+	public void removeUnitRuntimeDouble(String key) {
+		if (state != null) {
+			state.removeUnitRuntimeDouble(key);
+		}
+	}
+
+	public void dealMobDamage(LivingEntity target, float amount) {
 		if (player != null && target != null && world() != null) {
 			target.damage(world(), target.getDamageSources().mobAttack(player), amount);
 		}
 	}
 
-	public void dealExplosionDamage(ServerPlayerEntity target, float amount) {
+	public void dealExplosionDamage(LivingEntity target, float amount) {
 		if (player != null && target != null && world() != null) {
 			target.damage(world(), target.getDamageSources().explosion(player, player), amount);
 		}
@@ -252,5 +269,18 @@ public class UnitContext {
 			&& state.getTeamId() != null
 			&& targetState.getTeamId() != state.getTeamId()
 			&& targetState.getRoleType() != karn.minecraftsnap.game.RoleType.SPECTATOR;
+	}
+
+	public boolean isEnemyTarget(LivingEntity target) {
+		if (target == null) {
+			return false;
+		}
+		if (target == player) {
+			return false;
+		}
+		if (target instanceof ServerPlayerEntity targetPlayer) {
+			return isEnemyUnit(targetPlayer);
+		}
+		return true;
 	}
 }

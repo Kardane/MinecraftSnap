@@ -137,6 +137,16 @@ public class MatchManager {
 		return clock.getRemainingSeconds();
 	}
 
+	public void reduceRemainingSeconds(int seconds) {
+		if ((phase != MatchPhase.GAME_RUNNING && phase != MatchPhase.GAME_START) || seconds <= 0) {
+			return;
+		}
+		if (clock.reduceRemainingSeconds(seconds)) {
+			decideWinnerByScore();
+			setPhase(MatchPhase.GAME_END);
+		}
+	}
+
 	public int getTotalSeconds() {
 		return clock.getTotalSeconds();
 	}
