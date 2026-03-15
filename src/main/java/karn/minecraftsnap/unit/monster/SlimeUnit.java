@@ -40,7 +40,7 @@ public class SlimeUnit extends AbstractMonsterUnit implements ConfiguredUnitClas
 		0,
 		UnitDefinition.AmmoType.NONE,
 		disguise("minecraft:slime", "{Size:3}"),
-		List.of("&7점프력 1 고정", "&7사망 시 사이즈 2 슬라임 3마리 생성"),
+			List.of("&f패시브 &7- 점프력이 상승합니다. 사망시 분열합니다","&f무기 &7- 슬라임 볼"),
 		List.of(advanceOption(
 			"giant_slime",
 			"거대 슬라임",

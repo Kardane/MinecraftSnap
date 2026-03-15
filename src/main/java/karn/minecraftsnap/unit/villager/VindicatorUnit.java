@@ -20,7 +20,7 @@ public class VindicatorUnit extends AbstractVillagerUnit implements ConfiguredUn
 		"변명자",
 		FactionId.VILLAGER,
 		true,
-		4,
+		5,
 		25,
 		26.0,
 		1.0,
@@ -35,7 +35,7 @@ public class VindicatorUnit extends AbstractVillagerUnit implements ConfiguredUn
 		8,
 		UnitDefinition.AmmoType.NONE,
 		disguise("minecraft:vindicator"),
-		List.of("&7전방으로 짧게 돌진", "&7근접 압박용"),
+			List.of("&f무기 &7- 철 도끼","&f돌진 &7- 앞으로 살짝 돌진합니다."),
 		List.of()
 	);
 
@@ -68,7 +68,7 @@ public class VindicatorUnit extends AbstractVillagerUnit implements ConfiguredUn
 	}
 
 	double dashHorizontalStrength() {
-		return 0.8D;
+		return 0.5D;
 	}
 
 	double dashVerticalBoost() {

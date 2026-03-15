@@ -38,7 +38,7 @@ public class PiglinBruteUnit extends AbstractNetherUnit implements ConfiguredUni
 		24,
 		UnitDefinition.AmmoType.NONE,
 		disguise("minecraft:piglin_brute"),
-		List.of("&7해로운 상태이상 해제", "&73초간 힘 I, 저항 I, 이속 I, 발광 I", "&7금괴 3개 지급"),
+			List.of("&f광란&7- 힘, 저항, 신속 효과를 얻습니다.","&f무기 &7- 금 도끼"),
 		List.of()
 	);
 
@@ -57,7 +57,7 @@ public class PiglinBruteUnit extends AbstractNetherUnit implements ConfiguredUni
 	@Override
 	public void onSkillUse(UnitContext context) {
 		context.activateSkill(() -> {
-			context.player().clearStatusEffects();
+			//context.player().clearStatusEffects();
 			context.player().addStatusEffect(new StatusEffectInstance(StatusEffects.STRENGTH, buffDurationTicks(), 0));
 			context.player().addStatusEffect(new StatusEffectInstance(StatusEffects.RESISTANCE, buffDurationTicks(), 0));
 			context.player().addStatusEffect(new StatusEffectInstance(StatusEffects.SPEED, buffDurationTicks(), 0));

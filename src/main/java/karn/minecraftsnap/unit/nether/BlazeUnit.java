@@ -43,7 +43,7 @@ public class BlazeUnit extends AbstractNetherUnit implements ConfiguredUnitClass
 		9,
 		UnitDefinition.AmmoType.NONE,
 		disguise("minecraft:blaze"),
-		List.of("&70.4초마다 작은 화염구 1개씩 총 3개 발사"),
+			List.of("&f화염구 발사&7- 화염구를 3개 연속으로 발사합니다","&f무기 &7- 블레이즈 막대"),
 		List.of()
 	);
 

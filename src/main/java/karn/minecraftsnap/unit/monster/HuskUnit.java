@@ -36,7 +36,7 @@ public class HuskUnit extends ZombieUnit implements ConfiguredUnitClass {
 		0,
 		UnitDefinition.AmmoType.NONE,
 		disguise("minecraft:husk"),
-		List.of("&7공격 시 구속 I, 나약함 I 3초", "&7사망 시 아군 사령관 마나 1 회복"),
+		List.of("&7공격 시 구속 I, 나약함 I 2초", "&f패시브 &7- 유닛 사망시 마나 1 회복","&f무기 &7- 철 칼"),
 		List.of()
 	);
 
@@ -55,6 +55,6 @@ public class HuskUnit extends ZombieUnit implements ConfiguredUnitClass {
 	}
 
 	int statusDurationTicks() {
-		return 20 * 3;
+		return 20 * 2;
 	}
 }

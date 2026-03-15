@@ -36,7 +36,7 @@ public class BoggedUnit extends AbstractMonsterUnit implements ConfiguredUnitCla
 		0,
 		UnitDefinition.AmmoType.ARROW,
 		disguise("minecraft:bogged"),
-		List.of("&7공격 시 독 II 5초"),
+			List.of("&f패시브 &7- 공격시 독을 부여합니다.","&f무기 &7- 활"),
 		List.of()
 	);
 

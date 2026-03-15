@@ -37,7 +37,7 @@ public class DrownedUnit extends ZombieUnit implements ConfiguredUnitClass {
 		0,
 		UnitDefinition.AmmoType.NONE,
 		disguise("minecraft:drowned"),
-		List.of("&7사망 시 아군 사령관 마나 1 회복", "&7수중 호흡 무한, 물속 이동 강화"),
+			List.of("&f패시브 &7- 유닛 사망시 마나 1 회복","&f무기 &7- 충성 삼지창"),
 		List.of()
 	);
 

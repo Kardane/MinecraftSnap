@@ -22,8 +22,8 @@ public class ArmorerVillagerUnit extends AbstractVillagerUnit implements Configu
 		20.0,
 		0.8,
 		item("minecraft:wooden_sword"),
-		item("minecraft:shield"),
 		none(),
+			item("minecraft:iron_helmet"),
 		item("minecraft:iron_chestplate"),
 		none(),
 		none(),
@@ -32,7 +32,7 @@ public class ArmorerVillagerUnit extends AbstractVillagerUnit implements Configu
 		0,
 		UnitDefinition.AmmoType.NONE,
 		disguise("minecraft:villager", "{VillagerData:{type:\"minecraft:plains\",profession:\"minecraft:armorer\",level:1}}"),
-		List.of("&7철 흉갑과 방패 보유", "&7전선 유지용"),
+			List.of("&f무기 &7- 나무 검","&f방어구 &7- 철 헬멧, 철 흉갑"),
 		List.of()
 	);
 

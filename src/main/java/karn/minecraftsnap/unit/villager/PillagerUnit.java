@@ -55,7 +55,7 @@ public class PillagerUnit extends AbstractVillagerUnit implements ConfiguredUnit
 		10,
 		UnitDefinition.AmmoType.ARROW,
 		disguise("minecraft:pillager"),
-		List.of("&7폭죽 탄약 장전 가능", "&7이미 폭죽이 있으면 사용 불가"),
+			List.of("&f무기 &7- 쇠뇌","&f폭죽 보급 &7- 폭죽을 얻습니다."),
 		List.of()
 	);
 

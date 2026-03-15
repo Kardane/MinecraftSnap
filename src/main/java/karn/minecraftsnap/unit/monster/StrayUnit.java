@@ -36,7 +36,7 @@ public class StrayUnit extends AbstractMonsterUnit implements ConfiguredUnitClas
 		0,
 		UnitDefinition.AmmoType.ARROW,
 		disguise("minecraft:stray"),
-		List.of("&7공격 시 구속 II 2초"),
+			List.of("&f패시브 &7- 공격시 구속을 부여합니다.","&f무기 &7- 활"),
 		List.of()
 	);
 

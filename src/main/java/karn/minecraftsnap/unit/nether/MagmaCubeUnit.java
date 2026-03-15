@@ -43,7 +43,7 @@ public class MagmaCubeUnit extends AbstractNetherUnit implements ConfiguredUnitC
 		0,
 		UnitDefinition.AmmoType.NONE,
 		disguise("minecraft:magma_cube", "{Size:5}"),
-		List.of("&7점프력 1 고정", "&7사망 시 사이즈 2 마그마 큐브 4마리 생성"),
+			List.of("&f패시브 &7- 점프력이 상승합니다. 사망시 분열합니다","&f무기 &7- 마그마 크림"),
 		List.of()
 	);
 

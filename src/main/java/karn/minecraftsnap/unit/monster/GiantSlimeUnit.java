@@ -34,7 +34,7 @@ public class GiantSlimeUnit extends SlimeUnit implements ConfiguredUnitClass {
 		0,
 		UnitDefinition.AmmoType.NONE,
 		disguise("minecraft:slime", "{Size:5}"),
-		List.of("&7크기 200% 증가", "&7사망 시 사이즈 5 슬라임 3마리 생성"),
+			List.of("&f패시브 &7- 크기가 더욱 증가하고, 사망시 분열합니다","&f무기 &7- 슬라임 볼"),
 		List.of()
 	);
 

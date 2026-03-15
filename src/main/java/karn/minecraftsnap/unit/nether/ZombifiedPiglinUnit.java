@@ -40,7 +40,7 @@ public class ZombifiedPiglinUnit extends AbstractNetherUnit implements Configure
 		0,
 		UnitDefinition.AmmoType.NONE,
 		disguise("minecraft:zombified_piglin"),
-		List.of("&7피격 시 10% 확률로 주변 5칸 내에 같은 팀 좀비 피글린 소환"),
+			List.of("&f패시브 &7- 피격시 낮은 확률로 주변에 좀비 피글린 생성","&f무기 &7- 금 검"),
 		List.of()
 	);
 

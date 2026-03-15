@@ -40,7 +40,7 @@ public class WitherSkeletonUnit extends AbstractMonsterUnit implements Configure
 		8,
 		UnitDefinition.AmmoType.NONE,
 		disguise("minecraft:wither_skeleton"),
-		List.of("&7공격 시 시듦 II 3초", "&7돌 검으로 위더 해골 발사"),
+			List.of("&f패시브 &7- 공격시 시듦을 부여합니다.","&f해골 날리기 &7- 위더 해골을 발사합니다.","&f무기 &7- 돌 검"),
 		List.of()
 	);
 

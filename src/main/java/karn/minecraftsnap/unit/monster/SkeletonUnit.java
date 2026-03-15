@@ -39,7 +39,7 @@ public class SkeletonUnit extends AbstractMonsterUnit implements ConfiguredUnitC
 		12,
 		UnitDefinition.AmmoType.ARROW,
 		disguise("minecraft:skeleton"),
-		List.of("&74칸 내 적에게 피해 5와 넉백", "&7뼈를 우클릭해 발동"),
+			List.of("&f뼈 폭발 &7- 주변 적에게 피해를 입히고 밀쳐냅니다.","&f무기 &7- 활"),
 		List.of(
 			advanceOption(
 				"stray",

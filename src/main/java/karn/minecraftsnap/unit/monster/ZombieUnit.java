@@ -34,7 +34,7 @@ public class ZombieUnit extends AbstractMonsterUnit implements ConfiguredUnitCla
 		0,
 		UnitDefinition.AmmoType.NONE,
 		disguise("minecraft:zombie"),
-		List.of("&7사망 시 아군 사령관 마나 1 회복"),
+			List.of("&f패시브 &7- 유닛 사망시 마나 1 회복","&f무기 &7- 철 삽"),
 		List.of(
 			advanceOption(
 				"husk",

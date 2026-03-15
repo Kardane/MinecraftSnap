@@ -35,7 +35,7 @@ public class VillagerUnit extends AbstractVillagerUnit implements ConfiguredUnit
 		8,
 		UnitDefinition.AmmoType.NONE,
 		disguise("minecraft:villager", "{VillagerData:{type:\"minecraft:plains\",profession:\"minecraft:nitwit\",level:1}}"),
-		List.of("&7빵으로 체력 5 회복", "&7기본 유지력 유닛"),
+		List.of("&f빵 먹기 &7- 체력을 회복합니다.","&f무기 &7- 나무 검"),
 		List.of()
 	);
 

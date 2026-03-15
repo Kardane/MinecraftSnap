@@ -21,13 +21,13 @@ public class PiglinUnit extends AbstractNetherUnit implements ConfiguredUnitClas
 		"피글린",
 		FactionId.NETHER,
 		true,
-		1,
+		2,
 		10,
 		20.0,
 		1.0,
 		item("minecraft:golden_sword"),
 		none(),
-		none(),
+			item("minecraft:golden_helmet"),
 		none(),
 		none(),
 		none(),
@@ -36,7 +36,7 @@ public class PiglinUnit extends AbstractNetherUnit implements ConfiguredUnitClas
 		0,
 		UnitDefinition.AmmoType.NONE,
 		disguise("minecraft:piglin"),
-		List.of("&7적 처치 시 금괴를 추가로 1개 더 획득", "&7금괴 3개 지급"),
+			List.of("&f패시브 &7- 적 처치시 금괴 1개 추가 획득","&f무기 &7- 금 검"),
 		List.of()
 	);
 

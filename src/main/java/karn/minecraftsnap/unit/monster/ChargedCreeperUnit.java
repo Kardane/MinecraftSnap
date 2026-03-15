@@ -34,7 +34,7 @@ public class ChargedCreeperUnit extends CreeperUnit {
 		20,
 		UnitDefinition.AmmoType.NONE,
 		POWERED_DISGUISE,
-		List.of("&7대전 상태 유지", "&77칸 내 적에게 피해 100"),
+			List.of("&f패시브 &7- 기본 공격 불가","&f자폭 &7- 자폭하여 넓은 범위 내의 적에게 더욱 큰 피해를 입힙니다."),
 		List.of()
 	);
 

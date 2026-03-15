@@ -56,7 +56,7 @@ public class CreeperUnit extends AbstractMonsterUnit implements ConfiguredUnitCl
 		20,
 		UnitDefinition.AmmoType.NONE,
 		BASE_DISGUISE,
-		List.of("&7기본 공격 불가", "&71.5초 후 자폭", "&75칸 내 적에게 피해 50"),
+			List.of("&f패시브 &7- 기본 공격 불가","&f자폭 &7- 자폭하여 주변 적에게 피해를 입힙니다."),
 		List.of(advanceOption(
 			"charged_creeper",
 			"대전된 크리퍼",
