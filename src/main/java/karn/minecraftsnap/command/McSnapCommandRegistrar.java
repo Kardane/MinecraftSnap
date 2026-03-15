@@ -6,6 +6,7 @@ import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.suggestion.Suggestions;
 import com.mojang.brigadier.suggestion.SuggestionsBuilder;
 import karn.minecraftsnap.MinecraftSnap;
+import karn.minecraftsnap.config.TextConfigFile;
 import karn.minecraftsnap.game.FactionId;
 import karn.minecraftsnap.game.LaneId;
 import karn.minecraftsnap.game.MatchPhase;
@@ -30,11 +31,11 @@ public class McSnapCommandRegistrar {
 
 	public void register(com.mojang.brigadier.CommandDispatcher<ServerCommandSource> dispatcher, net.minecraft.command.CommandRegistryAccess registryAccess, CommandManager.RegistrationEnvironment environment) {
 		dispatcher.register(CommandManager.literal("mcsnap")
-			.executes(ctx -> send(ctx.getSource(), "&fMCsnap 명령 트리 준비 완료"))
+			.executes(ctx -> send(ctx.getSource(), textConfig().commandRootReadyMessage))
 			.then(CommandManager.literal("reload")
 				.executes(ctx -> {
 					mod.reload();
-					return send(ctx.getSource(), "&aMCsnap 컨픽 리로드 완료");
+					return send(ctx.getSource(), textConfig().commandReloadMessage);
 				}))
 			.then(CommandManager.literal("wiki")
 				.requires(ServerCommandSource::isExecutedByPlayer)
@@ -117,17 +118,24 @@ public class McSnapCommandRegistrar {
 
 	private int showStat(ServerCommandSource source, ServerPlayerEntity player) {
 		var stats = mod.getStatsRepository().getOrCreate(player.getUuid(), player.getName().getString());
-		send(source, "&f플레이어: &e" + stats.lastKnownName);
-		send(source, "&f래더: &b" + stats.ladder + " &8/ &f선호: &d" + stats.preference);
-		send(source, "&f킬: &a" + stats.kills + " &8/ &f데스: &c" + stats.deaths + " &8/ &f점령: &6" + stats.captures);
-		send(source, "&f에메랄드: &a" + stats.emeralds + " &8/ &f금괴: &6" + stats.goldIngots);
+		send(source, textConfig().commandStatPlayerTemplate.replace("{player}", stats.lastKnownName));
+		send(source, textConfig().commandStatLadderTemplate
+			.replace("{ladder}", Integer.toString(stats.ladder))
+			.replace("{preference}", stats.preference));
+		send(source, textConfig().commandStatCombatTemplate
+			.replace("{kills}", Integer.toString(stats.kills))
+			.replace("{deaths}", Integer.toString(stats.deaths))
+			.replace("{captures}", Integer.toString(stats.captures)));
+		send(source, textConfig().commandStatCurrencyTemplate
+			.replace("{emeralds}", Integer.toString(stats.emeralds))
+			.replace("{gold}", Integer.toString(stats.goldIngots)));
 		return Command.SINGLE_SUCCESS;
 	}
 
 	private int setPreference(ServerCommandSource source, String preference) {
 		var player = source.getPlayer();
 		mod.getStatsRepository().setPreference(player.getUuid(), player.getName().getString(), preference);
-		return send(source, "&a선호 직업 갱신: &f" + preference);
+		return send(source, textConfig().commandPreferenceUpdatedMessage.replace("{preference}", preference));
 	}
 
 	private CompletableFuture<Suggestions> suggestSpawnableUnitIds(com.mojang.brigadier.context.CommandContext<ServerCommandSource> context, SuggestionsBuilder builder) {
@@ -154,12 +162,14 @@ public class McSnapCommandRegistrar {
 
 	private int assignCaptain(ServerCommandSource source, TeamId teamId, ServerPlayerEntity target) {
 		mod.getMatchManager().setCaptain(teamId, target);
-		return send(source, "&a" + target.getName().getString() + " 님을 " + teamId.getDisplayName() + " 사령관으로 지정 완료");
+		return send(source, textConfig().commandAssignCaptainMessage
+			.replace("{player}", target.getName().getString())
+			.replace("{team}", teamId.getDisplayName()));
 	}
 
 	private int startTeamSelection(ServerCommandSource source) {
 		mod.assignTeamsOnly();
-		return send(source, "&a팀 배정과 사령관 선출 완료 &7(자동 진행 없음)");
+		return send(source, textConfig().commandTeamSelectionMessage);
 	}
 
 	private int spawnBots(ServerCommandSource source, int count) {
@@ -168,7 +178,7 @@ public class McSnapCommandRegistrar {
 
 	private int forceStartGame(ServerCommandSource source) {
 		mod.forceStartGame();
-		return send(source, "&a기본값 보정 후 게임 강제 시작");
+		return send(source, textConfig().commandForceStartMessage);
 	}
 
 	private int toggleAutoStart(ServerCommandSource source) {
@@ -184,18 +194,20 @@ public class McSnapCommandRegistrar {
 		if (phase == MatchPhase.LOBBY) {
 			mod.getCapturePointService().resetAll();
 		}
-		return send(source, "&a현재 페이즈: &f" + phase.getDisplayName());
+		return send(source, textConfig().commandPhaseChangedMessage.replace("{phase}", phase.getDisplayName()));
 	}
 
 	private int setLaneState(ServerCommandSource source, LaneId laneId, boolean active) {
 		mod.setLaneRevealState(laneId, active);
-		return send(source, "&a" + laneLabel(laneId) + " 상태: &f" + (active ? "공개" : "비공개"));
+		return send(source, textConfig().commandLaneStateMessage
+			.replace("{lane}", laneLabel(laneId))
+			.replace("{state}", active ? "공개" : "비공개"));
 	}
 
 	private int placeNearestBiomeStructure(ServerCommandSource source, String structureId) {
 		var player = source.getPlayer();
 		if (player == null) {
-			return send(source, "&c플레이어만 가장 가까운 라인 구조물 설치 가능");
+			return send(source, textConfig().commandPlaceNearestPlayerOnlyMessage);
 		}
 		return send(source, mod.placeNearestBiomeStructure(player, structureId));
 	}
@@ -206,23 +218,23 @@ public class McSnapCommandRegistrar {
 
 	private int chargeMana(ServerCommandSource source, ServerPlayerEntity player) {
 		if (player == null || !mod.chargeCaptainMana(player)) {
-			return send(source, "&c사령관이 아니라 마나 충전 불가");
+			return send(source, textConfig().commandChargeManaFailedMessage);
 		}
-		return send(source, "&a사령관 마나 전충전: &f" + player.getName().getString());
+		return send(source, textConfig().commandChargeManaSuccessMessage.replace("{player}", player.getName().getString()));
 	}
 
 	private int triggerCaptainSkill(ServerCommandSource source, FactionId factionId) {
 		if (!mod.triggerCaptainSkill(factionId)) {
-			return send(source, "&c해당 팩션 사령관 스킬 발동 실패");
+			return send(source, textConfig().commandCaptainSkillFailedMessage);
 		}
-		return send(source, "&a" + factionId.name().toLowerCase() + " 팩션 사령관 스킬 강제 발동");
+		return send(source, textConfig().commandCaptainSkillSuccessMessage.replace("{faction}", factionId.name().toLowerCase()));
 	}
 
 	private int advance(ServerCommandSource source, ServerPlayerEntity player) {
 		if (!mod.forceAdvance(player)) {
-			return send(source, "&c전직 가능 상태 강제 부여 실패");
+			return send(source, textConfig().commandAdvanceFailedMessage);
 		}
-		return send(source, "&a전직 가능 상태 강제 부여: &f" + player.getName().getString());
+		return send(source, textConfig().commandAdvanceSuccessMessage.replace("{player}", player.getName().getString()));
 	}
 
 	private int forceUnit(ServerCommandSource source, ServerPlayerEntity player, String unitId) {
@@ -236,7 +248,7 @@ public class McSnapCommandRegistrar {
 	private int openGui(ServerCommandSource source, String guiId) {
 		var player = source.getPlayer();
 		if (player == null) {
-			return send(source, "&c플레이어만 GUI 오픈 가능");
+			return send(source, textConfig().commandOpenGuiPlayerOnlyMessage);
 		}
 		var result = mod.openAdminGui(player, guiId);
 		return send(source, result);
@@ -261,5 +273,9 @@ public class McSnapCommandRegistrar {
 			case LANE_2 -> "2번 라인";
 			case LANE_3 -> "3번 라인";
 		};
+	}
+
+	private TextConfigFile textConfig() {
+		return mod == null ? new TextConfigFile() : mod.getTextConfig();
 	}
 }

@@ -40,7 +40,7 @@ public class WitherSkeletonUnit extends AbstractMonsterUnit implements Configure
 		8,
 		UnitDefinition.AmmoType.NONE,
 		disguise("minecraft:wither_skeleton"),
-		List.of("&7공격 시 시듦 II 4초", "&7돌 검으로 위더 해골 발사"),
+		List.of("&7공격 시 시듦 II 3초", "&7돌 검으로 위더 해골 발사"),
 		List.of()
 	);
 
@@ -82,7 +82,7 @@ public class WitherSkeletonUnit extends AbstractMonsterUnit implements Configure
 	}
 
 	int statusDurationTicks() {
-		return 20 * 4;
+		return 20 * 3;
 	}
 
 	int effectAmplifier() {

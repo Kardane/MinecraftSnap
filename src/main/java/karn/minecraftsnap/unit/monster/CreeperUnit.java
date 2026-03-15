@@ -30,10 +30,10 @@ public class CreeperUnit extends AbstractMonsterUnit implements ConfiguredUnitCl
 	private static final String BLAST_CENTER_Y_KEY = "creeper_blast_center_y";
 	private static final String BLAST_CENTER_Z_KEY = "creeper_blast_center_z";
 	private static final String ORIGINAL_JUMP_STRENGTH_KEY = "creeper_original_jump_strength";
-	private static final long SELF_DESTRUCT_DELAY_TICKS = 40L;
+	private static final long SELF_DESTRUCT_DELAY_TICKS = 30L;
 	private static final long BLAST_CENTER_CAPTURE_TICKS = 30L;
-	private static final double DEFAULT_BLAST_RADIUS = 4.5D;
-	private static final float DEFAULT_BLAST_DAMAGE = 30.0f;
+	private static final double DEFAULT_BLAST_RADIUS = 5D;
+	private static final float DEFAULT_BLAST_DAMAGE = 50.0f;
 	private static final EntitySpecEntry BASE_DISGUISE = disguise("minecraft:creeper");
 	private static final EntitySpecEntry IGNITED_DISGUISE = disguise("minecraft:creeper", "{ignited:1b}");
 	public static final UnitDefinition DEFINITION = unit(
@@ -56,11 +56,11 @@ public class CreeperUnit extends AbstractMonsterUnit implements ConfiguredUnitCl
 		20,
 		UnitDefinition.AmmoType.NONE,
 		BASE_DISGUISE,
-		List.of("&7공격 불가, 피해량 0", "&72초 후 자폭", "&74.5칸 내 적에게 피해 30"),
+		List.of("&7기본 공격 불가", "&71.5초 후 자폭", "&75칸 내 적에게 피해 50"),
 		List.of(advanceOption(
 			"charged_creeper",
 			"대전된 크리퍼",
-			List.of("&7폭풍우 속에서 45초 버티면 대전됨"),
+			List.of("&7폭풍우 속에서 30초 버티면 충전됨"),
 			List.of(),
 			List.of("thunder"),
 			900

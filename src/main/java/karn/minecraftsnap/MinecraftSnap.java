@@ -538,7 +538,7 @@ public class MinecraftSnap implements DedicatedServerModInitializer {
 	public String spawnBots(net.minecraft.server.command.ServerCommandSource source, int count) {
 		var textConfig = getTextConfig();
 		if (source == null) {
-			return "&c명령 실행 소스를 찾지 못함";
+			return getTextConfig().commandSourceNotFoundMessage;
 		}
 		if (count <= 0) {
 			return textConfig.adminBotsInvalidCountMessage;
@@ -588,12 +588,12 @@ public class MinecraftSnap implements DedicatedServerModInitializer {
 
 	public String forceAssignUnit(ServerPlayerEntity player, String unitId) {
 		if (player == null) {
-			return "&c플레이어를 찾지 못함";
+			return getTextConfig().commandPlayerNotFoundMessage;
 		}
 		var state = matchManager.getPlayerState(player.getUuid());
 		var definition = unitRegistry.get(unitId);
 		if (definition == null) {
-			return "&c알 수 없는 유닛";
+			return getTextConfig().unitSpawnUnknownUnitMessage;
 		}
 
 		matchManager.setRole(player, state.getTeamId(), RoleType.UNIT);
@@ -602,7 +602,7 @@ public class MinecraftSnap implements DedicatedServerModInitializer {
 		}
 		unitHookService.assignUnit(player, definition, configManager.getSystemConfig());
 		playerDisplayNameService.refreshAll(matchManager.getServer(), matchManager, configManager.getStatsRepository(), configManager.getSystemConfig());
-		return "&a유닛 강제 배정 완료: &f" + definition.displayName();
+		return getTextConfig().commandForceUnitSuccessMessage.replace("{unit}", definition.displayName());
 	}
 
 	public String placeNearestBiomeStructure(ServerPlayerEntity player) {
@@ -611,21 +611,21 @@ public class MinecraftSnap implements DedicatedServerModInitializer {
 
 	public String placeNearestBiomeStructure(ServerPlayerEntity player, String structureId) {
 		if (player == null) {
-			return "&c플레이어를 찾지 못함";
+			return getTextConfig().commandPlayerNotFoundMessage;
 		}
 		var laneId = UnitSpawnService.nearestLaneForCaptain(player, configManager.getSystemConfig());
 		var resolvedStructureId = structureId;
 		if (resolvedStructureId == null || resolvedStructureId.isBlank()) {
 			var assignedBiomeId = matchManager.getAssignedBiomeId(laneId);
 			if (assignedBiomeId == null || assignedBiomeId.isBlank()) {
-				return "&c" + laneLabel(laneId) + "에 배정된 바이옴이 없음";
+				return getTextConfig().commandPlaceNearestNoBiomeMessage.replace("{lane}", laneLabel(laneId));
 			}
 			var biomeEntry = configManager.getBiomeCatalog().biomes.stream()
 				.filter(entry -> assignedBiomeId.equals(entry.id))
 				.findFirst()
 				.orElse(null);
 			if (biomeEntry == null || biomeEntry.structureId == null || biomeEntry.structureId.isBlank()) {
-				return "&c" + laneLabel(laneId) + "의 structureId 가 비어 있음";
+				return getTextConfig().commandPlaceNearestMissingStructureMessage.replace("{lane}", laneLabel(laneId));
 			}
 			resolvedStructureId = biomeEntry.structureId;
 		}
@@ -637,14 +637,16 @@ public class MinecraftSnap implements DedicatedServerModInitializer {
 			laneStructureService.originFor(laneRegionOf(laneId))
 		);
 		return placed
-			? "&a" + laneLabel(laneId) + " 구조물 설치 완료: &f" + resolvedStructureId
-			: "&c" + laneLabel(laneId) + " 구조물 설치 실패";
+			? getTextConfig().commandPlaceNearestSuccessMessage
+				.replace("{lane}", laneLabel(laneId))
+				.replace("{structure}", resolvedStructureId)
+			: getTextConfig().commandPlaceNearestFailureMessage.replace("{lane}", laneLabel(laneId));
 	}
 
 	public String resetAllBiomeStructures() {
 		var server = matchManager.getServer();
 		if (server == null) {
-			return "&c서버가 아직 바인딩되지 않음";
+			return getTextConfig().commandServerNotBoundMessage;
 		}
 		int success = 0;
 		for (var laneId : LaneId.values()) {
@@ -660,8 +662,10 @@ public class MinecraftSnap implements DedicatedServerModInitializer {
 		}
 		laneStructureService.reset();
 		return success == LaneId.values().length
-			? "&a모든 라인 구조물을 minecraft:default 로 초기화 완료"
-			: "&c일부 라인 구조물 초기화 실패 (&f" + success + "&7/&f" + LaneId.values().length + "&c)";
+			? getTextConfig().commandResetStructuresSuccessMessage
+			: getTextConfig().commandResetStructuresPartialMessage
+				.replace("{success}", Integer.toString(success))
+				.replace("{total}", Integer.toString(LaneId.values().length));
 	}
 
 	public String openAdminGui(ServerPlayerEntity player, String guiId) {
@@ -669,7 +673,7 @@ public class MinecraftSnap implements DedicatedServerModInitializer {
 			return switch (guiId) {
 			case "wiki" -> {
 				wikiGuiService.open(player, matchManager.getPhase());
-				yield "&a위키 GUI 오픈";
+				yield getTextConfig().commandOpenWikiSuccessMessage;
 			}
 				case "faction" -> {
 					var teamId = state.getTeamId() == null ? TeamId.RED : state.getTeamId();
@@ -678,25 +682,25 @@ public class MinecraftSnap implements DedicatedServerModInitializer {
 							setFactionSelectionAndAnnounce(state.getTeamId(), factionId);
 						}
 					});
-					yield "&a팩션 GUI 오픈";
+					yield getTextConfig().commandOpenFactionSuccessMessage;
 			}
 			case "preparation" -> {
 				preparationGuiService.open(player, state);
-				yield "&a준비 GUI 오픈";
+				yield getTextConfig().commandOpenPreparationSuccessMessage;
 			}
 			case "captain_spawn" -> {
 				openCaptainSpawnGui(player);
-				yield "&a사령관 소환 GUI 오픈";
+				yield getTextConfig().commandOpenCaptainSpawnSuccessMessage;
 			}
 			case "trade" -> {
 				tradeGuiService.open(player, state);
-				yield "&a거래 GUI 오픈";
+				yield getTextConfig().commandOpenTradeSuccessMessage;
 			}
 			case "advance" -> {
 				openAdvanceGui(player, state);
-				yield "&a전직 GUI 오픈";
+				yield getTextConfig().commandOpenAdvanceSuccessMessage;
 			}
-			default -> "&c지원하지 않는 GUI";
+			default -> getTextConfig().commandUnsupportedGuiMessage;
 		};
 	}
 
@@ -821,7 +825,6 @@ public class MinecraftSnap implements DedicatedServerModInitializer {
 				"&b마나 &f" + captainState.getCurrentMana()
 					+ "&7/&f" + captainState.getMaxMana()
 					+ " &8| &7회복 " + captainState.getSecondsUntilNextMana() + "초"
-					+ " &8| &7소환쿨 " + captainState.getSpawnCooldownSeconds() + "초"
 					+ " &8| &7스킬쿨 " + captainState.getSkillCooldownSeconds() + "초"
 			), true);
 		}

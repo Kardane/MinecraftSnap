@@ -78,17 +78,17 @@ public class UnitSpawnService {
 		var captainState = matchManager.getPlayerState(captain.getUuid());
 		if (!captainState.isCaptain() || captainState.getTeamId() == null) {
 			playDeny(captain);
-			return SpawnResult.error("&c사령관만 소환 가능");
+			return SpawnResult.error(textConfig().unitSpawnCaptainOnlyMessage);
 		}
 
 		var definition = unitRegistry.get(unitId);
 		if (definition == null) {
 			playDeny(captain);
-			return SpawnResult.error("&c알 수 없는 유닛");
+			return SpawnResult.error(textConfig().unitSpawnUnknownUnitMessage);
 		}
 		if (captainState.getFactionId() != definition.factionId()) {
 			playDeny(captain);
-			return SpawnResult.error("&c현재 팩션에서 소환 불가");
+			return SpawnResult.error(textConfig().unitSpawnWrongFactionMessage);
 		}
 		var laneId = nearestLaneForCaptain(captain, systemConfig);
 		if (!matchManager.isLaneRevealed(laneId)) {
@@ -105,17 +105,17 @@ public class UnitSpawnService {
 		var candidate = selectSpawnCandidate(unitId, candidates);
 		if (candidate == null) {
 			playDeny(captain);
-			return SpawnResult.error("&c소환 가능한 관전자 유닛 없음");
+			return SpawnResult.error(textConfig().unitSpawnNoCandidateMessage);
 		}
 		if (!captainManaService.trySpendForSpawn(captain.getUuid(), definition.cost(), definition.spawnCooldownSeconds())) {
 			playDeny(captain);
-			return SpawnResult.error("&c마나 또는 생성 쿨다운 부족");
+			return SpawnResult.error(textConfig().unitSpawnInsufficientManaMessage);
 		}
 
 		var target = captain.getServer().getPlayerManager().getPlayer(candidate.playerId());
 		if (target == null) {
 			playDeny(captain);
-			return SpawnResult.error("&c대상 유닛 플레이어를 찾지 못함");
+			return SpawnResult.error(textConfig().unitSpawnTargetMissingMessage);
 		}
 
 		target.changeGameMode(GameMode.ADVENTURE);

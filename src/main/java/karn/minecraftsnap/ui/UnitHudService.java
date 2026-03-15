@@ -47,14 +47,23 @@ public class UnitHudService {
 
 	static String formatActionBar(UnitDefinition definition, int remainingCooldownSeconds, SystemConfig systemConfig) {
 		var displayConfig = systemConfig == null ? new SystemConfig.DisplayConfig() : systemConfig.display;
-		var skillName = definition == null || definition.abilityName() == null || definition.abilityName().isBlank()
-			? displayConfig.unitHudFallbackSkillName
-			: definition.abilityName();
 		var unitName = definition == null ? displayConfig.unitHudUnknownUnitName : definition.displayName();
-		var cooldown = remainingCooldownSeconds <= 0 ? displayConfig.unitHudReadyMessage : "&e" + remainingCooldownSeconds + "초";
+		if (definition == null || !definition.hasActiveSkill() || definition.abilityName() == null || definition.abilityName().isBlank()) {
+			return unitName;
+		}
+		var skillName = definition.abilityName();
+		var textConfig = modTextConfig();
+		var cooldown = remainingCooldownSeconds <= 0
+			? displayConfig.unitHudReadyMessage
+			: textConfig.unitHudCooldownTemplate.replace("{seconds}", Integer.toString(remainingCooldownSeconds));
 		return displayConfig.unitHudTemplate
 			.replace("{unit}", unitName)
 			.replace("{skill}", skillName)
 			.replace("{cooldown}", cooldown);
+	}
+
+	private static karn.minecraftsnap.config.TextConfigFile modTextConfig() {
+		var mod = karn.minecraftsnap.MinecraftSnap.getInstance();
+		return mod == null ? new karn.minecraftsnap.config.TextConfigFile() : mod.getTextConfig();
 	}
 }

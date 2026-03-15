@@ -81,7 +81,7 @@ public class WikiGuiService {
 		var lines = new ArrayList<String>();
 		if (config != null) {
 			lines.addAll(config.summaryLines());
-			lines.add("&8사령관 스킬: &d" + config.captainSkillName());
+			lines.add(textConfig().factionSelectionCaptainSkillLoreTemplate.replace("{skill}", config.captainSkillName()));
 			lines.addAll(config.captainSkillDescriptionLines());
 		}
 		gui.setSlot(13, action(iconOf(factionId), textConfig().wikiSummaryName, lines, null));
@@ -176,7 +176,6 @@ public class WikiGuiService {
 	private List<String> unitLore(UnitDefinition unit) {
 		var lines = new ArrayList<String>();
 		lines.add("&7코스트: &b" + unit.cost());
-		lines.add("&7생성 쿨: &e" + unit.spawnCooldownSeconds() + "초");
 		lines.addAll(unit.descriptionLines());
 		return lines;
 	}
@@ -186,7 +185,6 @@ public class WikiGuiService {
 		lines.add("&7체력: &c" + (int) unit.maxHealth());
 		lines.add("&7이동속도 배율: &b" + unit.moveSpeedScale());
 		lines.add("&7코스트: &b" + unit.cost());
-		lines.add("&7생성 쿨: &e" + unit.spawnCooldownSeconds() + "초");
 		if (unit.hasActiveSkill()) {
 			lines.add("&8스킬: &f" + unit.abilityName());
 			lines.add("&8스킬 쿨다운: &f" + unit.abilityCooldownSeconds() + "초");

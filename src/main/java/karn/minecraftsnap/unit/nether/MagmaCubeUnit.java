@@ -3,6 +3,7 @@ package karn.minecraftsnap.unit.nether;
 import karn.minecraftsnap.game.FactionId;
 import karn.minecraftsnap.game.UnitDefinition;
 import karn.minecraftsnap.unit.ConfiguredUnitClass;
+import karn.minecraftsnap.unit.SummonedMobSupport;
 import karn.minecraftsnap.unit.UnitContext;
 import net.minecraft.entity.attribute.EntityAttributes;
 import net.minecraft.entity.EntityType;
@@ -29,7 +30,7 @@ public class MagmaCubeUnit extends AbstractNetherUnit implements ConfiguredUnitC
 		true,
 		2,
 		10,
-		18.0,
+		20.0,
 		1.0,
 		item("minecraft:magma_cream"),
 		none(),
@@ -84,6 +85,7 @@ public class MagmaCubeUnit extends AbstractNetherUnit implements ConfiguredUnitC
 			magmaCube.refreshPositionAndAngles(player.getX() + (index - 1.5D), player.getY(), player.getZ(), player.getYaw(), player.getPitch());
 			magmaCube.setCustomName(player.getName().copy());
 			world.spawnEntity(magmaCube);
+			SummonedMobSupport.applyFriendlyTeam(context, magmaCube);
 		}
 	}
 
@@ -108,7 +110,7 @@ public class MagmaCubeUnit extends AbstractNetherUnit implements ConfiguredUnitC
 	}
 
 	double jumpStrengthValue() {
-		return 1.0D;
+		return 0.8D;
 	}
 
 	int fireResistanceDurationTicks() {

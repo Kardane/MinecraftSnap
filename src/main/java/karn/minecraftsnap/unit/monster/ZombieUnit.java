@@ -34,7 +34,7 @@ public class ZombieUnit extends AbstractMonsterUnit implements ConfiguredUnitCla
 		0,
 		UnitDefinition.AmmoType.NONE,
 		disguise("minecraft:zombie"),
-		List.of("&7사망 시 아군 사령관 소환 쿨 2초 감소"),
+		List.of("&7사망 시 아군 사령관 마나 1 회복"),
 		List.of(
 			advanceOption(
 				"husk",
@@ -64,10 +64,10 @@ public class ZombieUnit extends AbstractMonsterUnit implements ConfiguredUnitCla
 
 	@Override
 	public void onDeath(karn.minecraftsnap.unit.UnitContext context, DamageSource source) {
-		context.reduceCaptainSpawnCooldown(captainCooldownReductionOnDeathSeconds());
+		context.restoreCaptainMana(captainManaRestoreOnDeath());
 	}
 
-	int captainCooldownReductionOnDeathSeconds() {
-		return 2;
+	int captainManaRestoreOnDeath() {
+		return 1;
 	}
 }

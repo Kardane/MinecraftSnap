@@ -83,7 +83,10 @@ public class CaptureHudService {
 		if (seconds <= 0 || state.getProgress().getTeamId() == null) {
 			return "&f" + owner;
 		}
-		return "&f" + owner + " &8| &e" + Math.min(seconds, captureConfig.captureStepSeconds) + "&7/&f" + captureConfig.captureStepSeconds;
+		return captureConfig.captureProgressBossBarTemplate
+			.replace("{owner}", owner)
+			.replace("{current}", Integer.toString(Math.min(seconds, captureConfig.captureStepSeconds)))
+			.replace("{required}", Integer.toString(captureConfig.captureStepSeconds));
 	}
 
 	static float progressPercent(CaptureProgress progress, int captureStepSeconds) {

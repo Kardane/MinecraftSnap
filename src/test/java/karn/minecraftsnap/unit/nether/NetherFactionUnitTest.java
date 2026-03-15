@@ -3,6 +3,7 @@ package karn.minecraftsnap.unit.nether;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 
 class NetherFactionUnitTest {
 	@Test
@@ -36,8 +37,9 @@ class NetherFactionUnitTest {
 		assertEquals("minecraft:golden_sword", definition.mainHand().itemId);
 		assertEquals("", definition.abilityName());
 		assertEquals(0, definition.abilityCooldownSeconds());
-		assertEquals(0.2D, unit.summonChance());
+		assertEquals(0.1D, unit.summonChance());
 		assertEquals(5.0D, unit.summonRange());
+		assertFalse(unit.hasTriggeringAttacker(null));
 	}
 
 	@Test
@@ -52,13 +54,13 @@ class NetherFactionUnitTest {
 		assertEquals(1.2, definition.moveSpeedScale());
 		assertEquals("minecraft:blaze_rod", definition.mainHand().itemId);
 		assertEquals("minecraft:blaze_rod", definition.abilityItemSpec().itemId);
-		assertEquals(8, definition.abilityCooldownSeconds());
-		assertEquals(4.0D, unit.weaponAttackDamage());
+		assertEquals(9, definition.abilityCooldownSeconds());
+		assertEquals(2.0D, unit.weaponAttackDamage());
 		assertEquals(1.0D, unit.weaponAttackSpeed());
 		assertEquals(2, unit.weaponFireAspectLevel());
 		assertEquals(40, unit.fireResistanceDurationTicks());
 		assertEquals(3, unit.shotCount());
-		assertEquals(10L, unit.shotIntervalTicks());
+		assertEquals(8L, unit.shotIntervalTicks());
 	}
 
 	@Test
@@ -69,13 +71,13 @@ class NetherFactionUnitTest {
 		assertEquals("마그마 큐브", definition.displayName());
 		assertEquals(2, definition.cost());
 		assertEquals(10, definition.spawnCooldownSeconds());
-		assertEquals(18.0, definition.maxHealth());
+		assertEquals(20.0, definition.maxHealth());
 		assertEquals(1.0, definition.moveSpeedScale());
 		assertEquals("minecraft:magma_cream", definition.mainHand().itemId);
 		assertEquals(3.0D, unit.weaponAttackDamage());
 		assertEquals(2.0D, unit.weaponAttackSpeed());
 		assertEquals(1, unit.weaponFireAspectLevel());
-		assertEquals(1.0D, unit.jumpStrengthValue());
+		assertEquals(0.8D, unit.jumpStrengthValue());
 		assertEquals(40, unit.fireResistanceDurationTicks());
 		assertEquals(4, unit.spawnedMagmaCubeCount());
 		assertEquals(2, unit.spawnedMagmaCubeSize());
@@ -89,13 +91,13 @@ class NetherFactionUnitTest {
 		assertEquals("피글린 브루트", definition.displayName());
 		assertEquals(5, definition.cost());
 		assertEquals(30, definition.spawnCooldownSeconds());
-		assertEquals(32.0, definition.maxHealth());
+		assertEquals(30.0, definition.maxHealth());
 		assertEquals(1.0, definition.moveSpeedScale());
 		assertEquals("minecraft:golden_axe", definition.mainHand().itemId);
 		assertEquals("minecraft:golden_axe", definition.abilityItemSpec().itemId);
 		assertEquals(24, definition.abilityCooldownSeconds());
 		assertEquals(3, unit.supportGoldCount());
 		assertEquals(1, unit.weaponSharpnessLevel());
-		assertEquals(100, unit.buffDurationTicks());
+		assertEquals(60, unit.buffDurationTicks());
 	}
 }

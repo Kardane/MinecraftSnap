@@ -16,7 +16,7 @@ public class ChargedCreeperUnit extends CreeperUnit {
 	private static final EntitySpecEntry POWERED_IGNITED_DISGUISE = disguise("minecraft:creeper", "{powered:1b,ignited:1b}");
 	public static final UnitDefinition DEFINITION = unit(
 		"charged_creeper",
-		"대전된 크리퍼",
+		"충전된 크리퍼",
 		FactionId.MONSTER,
 		false,
 		0,
@@ -34,7 +34,7 @@ public class ChargedCreeperUnit extends CreeperUnit {
 		20,
 		UnitDefinition.AmmoType.NONE,
 		POWERED_DISGUISE,
-		List.of("&7대전 상태 유지", "&76칸 내 적에게 피해 99"),
+		List.of("&7대전 상태 유지", "&77칸 내 적에게 피해 100"),
 		List.of()
 	);
 
@@ -55,12 +55,12 @@ public class ChargedCreeperUnit extends CreeperUnit {
 
 	@Override
 	double blastRadius() {
-		return 6.0D;
+		return 7.0D;
 	}
 
 	@Override
 	float blastDamage() {
-		return 99.0f;
+		return 100.0f;
 	}
 
 	@Override

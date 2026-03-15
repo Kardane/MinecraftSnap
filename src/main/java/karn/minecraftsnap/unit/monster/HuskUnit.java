@@ -36,7 +36,7 @@ public class HuskUnit extends ZombieUnit implements ConfiguredUnitClass {
 		0,
 		UnitDefinition.AmmoType.NONE,
 		disguise("minecraft:husk"),
-		List.of("&7공격 시 구속 I, 나약함 I 3초", "&7사망 시 아군 사령관 소환 쿨 3초 감소"),
+		List.of("&7공격 시 구속 I, 나약함 I 3초", "&7사망 시 아군 사령관 마나 1 회복"),
 		List.of()
 	);
 
@@ -52,11 +52,6 @@ public class HuskUnit extends ZombieUnit implements ConfiguredUnitClass {
 		}
 		victim.addStatusEffect(new StatusEffectInstance(StatusEffects.SLOWNESS, statusDurationTicks(), 0), context.player());
 		victim.addStatusEffect(new StatusEffectInstance(StatusEffects.WEAKNESS, statusDurationTicks(), 0), context.player());
-	}
-
-	@Override
-	int captainCooldownReductionOnDeathSeconds() {
-		return 3;
 	}
 
 	int statusDurationTicks() {

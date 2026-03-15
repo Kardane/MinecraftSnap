@@ -137,16 +137,19 @@ public class AdvanceGuiService {
 		var weather = formatWeatherNames(option.weathers());
 		var biomeTexts = biomeTexts(option.biomes());
 		if (!biomeTexts.isEmpty() && !weather.isBlank()) {
-			return textTemplateResolver.format("&7조건: &f")
+			return textTemplateResolver.format(textConfig.advanceConditionPrefix)
 				.copy()
 				.append(joinBiomeTexts(biomeTexts))
-				.append(textTemplateResolver.format("&7에서 &f" + weather + "&7 상태로 &f" + seconds + "초&7 동안 잔류"));
+				.append(textTemplateResolver.format(textConfig.advanceConditionBiomeWeatherDurationSuffixTemplate
+					.replace("{weather}", weather)
+					.replace("{seconds}", seconds)));
 		}
 		if (!biomeTexts.isEmpty()) {
-			return textTemplateResolver.format("&7조건: &f")
+			return textTemplateResolver.format(textConfig.advanceConditionPrefix)
 				.copy()
 				.append(joinBiomeTexts(biomeTexts))
-				.append(textTemplateResolver.format("&7에서 &f" + seconds + "초&7 동안 잔류"));
+				.append(textTemplateResolver.format(textConfig.advanceConditionBiomeDurationSuffixTemplate
+					.replace("{seconds}", seconds)));
 		}
 		if (!weather.isBlank()) {
 			return textTemplateResolver.format(textConfig.advanceConditionWeatherDurationLoreTemplate
@@ -236,9 +239,9 @@ public class AdvanceGuiService {
 
 	private static String formatWeatherName(String weather) {
 		return switch (weather) {
-			case "clear" -> "맑음";
-			case "rain" -> "비";
-			case "thunder" -> "천둥";
+			case "clear" -> textConfigStatic().captainMonsterWeatherClearName;
+			case "rain" -> textConfigStatic().captainMonsterWeatherRainName;
+			case "thunder" -> textConfigStatic().captainMonsterWeatherThunderName;
 			default -> formatResourceName(weather);
 		};
 	}

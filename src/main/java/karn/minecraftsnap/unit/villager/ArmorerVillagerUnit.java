@@ -31,7 +31,7 @@ public class ArmorerVillagerUnit extends AbstractVillagerUnit implements Configu
 		"",
 		0,
 		UnitDefinition.AmmoType.NONE,
-		disguise("minecraft:villager"),
+		disguise("minecraft:villager", "{VillagerData:{type:\"minecraft:plains\",profession:\"minecraft:armorer\",level:1}}"),
 		List.of("&7철 흉갑과 방패 보유", "&7전선 유지용"),
 		List.of()
 	);

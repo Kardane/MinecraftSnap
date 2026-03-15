@@ -132,12 +132,10 @@ public class CaptainSkillService {
 			return;
 		}
 		var refundMana = refundAmount(definition.cost());
-		var refundCooldown = refundAmount(definition.spawnCooldownSeconds());
-		captainManaService.refundSpawnResources(captain.getUuid(), refundMana, refundCooldown);
-		if (refundMana > 0 || refundCooldown > 0) {
+		captainManaService.refundSpawnResources(captain.getUuid(), refundMana, 0);
+		if (refundMana > 0) {
 			captain.sendMessage(textTemplateResolver.format(textConfig().captainPortalRefundMessage
-				.replace("{mana}", Integer.toString(refundMana))
-				.replace("{cooldown}", Integer.toString(refundCooldown))), true);
+				.replace("{mana}", Integer.toString(refundMana))), true);
 		}
 	}
 

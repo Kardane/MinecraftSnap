@@ -91,6 +91,10 @@ public class UnitLoadoutService {
 		if (scale != null) {
 			scale.setBaseValue(1.0D);
 		}
+		var jumpStrength = player.getAttributeInstance(EntityAttributes.JUMP_STRENGTH);
+		if (jumpStrength != null) {
+			jumpStrength.setBaseValue(0.42D);
+		}
 		player.setHealth((float) definition.maxHealth());
 	}
 
@@ -122,6 +126,10 @@ public class UnitLoadoutService {
 		var scale = player.getAttributeInstance(EntityAttributes.SCALE);
 		if (scale != null) {
 			scale.setBaseValue(1.0D);
+		}
+		var jumpStrength = player.getAttributeInstance(EntityAttributes.JUMP_STRENGTH);
+		if (jumpStrength != null) {
+			jumpStrength.setBaseValue(0.42D);
 		}
 		player.clearStatusEffects();
 		player.setHealth(20.0f);

@@ -36,10 +36,9 @@ public class CaptainSpawnGuiService {
 		gui.setTitle(textTemplateResolver.format(title));
 		int slot = 10;
 		for (var definition : unitRegistry.byFaction(factionId)) {
-			var blocked = captainState.getCurrentMana() < definition.cost() || captainState.getSpawnCooldownSeconds() > 0;
+			var blocked = captainState.getCurrentMana() < definition.cost();
 			var lore = new java.util.ArrayList<String>();
 			lore.add(textConfig().captainSpawnCostLoreTemplate.replace("{cost}", Integer.toString(definition.cost())));
-			lore.add(textConfig().captainSpawnCooldownLoreTemplate.replace("{seconds}", Integer.toString(definition.spawnCooldownSeconds())));
 			lore.add(textConfig().captainSpawnHealthLoreTemplate.replace("{health}", Integer.toString((int) definition.maxHealth())));
 			lore.addAll(definition.descriptionLines());
 			lore.add(blocked ? textConfig().captainSpawnBlockedLore : textConfig().captainSpawnReadyLore);

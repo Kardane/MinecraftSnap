@@ -20,7 +20,7 @@ class MonsterFactionUnitTest {
 		assertEquals(0.8, definition.moveSpeedScale());
 		assertEquals("minecraft:iron_shovel", definition.mainHand().itemId);
 		assertEquals("minecraft:leather_helmet", definition.helmet().itemId);
-		assertEquals(2, unit.captainCooldownReductionOnDeathSeconds());
+		assertEquals(1, unit.captainManaRestoreOnDeath());
 		assertEquals(Set.of("husk", "drowned"), definition.advanceOptions().stream().map(option -> option.resultUnitId).collect(java.util.stream.Collectors.toSet()));
 	}
 
@@ -35,7 +35,7 @@ class MonsterFactionUnitTest {
 		assertEquals(20.0, definition.maxHealth());
 		assertEquals(0.9, definition.moveSpeedScale());
 		assertEquals("minecraft:iron_sword", definition.mainHand().itemId);
-		assertEquals(3, unit.captainCooldownReductionOnDeathSeconds());
+		assertEquals(1, unit.captainManaRestoreOnDeath());
 		assertEquals(60, unit.statusDurationTicks());
 	}
 
@@ -50,7 +50,7 @@ class MonsterFactionUnitTest {
 		assertEquals(18.0, definition.maxHealth());
 		assertEquals(1.0, definition.moveSpeedScale());
 		assertEquals("minecraft:trident", definition.mainHand().itemId);
-		assertEquals(3, unit.captainCooldownReductionOnDeathSeconds());
+		assertEquals(1, unit.captainManaRestoreOnDeath());
 	}
 
 	@Test
@@ -61,12 +61,12 @@ class MonsterFactionUnitTest {
 		assertEquals("슬라임", definition.displayName());
 		assertEquals(2, definition.cost());
 		assertEquals(8, definition.spawnCooldownSeconds());
-		assertEquals(14.0, definition.maxHealth());
+		assertEquals(18.0, definition.maxHealth());
 		assertEquals(1.0, definition.moveSpeedScale());
 		assertEquals("minecraft:slime_ball", definition.mainHand().itemId);
 		assertEquals(3.0D, unit.weaponAttackDamage());
 		assertEquals(2.0D, unit.weaponAttackSpeed());
-		assertEquals(1.0D, unit.jumpStrengthValue());
+		assertEquals(0.8D, unit.jumpStrengthValue());
 		assertEquals(4, unit.spawnedSlimeCount());
 		assertEquals(2, unit.spawnedSlimeSize());
 		assertEquals(300, definition.advanceOptions().getFirst().requiredTicks);
@@ -80,8 +80,8 @@ class MonsterFactionUnitTest {
 		assertEquals("거대 슬라임", definition.displayName());
 		assertEquals(30.0, definition.maxHealth());
 		assertEquals(1.0, definition.moveSpeedScale());
-		assertEquals(2, unit.spawnedSlimeCount());
-		assertEquals(4, unit.spawnedSlimeSize());
+		assertEquals(3, unit.spawnedSlimeCount());
+		assertEquals(5, unit.spawnedSlimeSize());
 		assertTrue(definition.disguise().entityNbt.contains("Size:5"));
 	}
 
@@ -114,7 +114,7 @@ class MonsterFactionUnitTest {
 		assertEquals(16.0, definition.maxHealth());
 		assertEquals(0.8, definition.moveSpeedScale());
 		assertEquals("minecraft:bow", definition.mainHand().itemId);
-		assertEquals(60, unit.statusDurationTicks());
+		assertEquals(40, unit.statusDurationTicks());
 		assertEquals(1, unit.effectAmplifier());
 	}
 
@@ -130,7 +130,7 @@ class MonsterFactionUnitTest {
 		assertEquals(0.8, definition.moveSpeedScale());
 		assertEquals("minecraft:bow", definition.mainHand().itemId);
 		assertEquals(100, unit.statusDurationTicks());
-		assertEquals(2, unit.effectAmplifier());
+		assertEquals(1, unit.effectAmplifier());
 	}
 
 	@Test
@@ -146,7 +146,7 @@ class MonsterFactionUnitTest {
 		assertEquals("minecraft:stone_sword", definition.mainHand().itemId);
 		assertEquals("minecraft:stone_sword", definition.abilityItemSpec().itemId);
 		assertEquals(8, definition.abilityCooldownSeconds());
-		assertEquals(80, unit.statusDurationTicks());
+		assertEquals(60, unit.statusDurationTicks());
 		assertEquals(1, unit.effectAmplifier());
 		assertEquals(40, unit.fireResistanceDurationTicks());
 	}

@@ -25,7 +25,7 @@ public class PiglinBruteUnit extends AbstractNetherUnit implements ConfiguredUni
 		true,
 		5,
 		30,
-		32.0,
+		30.0,
 		1.0,
 		item("minecraft:golden_axe"),
 		karn.minecraftsnap.unit.UnitSpecSupport.none(),
@@ -38,7 +38,7 @@ public class PiglinBruteUnit extends AbstractNetherUnit implements ConfiguredUni
 		24,
 		UnitDefinition.AmmoType.NONE,
 		disguise("minecraft:piglin_brute"),
-		List.of("&7해로운 상태이상 해제", "&75초간 힘 I, 저항 I, 이속 I, 발광 I", "&7금괴 3개 지급"),
+		List.of("&7해로운 상태이상 해제", "&73초간 힘 I, 저항 I, 이속 I, 발광 I", "&7금괴 3개 지급"),
 		List.of()
 	);
 
@@ -75,6 +75,6 @@ public class PiglinBruteUnit extends AbstractNetherUnit implements ConfiguredUni
 	}
 
 	int buffDurationTicks() {
-		return 20 * 5;
+		return 20 * 3;
 	}
 }

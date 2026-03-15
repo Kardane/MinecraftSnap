@@ -37,7 +37,7 @@ public class DrownedUnit extends ZombieUnit implements ConfiguredUnitClass {
 		0,
 		UnitDefinition.AmmoType.NONE,
 		disguise("minecraft:drowned"),
-		List.of("&7사망 시 아군 사령관 소환 쿨 3초 감소", "&7수중 호흡 무한, 물속 이동 강화"),
+		List.of("&7사망 시 아군 사령관 마나 1 회복", "&7수중 호흡 무한, 물속 이동 강화"),
 		List.of()
 	);
 
@@ -62,8 +62,4 @@ public class DrownedUnit extends ZombieUnit implements ConfiguredUnitClass {
 		}
 	}
 
-	@Override
-	int captainCooldownReductionOnDeathSeconds() {
-		return 3;
-	}
 }

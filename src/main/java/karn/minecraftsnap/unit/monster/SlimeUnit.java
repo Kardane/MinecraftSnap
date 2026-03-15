@@ -3,6 +3,7 @@ package karn.minecraftsnap.unit.monster;
 import karn.minecraftsnap.game.FactionId;
 import karn.minecraftsnap.game.UnitDefinition;
 import karn.minecraftsnap.unit.ConfiguredUnitClass;
+import karn.minecraftsnap.unit.SummonedMobSupport;
 import karn.minecraftsnap.unit.UnitContext;
 import net.minecraft.entity.attribute.EntityAttributes;
 import net.minecraft.entity.damage.DamageSource;
@@ -26,7 +27,7 @@ public class SlimeUnit extends AbstractMonsterUnit implements ConfiguredUnitClas
 		true,
 		2,
 		8,
-		14.0,
+		18.0,
 		1.0,
 		item("minecraft:slime_ball"),
 		none(),
@@ -86,6 +87,7 @@ public class SlimeUnit extends AbstractMonsterUnit implements ConfiguredUnitClas
 			slime.refreshPositionAndAngles(player.getX() + (index - 1), player.getY(), player.getZ(), player.getYaw(), player.getPitch());
 			slime.setCustomName(player.getName().copy());
 			world.spawnEntity(slime);
+			SummonedMobSupport.applyFriendlyTeam(context, slime);
 		}
 	}
 
@@ -113,6 +115,6 @@ public class SlimeUnit extends AbstractMonsterUnit implements ConfiguredUnitClas
 	}
 
 	double jumpStrengthValue() {
-		return 1.0D;
+		return 0.8D;
 	}
 }

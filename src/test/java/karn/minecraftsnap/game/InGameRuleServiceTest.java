@@ -66,7 +66,7 @@ class InGameRuleServiceTest {
 		var attacker = new PlayerMatchState();
 		attacker.setTeam(TeamId.BLUE, RoleType.CAPTAIN);
 
-		assertTrue(service.isDamageAllowed(victim, attacker, MatchPhase.GAME_RUNNING));
+		assertFalse(service.isDamageAllowed(victim, attacker, MatchPhase.GAME_RUNNING));
 	}
 
 	@Test
@@ -85,7 +85,7 @@ class InGameRuleServiceTest {
 	}
 
 	@Test
-	void blocksClosedLaneForUnitOnly() {
+	void blocksClosedLaneForUnitAndCaptain() {
 		var manager = new MatchManager();
 		var service = createService(manager);
 		var unit = new PlayerMatchState();
@@ -94,10 +94,11 @@ class InGameRuleServiceTest {
 		captain.setTeam(TeamId.RED, RoleType.CAPTAIN);
 
 		assertTrue(service.shouldBlockClosedLane(unit, LaneId.LANE_2));
-		assertFalse(service.shouldBlockClosedLane(captain, LaneId.LANE_2));
+		assertTrue(service.shouldBlockClosedLane(captain, LaneId.LANE_2));
 
 		manager.revealLane(LaneId.LANE_2);
 		assertFalse(service.shouldBlockClosedLane(unit, LaneId.LANE_2));
+		assertTrue(service.shouldBlockClosedLane(captain, LaneId.LANE_2));
 	}
 
 	@Test

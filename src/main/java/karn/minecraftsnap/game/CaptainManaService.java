@@ -37,9 +37,6 @@ public class CaptainManaService {
 				state.setCurrentMana(Math.min(state.getMaxMana(), state.getCurrentMana() + gainedMana));
 			}
 
-			if (state.getSpawnCooldownSeconds() > 0) {
-				state.setSpawnCooldownSeconds(state.getSpawnCooldownSeconds() - 1);
-			}
 			if (state.getSkillCooldownSeconds() > 0) {
 				state.setSkillCooldownSeconds(state.getSkillCooldownSeconds() - 1);
 			}
@@ -85,17 +82,15 @@ public class CaptainManaService {
 
 	public boolean trySpendForSpawn(UUID captainId, int cost, int cooldownSeconds) {
 		var state = getOrCreate(captainId);
-		if (state.getCurrentMana() < cost || state.getSpawnCooldownSeconds() > 0) {
+		if (state.getCurrentMana() < cost) {
 			return false;
 		}
 		state.setCurrentMana(state.getCurrentMana() - cost);
-		state.setSpawnCooldownSeconds(cooldownSeconds);
 		return true;
 	}
 
 	public void reduceSpawnCooldown(UUID captainId, int seconds) {
-		var state = getOrCreate(captainId);
-		state.setSpawnCooldownSeconds(Math.max(0, state.getSpawnCooldownSeconds() - seconds));
+		getOrCreate(captainId).setSpawnCooldownSeconds(0);
 	}
 
 	public void triggerSkillCooldown(UUID captainId, int cooldownSeconds) {
@@ -117,9 +112,15 @@ public class CaptainManaService {
 		if (manaAmount > 0) {
 			state.setCurrentMana(Math.min(state.getMaxMana(), state.getCurrentMana() + manaAmount));
 		}
-		if (cooldownSeconds > 0) {
-			state.setSpawnCooldownSeconds(Math.max(0, state.getSpawnCooldownSeconds() - cooldownSeconds));
+		state.setSpawnCooldownSeconds(0);
+	}
+
+	public void restoreMana(UUID captainId, int amount) {
+		if (amount <= 0) {
+			return;
 		}
+		var state = getOrCreate(captainId);
+		state.setCurrentMana(Math.min(state.getMaxMana(), state.getCurrentMana() + amount));
 	}
 
 	public void clearRuntimeState(UUID captainId) {

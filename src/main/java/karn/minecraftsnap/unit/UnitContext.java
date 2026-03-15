@@ -149,13 +149,18 @@ public class UnitContext {
 	}
 
 	public void reduceCaptainSpawnCooldown(int seconds) {
-		if (matchManager == null || state == null || state.getTeamId() == null || captainManaService == null) {
+		return;
+	}
+
+	public void restoreCaptainMana(int amount) {
+		if (amount <= 0 || matchManager == null || state == null || state.getTeamId() == null || captainManaService == null) {
 			return;
 		}
 		var captainId = matchManager.getCaptainId(state.getTeamId());
-		if (captainId != null) {
-			captainManaService.reduceSpawnCooldown(captainId, seconds);
+		if (captainId == null) {
+			return;
 		}
+		captainManaService.restoreMana(captainId, amount);
 	}
 
 	public void openTrade() {

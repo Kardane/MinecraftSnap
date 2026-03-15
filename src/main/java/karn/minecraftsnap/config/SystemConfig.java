@@ -57,6 +57,7 @@ public class SystemConfig {
 		public transient String redOwnerBossBarText = "레드 점령지";
 		public transient String blueOwnerBossBarText = "블루 점령지";
 		public transient String neutralOwnerBossBarText = "중립 점령지";
+		public transient String captureProgressBossBarTemplate = "&f{owner} &8| &e{current}&7/&f{required}";
 		public CaptureRegionConfig lane1 = CaptureRegionConfig.create("1번 라인", -4.0, 60.0, -4.0, 4.0, 68.0, 4.0);
 		public CaptureRegionConfig lane2 = CaptureRegionConfig.create("2번 라인", 16.0, 60.0, -4.0, 24.0, 68.0, 4.0);
 		public CaptureRegionConfig lane3 = CaptureRegionConfig.create("3번 라인", 36.0, 60.0, -4.0, 44.0, 68.0, 4.0);

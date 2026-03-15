@@ -26,6 +26,7 @@ class VillagerFactionUnitTest {
 		assertEquals("minecraft:bread", definition.abilityItemSpec().itemId);
 		assertEquals(8, definition.abilityCooldownSeconds());
 		assertEquals(5.0f, unit.healAmount());
+		assertTrue(definition.disguise().entityNbt.contains("minecraft:nitwit"));
 	}
 
 	@Test
@@ -45,6 +46,7 @@ class VillagerFactionUnitTest {
 		assertEquals("", definition.legs().itemId);
 		assertEquals("", definition.boots().itemId);
 		assertFalse(definition.hasActiveSkill());
+		assertTrue(definition.disguise().entityNbt.contains("minecraft:armorer"));
 	}
 
 	@Test

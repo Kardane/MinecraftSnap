@@ -98,7 +98,7 @@ public class LobbyScoreboardService {
 	}
 
 	private Text formatRunningLane(MatchManager matchManager, LaneId laneId) {
-		var biomeName = "???";
+		var biomeName = textConfig().runningSidebarHiddenBiomeName;
 		if (matchManager.isLaneRevealed(laneId)) {
 			var assignedBiomeId = matchManager.getAssignedBiomeId(laneId);
 			var mod = MinecraftSnap.getInstance();
@@ -119,19 +119,19 @@ public class LobbyScoreboardService {
 	private String runningIcon(MatchManager matchManager, LaneId laneId) {
 		var mod = MinecraftSnap.getInstance();
 		if (mod == null || mod.getCapturePointService() == null) {
-			return "&f⬛";
+			return textConfig().runningSidebarNeutralIcon;
 		}
 		var state = mod.getCapturePointService().getState(laneId);
 		if (state == null) {
-			return "&f⬛";
+			return textConfig().runningSidebarNeutralIcon;
 		}
 		if (state.getProgress().isContested()) {
-			return "&e⬛";
+			return textConfig().runningSidebarContestedIcon;
 		}
 		return switch (state.getOwner()) {
-			case RED -> "&c⬛";
-			case BLUE -> "&9⬛";
-			case NEUTRAL -> "&f⬛";
+			case RED -> textConfig().runningSidebarRedIcon;
+			case BLUE -> textConfig().runningSidebarBlueIcon;
+			case NEUTRAL -> textConfig().runningSidebarNeutralIcon;
 		};
 	}
 

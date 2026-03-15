@@ -40,10 +40,10 @@ public class BlazeUnit extends AbstractNetherUnit implements ConfiguredUnitClass
 		karn.minecraftsnap.unit.UnitSpecSupport.none(),
 		item("minecraft:blaze_rod"),
 		"화염구 3연사",
-		8,
+		9,
 		UnitDefinition.AmmoType.NONE,
 		disguise("minecraft:blaze"),
-		List.of("&70.5초마다 작은 화염구 1개씩 총 3개 발사"),
+		List.of("&70.4초마다 작은 화염구 1개씩 총 3개 발사"),
 		List.of()
 	);
 
@@ -100,7 +100,7 @@ public class BlazeUnit extends AbstractNetherUnit implements ConfiguredUnitClass
 	}
 
 	double weaponAttackDamage() {
-		return 4.0D;
+		return 2.0D;
 	}
 
 	double weaponAttackSpeed() {
@@ -116,7 +116,7 @@ public class BlazeUnit extends AbstractNetherUnit implements ConfiguredUnitClass
 	}
 
 	long shotIntervalTicks() {
-		return 10L;
+		return 8L;
 	}
 
 	int fireResistanceDurationTicks() {

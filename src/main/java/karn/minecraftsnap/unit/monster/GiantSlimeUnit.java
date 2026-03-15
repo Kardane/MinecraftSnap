@@ -34,7 +34,7 @@ public class GiantSlimeUnit extends SlimeUnit implements ConfiguredUnitClass {
 		0,
 		UnitDefinition.AmmoType.NONE,
 		disguise("minecraft:slime", "{Size:5}"),
-		List.of("&7크기 200% 증가", "&7사망 시 사이즈 4 슬라임 2마리 생성"),
+		List.of("&7크기 200% 증가", "&7사망 시 사이즈 5 슬라임 3마리 생성"),
 		List.of()
 	);
 
@@ -64,11 +64,11 @@ public class GiantSlimeUnit extends SlimeUnit implements ConfiguredUnitClass {
 
 	@Override
 	int spawnedSlimeCount() {
-		return 2;
+		return 3;
 	}
 
 	@Override
 	int spawnedSlimeSize() {
-		return 4;
+		return 5;
 	}
 }

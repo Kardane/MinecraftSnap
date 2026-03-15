@@ -18,13 +18,13 @@ class CreeperUnitTest {
 		assertEquals("minecraft:tnt", definition.mainHand().itemId);
 		assertEquals("minecraft:tnt", definition.abilityItemSpec().itemId);
 		assertEquals(20, definition.abilityCooldownSeconds());
-		assertEquals(40L, unit.selfDestructDelayTicks());
+		assertEquals(30L, unit.selfDestructDelayTicks());
 		assertEquals(900, definition.advanceOptions().getFirst().requiredTicks);
 		assertTrue(definition.advanceOptions().getFirst().biomes.isEmpty());
 		assertEquals(1, definition.advanceOptions().getFirst().weathers.size());
 		assertEquals("thunder", definition.advanceOptions().getFirst().weathers.getFirst());
-		assertEquals(4.5D, unit.blastRadius());
-		assertEquals(30.0f, unit.blastDamage());
+		assertEquals(5.0D, unit.blastRadius());
+		assertEquals(50.0f, unit.blastDamage());
 		assertTrue(unit.activeDisguise().entityNbt.contains("ignited:1b"));
 	}
 
@@ -34,8 +34,8 @@ class CreeperUnitTest {
 		var definition = unit.definition();
 
 		assertEquals(20, definition.abilityCooldownSeconds());
-		assertEquals(6.0D, unit.blastRadius());
-		assertEquals(99.0f, unit.blastDamage());
+		assertEquals(7.0D, unit.blastRadius());
+		assertEquals(100.0f, unit.blastDamage());
 		assertTrue(unit.restingDisguise().entityNbt.contains("powered:1b"));
 		assertTrue(unit.activeDisguise().entityNbt.contains("powered:1b"));
 		assertTrue(unit.activeDisguise().entityNbt.contains("ignited:1b"));

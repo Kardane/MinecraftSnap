@@ -54,4 +54,22 @@ class TeamAssignmentServiceTest {
 
 		assertNotEquals(first, second);
 	}
+
+	@Test
+	void teamCountsStayWithinOnePlayerDifference() {
+		var service = new TeamAssignmentService(new Random(0L));
+		var players = List.of(
+			new TeamAssignmentService.PlayerCandidate(UUID.randomUUID(), "p1", 500, "none", null, false),
+			new TeamAssignmentService.PlayerCandidate(UUID.randomUUID(), "p2", 400, "none", null, false),
+			new TeamAssignmentService.PlayerCandidate(UUID.randomUUID(), "p3", 300, "none", null, false),
+			new TeamAssignmentService.PlayerCandidate(UUID.randomUUID(), "p4", 200, "none", null, false),
+			new TeamAssignmentService.PlayerCandidate(UUID.randomUUID(), "p5", 100, "none", null, false)
+		);
+
+		var result = service.assignTeams(players);
+		int redCount = (int) players.stream().filter(it -> result.get(it.playerId()) == TeamId.RED).count();
+		int blueCount = (int) players.stream().filter(it -> result.get(it.playerId()) == TeamId.BLUE).count();
+
+		assertTrue(Math.abs(redCount - blueCount) <= 1);
+	}
 }

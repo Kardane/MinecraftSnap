@@ -18,9 +18,9 @@ class MinecraftSnapAudioCatalogTest {
 
 	@Test
 	void loopDurationsMatchConvertedAudioLengths() {
-		assertEquals(22, MinecraftSnapAudioCatalog.LOBBY.durationTicks());
-		assertEquals(2183, MinecraftSnapAudioCatalog.LOBBY2.durationTicks());
-		assertEquals(4239, MinecraftSnapAudioCatalog.READY.durationTicks());
-		assertEquals(4563, MinecraftSnapAudioCatalog.GAME.durationTicks());
+		assertEquals(2182, MinecraftSnapAudioCatalog.LOBBY.durationTicks());
+		assertEquals(2182, MinecraftSnapAudioCatalog.LOBBY2.durationTicks());
+		assertEquals(4237, MinecraftSnapAudioCatalog.READY.durationTicks());
+		assertEquals(4561, MinecraftSnapAudioCatalog.GAME.durationTicks());
 	}
 }

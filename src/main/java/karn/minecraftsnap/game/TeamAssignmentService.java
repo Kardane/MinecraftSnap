@@ -21,6 +21,7 @@ public class TeamAssignmentService {
 
 	public Map<UUID, TeamId> assignTeams(List<PlayerCandidate> players) {
 		Map<UUID, TeamId> assignments = new HashMap<>();
+		int maxTeamSize = (players.size() + 1) / 2;
 		int redLadder = 0;
 		int blueLadder = 0;
 		int redCount = 0;
@@ -51,7 +52,15 @@ public class TeamAssignmentService {
 			var redProjectedDiff = Math.abs((redLadder + player.ladder()) - blueLadder);
 			var blueProjectedDiff = Math.abs(redLadder - (blueLadder + player.ladder()));
 			boolean assignRed;
-			if (Math.abs(redProjectedDiff - blueProjectedDiff) <= RANDOM_TIE_THRESHOLD && redCount == blueCount) {
+			if (redCount >= maxTeamSize) {
+				assignRed = false;
+			} else if (blueCount >= maxTeamSize) {
+				assignRed = true;
+			} else if (redCount > blueCount) {
+				assignRed = false;
+			} else if (blueCount > redCount) {
+				assignRed = true;
+			} else if (Math.abs(redProjectedDiff - blueProjectedDiff) <= RANDOM_TIE_THRESHOLD) {
 				assignRed = random.nextBoolean();
 			} else {
 				assignRed = redProjectedDiff < blueProjectedDiff

@@ -8,10 +8,10 @@ import java.util.ArrayList;
 import java.util.List;
 
 public final class MinecraftSnapAudioCatalog {
-	public static final ManagedLoopSound LOBBY = loop("music.lobby", fallback("minecraft:music.menu"), 22);
-	public static final ManagedLoopSound LOBBY2 = loop("music.lobby2", fallback("minecraft:music.menu"), 2183);
-	public static final ManagedLoopSound READY = loop("music.ready", fallback("minecraft:music.game"), 4239);
-	public static final ManagedLoopSound GAME = loop("music.game", fallback("minecraft:music.dragon"), 4563);
+	public static final ManagedLoopSound LOBBY = loop("music.lobby", fallback("minecraft:music.menu"), 2182);
+	public static final ManagedLoopSound LOBBY2 = loop("music.lobby2", fallback("minecraft:music.menu"), 2182);
+	public static final ManagedLoopSound READY = loop("music.ready", fallback("minecraft:music.game"), 4237);
+	public static final ManagedLoopSound GAME = loop("music.game", fallback("minecraft:music.dragon"), 4561);
 	public static final ManagedCueSound START = cue("music.start", fallback("minecraft:ui.toast.challenge_complete"));
 	public static final ManagedCueSound END = cue("music.end", fallback("minecraft:entity.player.levelup"));
 

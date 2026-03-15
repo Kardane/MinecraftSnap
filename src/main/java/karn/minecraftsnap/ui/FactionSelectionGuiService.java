@@ -4,6 +4,8 @@ import karn.minecraftsnap.audio.UiSoundService;
 import eu.pb4.sgui.api.elements.GuiElementBuilder;
 import eu.pb4.sgui.api.elements.GuiElementInterface;
 import eu.pb4.sgui.api.gui.SimpleGui;
+import karn.minecraftsnap.MinecraftSnap;
+import karn.minecraftsnap.config.TextConfigFile;
 import karn.minecraftsnap.game.FactionId;
 import karn.minecraftsnap.game.FactionSpec;
 import karn.minecraftsnap.game.TeamId;
@@ -33,7 +35,7 @@ public class FactionSelectionGuiService {
 
 	public void open(ServerPlayerEntity player, TeamId teamId, FactionId selectedFaction, Consumer<FactionId> onSelect) {
 		var gui = new SimpleGui(ScreenHandlerType.GENERIC_9X3, player, false);
-		gui.setTitle(textTemplateResolver.format(teamId == TeamId.RED ? "&c레드 팩션 선택" : "&9블루 팩션 선택"));
+		gui.setTitle(textTemplateResolver.format(teamId == TeamId.RED ? textConfig().factionSelectionRedTitle : textConfig().factionSelectionBlueTitle));
 		gui.setSlot(11, buildFactionSlot(gui, FactionId.VILLAGER, Items.EMERALD, selectedFaction, onSelect));
 		gui.setSlot(13, buildFactionSlot(gui, FactionId.MONSTER, Items.IRON_SWORD, selectedFaction, onSelect));
 		gui.setSlot(15, buildFactionSlot(gui, FactionId.NETHER, Items.BLAZE_ROD, selectedFaction, onSelect));
@@ -72,10 +74,10 @@ public class FactionSelectionGuiService {
 		if (config != null) {
 			lines.addAll(config.summaryLines());
 			if (config.captainSkillName() != null && !config.captainSkillName().isBlank()) {
-				lines.add("&8사령관 스킬: &d" + config.captainSkillName());
+				lines.add(textConfig().factionSelectionCaptainSkillLoreTemplate.replace("{skill}", config.captainSkillName()));
 			}
 		}
-		lines.add(selected ? "&a현재 선택됨" : "&e클릭해서 선택");
+		lines.add(selected ? textConfig().factionSelectionSelectedLore : textConfig().factionSelectionClickLore);
 		return lines(lines.toArray(String[]::new));
 	}
 
@@ -83,5 +85,10 @@ public class FactionSelectionGuiService {
 		return java.util.Arrays.stream(values)
 			.map(textTemplateResolver::format)
 			.toList();
+	}
+
+	private TextConfigFile textConfig() {
+		var mod = MinecraftSnap.getInstance();
+		return mod == null ? new TextConfigFile() : mod.getTextConfig();
 	}
 }

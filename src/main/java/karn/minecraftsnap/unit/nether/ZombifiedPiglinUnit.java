@@ -1,16 +1,16 @@
 package karn.minecraftsnap.unit.nether;
 
 import karn.minecraftsnap.game.FactionId;
-import karn.minecraftsnap.game.TeamId;
 import karn.minecraftsnap.game.UnitDefinition;
 import karn.minecraftsnap.unit.ConfiguredUnitClass;
+import karn.minecraftsnap.unit.SummonedMobSupport;
 import karn.minecraftsnap.unit.UnitContext;
+import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityType;
 import net.minecraft.entity.SpawnReason;
 import net.minecraft.entity.damage.DamageSource;
 import net.minecraft.entity.mob.ZombifiedPiglinEntity;
-import net.minecraft.scoreboard.Team;
-import net.minecraft.util.Formatting;
+import net.minecraft.entity.projectile.ProjectileEntity;
 
 import java.util.List;
 
@@ -40,7 +40,7 @@ public class ZombifiedPiglinUnit extends AbstractNetherUnit implements Configure
 		0,
 		UnitDefinition.AmmoType.NONE,
 		disguise("minecraft:zombified_piglin"),
-		List.of("&7피격 시 20% 확률로 주변 5칸 내에 같은 팀 좀비 피글린 소환"),
+		List.of("&7피격 시 10% 확률로 주변 5칸 내에 같은 팀 좀비 피글린 소환"),
 		List.of()
 	);
 
@@ -51,6 +51,9 @@ public class ZombifiedPiglinUnit extends AbstractNetherUnit implements Configure
 
 	@Override
 	public void onDamaged(UnitContext context, DamageSource source, float amount) {
+		if (!hasTriggeringAttacker(source)) {
+			return;
+		}
 		if (context.player().getRandom().nextDouble() >= summonChance()) {
 			return;
 		}
@@ -65,29 +68,25 @@ public class ZombifiedPiglinUnit extends AbstractNetherUnit implements Configure
 		var z = player.getZ() + random.nextBetween(-5, 5);
 		piglin.refreshPositionAndAngles(x, player.getY(), z, player.getYaw(), player.getPitch());
 		world.spawnEntity(piglin);
-		applyFriendlyTeam(context, piglin);
-		piglin.setTarget(null);
+		SummonedMobSupport.applyFriendlyTeam(context, piglin);
 	}
 
-	private void applyFriendlyTeam(UnitContext context, ZombifiedPiglinEntity piglin) {
-		var teamId = context.state().getTeamId();
-		var server = context.player().getServer();
-		if (teamId == null || server == null) {
-			return;
+	boolean hasTriggeringAttacker(DamageSource source) {
+		if (source == null) {
+			return false;
 		}
-		var scoreboard = server.getScoreboard();
-		var teamName = "mcsnap_mob_" + teamId.name().toLowerCase();
-		var team = scoreboard.getTeam(teamName);
-		if (team == null) {
-			team = scoreboard.addTeam(teamName);
-			team.setColor(teamId == TeamId.RED ? Formatting.RED : Formatting.BLUE);
-			team.setFriendlyFireAllowed(false);
+		return resolveAttacker(source.getAttacker()) != null || resolveAttacker(source.getSource()) != null;
+	}
+
+	private Entity resolveAttacker(Entity entity) {
+		if (entity instanceof ProjectileEntity projectile) {
+			return projectile.getOwner();
 		}
-		scoreboard.addScoreHolderToTeam(piglin.getNameForScoreboard(), team);
+		return entity;
 	}
 
 	double summonChance() {
-		return 0.2D;
+		return 0.1D;
 	}
 
 	double summonRange() {

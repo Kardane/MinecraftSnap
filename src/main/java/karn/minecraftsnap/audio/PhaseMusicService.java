@@ -78,6 +78,13 @@ public class PhaseMusicService {
 		var loopSound = currentLoopForJoin(mode);
 		if (loopSound != null) {
 			playSound(player, loopSound.id());
+			if (activeLoopSound == null) {
+				activeLoopSound = loopSound;
+				lastLoopTick = matchManager.getServerTicks();
+				if (mode == PhaseMode.LOBBY) {
+					activeLobbyTrackIndex = MinecraftSnapAudioCatalog.LOBBY_TRACKS.indexOf(loopSound);
+				}
+			}
 		}
 	}
 

@@ -63,12 +63,12 @@ public class CaptainWeatherGuiService {
 		var lore = new java.util.ArrayList<String>();
 		lore.add(description(textConfig, target));
 		if (current == target) {
-			lore.add("&a현재 활성화됨");
+			lore.add(textConfig.captainMonsterWeatherActiveLore);
 			lore.add(remainingSeconds > 0
 				? textConfig.captainMonsterWeatherRemainingLoreTemplate.replace("{seconds}", Integer.toString(remainingSeconds))
 				: textConfig.captainMonsterWeatherPersistentLore);
 		} else {
-			lore.add("&7클릭해서 변경");
+			lore.add(textConfig.captainMonsterWeatherClickLore);
 		}
 		return lore;
 	}

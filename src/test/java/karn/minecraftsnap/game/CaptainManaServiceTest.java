@@ -53,16 +53,16 @@ class CaptainManaServiceTest {
 	}
 
 	@Test
-	void spendingManaStartsSpawnCooldown() {
+	void spendingManaForSpawnDoesNotStartCooldown() {
 		var service = new CaptainManaService();
 		var captainId = UUID.randomUUID();
 		var state = service.getOrCreate(captainId);
 
 		var spent = service.trySpendForSpawn(captainId, 2, 5);
 
-		assertEquals(true, spent);
+		assertTrue(spent);
 		assertEquals(1, state.getCurrentMana());
-		assertEquals(5, state.getSpawnCooldownSeconds());
+		assertEquals(0, state.getSpawnCooldownSeconds());
 	}
 
 	@Test
@@ -97,7 +97,7 @@ class CaptainManaServiceTest {
 	}
 
 	@Test
-	void refundSpawnResourcesClampsManaAndReducesCooldown() {
+	void refundSpawnResourcesClampsManaWithoutCooldownRefund() {
 		var service = new CaptainManaService();
 		var captainId = UUID.randomUUID();
 		var state = service.getOrCreate(captainId);
@@ -107,7 +107,7 @@ class CaptainManaServiceTest {
 		service.refundSpawnResources(captainId, 5, 4);
 
 		assertEquals(3, state.getCurrentMana());
-		assertEquals(6, state.getSpawnCooldownSeconds());
+		assertEquals(0, state.getSpawnCooldownSeconds());
 	}
 
 	@Test

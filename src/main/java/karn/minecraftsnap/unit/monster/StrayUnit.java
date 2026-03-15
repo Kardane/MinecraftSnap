@@ -36,7 +36,7 @@ public class StrayUnit extends AbstractMonsterUnit implements ConfiguredUnitClas
 		0,
 		UnitDefinition.AmmoType.ARROW,
 		disguise("minecraft:stray"),
-		List.of("&7공격 시 구속 II 3초"),
+		List.of("&7공격 시 구속 II 2초"),
 		List.of()
 	);
 
@@ -54,7 +54,7 @@ public class StrayUnit extends AbstractMonsterUnit implements ConfiguredUnitClas
 	}
 
 	int statusDurationTicks() {
-		return 20 * 3;
+		return 20 * 2;
 	}
 
 	int effectAmplifier() {

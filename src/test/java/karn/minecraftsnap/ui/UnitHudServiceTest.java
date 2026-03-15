@@ -40,4 +40,63 @@ class UnitHudServiceTest {
 		assertEquals("&f주민 &8| &b상점 열기 &8| &a준비 완료", UnitHudService.formatActionBar(definition, 0, systemConfig));
 		assertEquals("&f주민 &8| &b상점 열기 &8| &e3초", UnitHudService.formatActionBar(definition, 3, systemConfig));
 	}
+
+	@Test
+	void usesTextConfigCooldownTemplate() {
+		var definition = new UnitDefinition(
+			"villager",
+			"주민",
+			FactionId.VILLAGER,
+			true,
+			1,
+			5,
+			20.0,
+			1.0,
+			null,
+			null,
+			null,
+			null,
+			null,
+			null,
+			null,
+			"상점 열기",
+			8,
+			UnitDefinition.AmmoType.NONE,
+			null,
+			List.of(),
+			List.of()
+		);
+
+		var systemConfig = new SystemConfig();
+		assertEquals("&f주민 &8| &b상점 열기 &8| &e7초", UnitHudService.formatActionBar(definition, 7, systemConfig));
+	}
+
+	@Test
+	void hidesSkillSectionForUnitsWithoutActiveSkill() {
+		var definition = new UnitDefinition(
+			"armorer_villager",
+			"갑옷 대장장이 주민",
+			FactionId.VILLAGER,
+			true,
+			2,
+			10,
+			20.0,
+			0.8,
+			null,
+			null,
+			null,
+			null,
+			null,
+			null,
+			null,
+			"",
+			0,
+			UnitDefinition.AmmoType.NONE,
+			null,
+			List.of(),
+			List.of()
+		);
+
+		assertEquals("갑옷 대장장이 주민", UnitHudService.formatActionBar(definition, 0, new SystemConfig()));
+	}
 }

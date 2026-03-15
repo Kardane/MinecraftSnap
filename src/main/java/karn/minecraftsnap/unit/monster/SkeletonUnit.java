@@ -85,7 +85,7 @@ public class SkeletonUnit extends AbstractMonsterUnit implements ConfiguredUnitC
 			var player = context.player();
 			for (var target : nearbyEnemyTargets(context, boneBlastRadius())) {
 				context.dealMobDamage(target, boneBlastDamage());
-				target.takeKnockback(1.3D, player.getX() - target.getX(), player.getZ() - target.getZ());
+				target.takeKnockback(1D, player.getX() - target.getX(), player.getZ() - target.getZ());
 			}
 			player.getWorld().playSound(null, player.getBlockPos(), SoundEvents.ENTITY_SKELETON_SHOOT, SoundCategory.PLAYERS, 1.0f, 0.8f);
 			return true;

@@ -32,6 +32,6 @@ class CaptainWeatherGuiServiceTest {
 		);
 
 		assertEquals(textConfig.captainMonsterWeatherRainLore, lore.getFirst());
-		assertTrue(lore.stream().anyMatch(line -> line.contains("클릭해서 변경")));
+		assertTrue(lore.stream().anyMatch(line -> line.equals(textConfig.captainMonsterWeatherClickLore)));
 	}
 }
