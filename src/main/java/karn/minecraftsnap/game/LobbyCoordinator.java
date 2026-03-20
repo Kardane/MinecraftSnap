@@ -160,13 +160,14 @@ public class LobbyCoordinator {
 		var candidates = players.stream()
 			.map(player -> {
 				var stats = statsRepository.getOrCreate(player.getUuid(), player.getName().getString());
+				var state = matchManager.getPlayerState(player.getUuid());
 				return new TeamAssignmentService.PlayerCandidate(
 					player.getUuid(),
 					player.getName().getString(),
 					stats.ladder,
 					stats.preference,
-					null,
-					false
+					state.getTeamId(),
+					state.getRoleType() == RoleType.CAPTAIN
 				);
 			})
 			.toList();

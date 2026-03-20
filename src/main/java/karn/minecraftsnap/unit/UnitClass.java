@@ -43,4 +43,8 @@ public interface UnitClass {
 	default void buildLoadout(UnitContext context) {
 		context.baseBuildLoadout();
 	}
+
+	default boolean shouldCancelMove(UnitContext context, net.minecraft.network.packet.c2s.play.PlayerMoveC2SPacket packet) {
+		return false;
+	}
 }

@@ -26,27 +26,23 @@ public class CapturePointService {
 	private final Map<LaneId, CapturePointState> states = new EnumMap<>(LaneId.class);
 	private final UiSoundService uiSoundService;
 	private final TextTemplateResolver textTemplateResolver;
-	private LaneRuntimeRegistry laneRuntimeRegistry;
-	private UnitHookService unitHookService;
-
-	public CapturePointService(MatchManager matchManager, StatsRepository statsRepository) {
-		this(matchManager, statsRepository, null, null);
-	}
-
-	public CapturePointService(MatchManager matchManager, StatsRepository statsRepository, UiSoundService uiSoundService) {
-		this(matchManager, statsRepository, uiSoundService, null);
-	}
+	private final LaneRuntimeRegistry laneRuntimeRegistry;
+	private final UnitHookService unitHookService;
 
 	public CapturePointService(
 		MatchManager matchManager,
 		StatsRepository statsRepository,
 		UiSoundService uiSoundService,
-		TextTemplateResolver textTemplateResolver
+		TextTemplateResolver textTemplateResolver,
+		LaneRuntimeRegistry laneRuntimeRegistry,
+		UnitHookService unitHookService
 	) {
 		this.matchManager = matchManager;
 		this.statsRepository = statsRepository;
 		this.uiSoundService = uiSoundService;
 		this.textTemplateResolver = textTemplateResolver;
+		this.laneRuntimeRegistry = laneRuntimeRegistry;
+		this.unitHookService = unitHookService;
 		for (var laneId : LaneId.values()) {
 			states.put(laneId, new CapturePointState(laneId));
 		}
@@ -74,14 +70,6 @@ public class CapturePointService {
 
 	public void resetAll() {
 		states.values().forEach(CapturePointState::reset);
-	}
-
-	public void setUnitHookService(UnitHookService unitHookService) {
-		this.unitHookService = unitHookService;
-	}
-
-	public void setLaneRuntimeRegistry(LaneRuntimeRegistry laneRuntimeRegistry) {
-		this.laneRuntimeRegistry = laneRuntimeRegistry;
 	}
 
 	private void processLane(

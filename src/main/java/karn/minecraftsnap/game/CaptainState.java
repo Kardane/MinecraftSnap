@@ -4,7 +4,6 @@ public class CaptainState {
 	private int currentMana = 3;
 	private int maxMana = 3;
 	private int secondsUntilNextMana = 10;
-	private int spawnCooldownSeconds;
 	private int skillCooldownSeconds;
 	private String monsterWeatherType = "";
 	private long monsterWeatherEndTick;
@@ -40,13 +39,7 @@ public class CaptainState {
 		this.secondsUntilNextMana = secondsUntilNextMana;
 	}
 
-	public int getSpawnCooldownSeconds() {
-		return spawnCooldownSeconds;
-	}
 
-	public void setSpawnCooldownSeconds(int spawnCooldownSeconds) {
-		this.spawnCooldownSeconds = spawnCooldownSeconds;
-	}
 
 	public int getSkillCooldownSeconds() {
 		return skillCooldownSeconds;

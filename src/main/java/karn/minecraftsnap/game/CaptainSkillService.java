@@ -132,7 +132,7 @@ public class CaptainSkillService {
 			return;
 		}
 		var refundMana = refundAmount(definition.cost());
-		captainManaService.refundSpawnResources(captain.getUuid(), refundMana, 0);
+		captainManaService.refundSpawnResources(captain.getUuid(), refundMana);
 		if (refundMana > 0) {
 			captain.sendMessage(textTemplateResolver.format(textConfig().captainPortalRefundMessage
 				.replace("{mana}", Integer.toString(refundMana))), true);
@@ -189,7 +189,7 @@ public class CaptainSkillService {
 			player.addStatusEffect(new StatusEffectInstance(StatusEffects.GLOWING, 20 * 30, 0));
 			player.setHealth(player.getMaxHealth());
 		}
-		playGlobal(world, SoundEvents.EVENT_RAID_HORN.value(), SoundCategory.PLAYERS, 3.0f, 1.0f);
+		playGlobal(world, SoundEvents.EVENT_RAID_HORN.value(), SoundCategory.PLAYERS, 10.0f, 1.0f);
 		captain.sendMessage(textTemplateResolver.format(textConfig().captainVillagerSuccessMessage.replace("{lane}", laneLabel(targetLane))), false);
 		if (uiSoundService != null) {
 			uiSoundService.playEventSuccess(captain);

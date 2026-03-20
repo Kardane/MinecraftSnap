@@ -24,20 +24,12 @@ public class UnitSpawnService {
 	private final UnitLoadoutService unitLoadoutService;
 	private final UnitAbilityService unitAbilityService;
 	private final UiSoundService uiSoundService;
-	private CaptainSkillService captainSkillService;
-	private UnitHookService unitHookService;
+	private final java.util.function.Supplier<CaptainSkillService> captainSkillServiceSupplier;
+	private final java.util.function.Supplier<UnitHookService> unitHookServiceSupplier;
+	private final java.util.Random random = new java.util.Random();
 
 	public UnitSpawnService() {
-		this(new CaptainManaService(), null, new UnitLoadoutService(), new UnitAbilityService(), null);
-	}
-
-	public UnitSpawnService(
-		CaptainManaService captainManaService,
-		UnitRegistry unitRegistry,
-		UnitLoadoutService unitLoadoutService,
-		UnitAbilityService unitAbilityService
-	) {
-		this(captainManaService, unitRegistry, unitLoadoutService, unitAbilityService, null);
+		this(new CaptainManaService(), null, new UnitLoadoutService(), new UnitAbilityService(), null, () -> null, () -> null);
 	}
 
 	public UnitSpawnService(
@@ -45,22 +37,40 @@ public class UnitSpawnService {
 		UnitRegistry unitRegistry,
 		UnitLoadoutService unitLoadoutService,
 		UnitAbilityService unitAbilityService,
-		UiSoundService uiSoundService
+		java.util.function.Supplier<CaptainSkillService> captainSkillServiceSupplier,
+		java.util.function.Supplier<UnitHookService> unitHookServiceSupplier
+	) {
+		this(captainManaService, unitRegistry, unitLoadoutService, unitAbilityService, null, captainSkillServiceSupplier, unitHookServiceSupplier);
+	}
+
+	public UnitSpawnService(
+		CaptainManaService captainManaService,
+		UnitRegistry unitRegistry,
+		UnitLoadoutService unitLoadoutService,
+		UnitAbilityService unitAbilityService,
+		UiSoundService uiSoundService,
+		java.util.function.Supplier<CaptainSkillService> captainSkillServiceSupplier,
+		java.util.function.Supplier<UnitHookService> unitHookServiceSupplier
 	) {
 		this.captainManaService = captainManaService;
 		this.unitRegistry = unitRegistry;
 		this.unitLoadoutService = unitLoadoutService;
 		this.unitAbilityService = unitAbilityService;
 		this.uiSoundService = uiSoundService;
+		this.captainSkillServiceSupplier = captainSkillServiceSupplier;
+		this.unitHookServiceSupplier = unitHookServiceSupplier;
 	}
 
 	public SpawnCandidate selectSpawnCandidate(String unitId, List<SpawnCandidate> candidates) {
-		for (var candidate : candidates) {
+		var shuffled = new java.util.ArrayList<>(candidates);
+		java.util.Collections.shuffle(shuffled, random);
+
+		for (var candidate : shuffled) {
 			if (candidate.spectator() && unitId.equals(candidate.preferredUnitId())) {
 				return candidate;
 			}
 		}
-		for (var candidate : candidates) {
+		for (var candidate : shuffled) {
 			if (candidate.spectator()) {
 				return candidate;
 			}
@@ -107,7 +117,7 @@ public class UnitSpawnService {
 			playDeny(captain);
 			return SpawnResult.error(textConfig().unitSpawnNoCandidateMessage);
 		}
-		if (!captainManaService.trySpendForSpawn(captain.getUuid(), definition.cost(), definition.spawnCooldownSeconds())) {
+		if (!captainManaService.trySpendForSpawn(captain.getUuid(), definition.cost())) {
 			playDeny(captain);
 			return SpawnResult.error(textConfig().unitSpawnInsufficientManaMessage);
 		}
@@ -120,6 +130,7 @@ public class UnitSpawnService {
 
 		target.changeGameMode(GameMode.ADVENTURE);
 		teleport(target, systemConfig.world, safeUnitSpawn(systemConfig, captainState.getTeamId(), laneId));
+		var unitHookService = unitHookServiceSupplier.get();
 		if (unitHookService != null) {
 			unitHookService.assignUnit(target, definition, systemConfig);
 		} else {
@@ -129,6 +140,7 @@ public class UnitSpawnService {
 			DisguiseSupport.applyDisguise(target, definition.disguise());
 		}
 		target.sendMessage(textTemplateResolver.format(textConfig().unitSpawnedMessage.replace("{unit}", definition.displayName())), false);
+		var captainSkillService = captainSkillServiceSupplier.get();
 		if (captainSkillService != null) {
 			captainSkillService.handleSpawnRefund(captain, definition, laneId);
 		}
@@ -177,13 +189,6 @@ public class UnitSpawnService {
 		return unitAbilityService;
 	}
 
-	public void setUnitHookService(UnitHookService unitHookService) {
-		this.unitHookService = unitHookService;
-	}
-
-	public void setCaptainSkillService(CaptainSkillService captainSkillService) {
-		this.captainSkillService = captainSkillService;
-	}
 
 	private void teleport(ServerPlayerEntity player, String worldId, SystemConfig.PositionConfig position) {
 		var world = resolveWorld(player, worldId);

@@ -20,6 +20,7 @@ import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.damage.DamageSource;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.network.ServerPlayerEntity;
+import net.minecraft.network.packet.c2s.play.PlayerMoveC2SPacket;
 
 import java.util.function.Supplier;
 
@@ -148,6 +149,14 @@ public class UnitHookService {
 		}
 	}
 
+	public boolean shouldCancelMove(ServerPlayerEntity player, PlayerMoveC2SPacket packet, SystemConfig systemConfig) {
+		var context = createContext(player, systemConfig, null);
+		if (context == null) {
+			return false;
+		}
+		return dispatchShouldCancelMove(unitClassOf(context.unitDefinition().id()), context, packet);
+	}
+
 	public void applyLoadout(ServerPlayerEntity player, UnitDefinition definition, SystemConfig systemConfig) {
 		var context = createContext(player, systemConfig, definition);
 		if (context == null) {
@@ -272,6 +281,13 @@ public class UnitHookService {
 		if (unitClass != null && context != null) {
 			unitClass.onCaptureScore(context);
 		}
+	}
+
+	public boolean dispatchShouldCancelMove(UnitClass unitClass, UnitContext context, PlayerMoveC2SPacket packet) {
+		if (unitClass != null && context != null) {
+			return unitClass.shouldCancelMove(context, packet);
+		}
+		return false;
 	}
 
 	private UnitContext createContext(ServerPlayerEntity player, SystemConfig systemConfig, UnitDefinition overrideDefinition) {

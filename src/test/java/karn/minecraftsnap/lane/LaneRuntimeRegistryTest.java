@@ -31,7 +31,11 @@ class LaneRuntimeRegistryTest {
 
 		var capturePointService = new CapturePointService(
 			new MatchManager(),
-			new StatsRepository(tempDir.resolve("stats.json"), LoggerFactory.getLogger("test"))
+			new StatsRepository(tempDir.resolve("stats.json"), LoggerFactory.getLogger("test")),
+			null,
+			null,
+			null,
+			null
 		);
 		capturePointService.getState(LaneId.LANE_1).getProgress().start(TeamId.RED);
 

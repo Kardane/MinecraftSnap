@@ -68,32 +68,88 @@ public class InGameRuleService {
 
 	public void tick(MinecraftServer server, SystemConfig systemConfig) {
 		lastSystemConfig = systemConfig;
-		server.getGameRules().get(GameRules.NATURAL_REGENERATION).set(matchManager.getPhase() != MatchPhase.GAME_RUNNING, server);
-		enforceCaptainFlight(server, systemConfig);
-		enforceCaptainInvisibility(server);
-		clearCaptainStatusEffects(server);
-		disableNonOperatorFlightOnGameEnd(server);
-		if (isCaptainFlightPhase(matchManager.getPhase())) {
-			for (var player : server.getPlayerManager().getPlayerList()) {
-				applyCaptainFloor(player, systemConfig);
-			}
-		}
-		if (matchManager.getPhase() == MatchPhase.GAME_START) {
-			for (var player : server.getPlayerManager().getPlayerList()) {
-				applyLaneRestriction(player, systemConfig);
-			}
-		}
-		if (matchManager.getPhase() != MatchPhase.GAME_RUNNING) {
-			return;
-		}
+		var phase = matchManager.getPhase();
+		server.getGameRules().get(GameRules.NATURAL_REGENERATION).set(phase != MatchPhase.GAME_RUNNING, server);
 
 		for (var player : server.getPlayerManager().getPlayerList()) {
-			player.getHungerManager().setFoodLevel(20);
-			player.getHungerManager().setSaturationLevel(20.0f);
-			applyLaneRestriction(player, systemConfig);
+			var state = matchManager.getPlayerState(player.getUuid());
+
+			applyFlightPolicy(player, state, phase, systemConfig);
+			if (state.isCaptain()) {
+				applyCaptainStatusEffects(player, phase);
+				applyCaptainFloor(player, systemConfig);
+			}
+			if (phase == MatchPhase.GAME_START || phase == MatchPhase.GAME_RUNNING) {
+				applyLaneRestriction(player, systemConfig);
+			}
+			if (phase == MatchPhase.GAME_RUNNING) {
+				player.getHungerManager().setFoodLevel(20);
+				player.getHungerManager().setSaturationLevel(20.0f);
+			}
 		}
 
 		applyPendingSpectators(server);
+	}
+
+	private void applyFlightPolicy(ServerPlayerEntity player, PlayerMatchState state, MatchPhase phase, SystemConfig systemConfig) {
+		if (player.isSpectator()) {
+			updateAbilities(player, true, true, systemConfig.inGame.defaultFlySpeed);
+			return;
+		}
+
+		if (phase == MatchPhase.GAME_END) {
+			if (!player.hasPermissionLevel(2)) {
+				updateAbilities(player, false, false, systemConfig.inGame.defaultFlySpeed);
+			}
+			return;
+		}
+
+		boolean canFly = state.isCaptain() && isCaptainFlightPhase(phase);
+		if (canFly) {
+			updateAbilities(player, true, true, systemConfig.inGame.captainFlySpeed);
+			player.fallDistance = 0.0f;
+		} else if (!player.hasPermissionLevel(2)) {
+			updateAbilities(player, false, false, systemConfig.inGame.defaultFlySpeed);
+		}
+	}
+
+	private void updateAbilities(ServerPlayerEntity player, boolean allowFlying, boolean flying, float flySpeed) {
+		boolean changed = false;
+		var abilities = player.getAbilities();
+		if (abilities.allowFlying != allowFlying) {
+			abilities.allowFlying = allowFlying;
+			changed = true;
+		}
+		if (abilities.flying != flying) {
+			abilities.flying = flying;
+			changed = true;
+		}
+		if (abilities.getFlySpeed() != flySpeed) {
+			abilities.setFlySpeed(flySpeed);
+			changed = true;
+		}
+		if (changed) {
+			player.sendAbilitiesUpdate();
+		}
+	}
+
+	private void applyCaptainStatusEffects(ServerPlayerEntity player, MatchPhase phase) {
+		boolean shouldBeInvisible = isCaptainGamePhase(phase);
+		var effects = java.util.List.copyOf(player.getStatusEffects());
+
+		for (var effect : effects) {
+			if (effect.getEffectType().value() == StatusEffects.INVISIBILITY && shouldBeInvisible) {
+				continue;
+			}
+			player.removeStatusEffect(effect.getEffectType());
+		}
+
+		if (shouldBeInvisible) {
+			var currentInvis = player.getStatusEffect(StatusEffects.INVISIBILITY);
+			if (currentInvis == null || currentInvis.getDuration() <= 40) {
+				player.addStatusEffect(new StatusEffectInstance(StatusEffects.INVISIBILITY, 200, 0, false, false, false));
+			}
+		}
 	}
 
 	public boolean allowDamage(LivingEntity entity, DamageSource source, float amount) {
@@ -269,9 +325,7 @@ public class InGameRuleService {
 				if (killerState.isUnit() && killerState.getCurrentUnitId() != null) {
 					killerState.addMatchKill(1);
 				}
-				if (unitHookService == null) {
-					rewardKillCurrency(killerId, killerName, killerState);
-				}
+				rewardKillCurrency(killerId, killerName, killerState);
 			}
 		}
 	}
@@ -398,116 +452,6 @@ public class InGameRuleService {
 		}
 	}
 
-	private void enforceCaptainFlight(MinecraftServer server, SystemConfig systemConfig) {
-		for (var player : server.getPlayerManager().getPlayerList()) {
-			var state = matchManager.getPlayerState(player.getUuid());
-			if (player.isSpectator()) {
-				boolean changed = false;
-				if (!player.getAbilities().allowFlying) {
-					player.getAbilities().allowFlying = true;
-					changed = true;
-				}
-				if (!player.getAbilities().flying) {
-					player.getAbilities().flying = true;
-					changed = true;
-				}
-				if (player.getAbilities().getFlySpeed() != systemConfig.inGame.defaultFlySpeed) {
-					player.getAbilities().setFlySpeed(systemConfig.inGame.defaultFlySpeed);
-					changed = true;
-				}
-				if (changed) {
-					player.sendAbilitiesUpdate();
-				}
-				continue;
-			}
-			boolean changed = false;
-			var captainFlight = state.isCaptain() && isCaptainFlightPhase(matchManager.getPhase());
-			if (captainFlight) {
-				if (!player.getAbilities().allowFlying) {
-					player.getAbilities().allowFlying = true;
-					player.getAbilities().flying = true;
-					changed = true;
-				}
-				if (player.getAbilities().getFlySpeed() != systemConfig.inGame.captainFlySpeed) {
-					player.getAbilities().setFlySpeed(systemConfig.inGame.captainFlySpeed);
-					changed = true;
-				}
-				player.fallDistance = 0.0f;
-			} else {
-				if (!player.hasPermissionLevel(2) && player.getAbilities().flying) {
-					player.getAbilities().flying = false;
-					changed = true;
-				}
-				if (!player.hasPermissionLevel(2) && player.getAbilities().allowFlying) {
-					player.getAbilities().allowFlying = false;
-					changed = true;
-				}
-				if (player.getAbilities().getFlySpeed() != systemConfig.inGame.defaultFlySpeed) {
-					player.getAbilities().setFlySpeed(systemConfig.inGame.defaultFlySpeed);
-					changed = true;
-				}
-			}
-			if (changed) {
-				player.sendAbilitiesUpdate();
-			}
-		}
-	}
-
-	private void enforceCaptainInvisibility(MinecraftServer server) {
-		for (var player : server.getPlayerManager().getPlayerList()) {
-			var state = matchManager.getPlayerState(player.getUuid());
-			if (!state.isCaptain()) {
-				continue;
-			}
-			if (isCaptainGamePhase(matchManager.getPhase())) {
-				var effect = player.getStatusEffect(StatusEffects.INVISIBILITY);
-				if (effect == null || effect.getDuration() <= 40) {
-					player.addStatusEffect(new StatusEffectInstance(StatusEffects.INVISIBILITY, 200, 0, false, false, false));
-				}
-			} else {
-				player.removeStatusEffect(StatusEffects.INVISIBILITY);
-			}
-		}
-	}
-
-	private void clearCaptainStatusEffects(MinecraftServer server) {
-		for (var player : server.getPlayerManager().getPlayerList()) {
-			var state = matchManager.getPlayerState(player.getUuid());
-			if (!state.isCaptain()) {
-				continue;
-			}
-			var effects = java.util.List.copyOf(player.getStatusEffects());
-			for (var effect : effects) {
-				if (effect.getEffectType().value() == StatusEffects.INVISIBILITY && isCaptainGamePhase(matchManager.getPhase())) {
-					continue;
-				}
-				player.removeStatusEffect(effect.getEffectType());
-			}
-		}
-	}
-
-	private void disableNonOperatorFlightOnGameEnd(MinecraftServer server) {
-		if (matchManager.getPhase() != MatchPhase.GAME_END) {
-			return;
-		}
-		for (var player : server.getPlayerManager().getPlayerList()) {
-			if (player.hasPermissionLevel(2) || player.isSpectator()) {
-				continue;
-			}
-			boolean changed = false;
-			if (player.getAbilities().flying) {
-				player.getAbilities().flying = false;
-				changed = true;
-			}
-			if (player.getAbilities().allowFlying) {
-				player.getAbilities().allowFlying = false;
-				changed = true;
-			}
-			if (changed) {
-				player.sendAbilitiesUpdate();
-			}
-		}
-	}
 
 	private void applyCaptainFloor(ServerPlayerEntity player, SystemConfig systemConfig) {
 		var state = matchManager.getPlayerState(player.getUuid());

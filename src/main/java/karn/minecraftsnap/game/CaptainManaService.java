@@ -66,7 +66,6 @@ public class CaptainManaService {
 		state.setMaxMana(STARTING_MANA);
 		state.setCurrentMana(STARTING_MANA);
 		state.setSecondsUntilNextMana(Math.max(1, recoverySeconds));
-		state.setSpawnCooldownSeconds(0);
 		state.setSkillCooldownSeconds(0);
 	}
 
@@ -80,7 +79,7 @@ public class CaptainManaService {
 		state.setSecondsUntilNextMana(Math.max(1, recoverySeconds));
 	}
 
-	public boolean trySpendForSpawn(UUID captainId, int cost, int cooldownSeconds) {
+	public boolean trySpendForSpawn(UUID captainId, int cost) {
 		var state = getOrCreate(captainId);
 		if (state.getCurrentMana() < cost) {
 			return false;
@@ -89,9 +88,7 @@ public class CaptainManaService {
 		return true;
 	}
 
-	public void reduceSpawnCooldown(UUID captainId, int seconds) {
-		getOrCreate(captainId).setSpawnCooldownSeconds(0);
-	}
+
 
 	public void triggerSkillCooldown(UUID captainId, int cooldownSeconds) {
 		getOrCreate(captainId).setSkillCooldownSeconds(cooldownSeconds);
@@ -107,12 +104,11 @@ public class CaptainManaService {
 		return true;
 	}
 
-	public void refundSpawnResources(UUID captainId, int manaAmount, int cooldownSeconds) {
+	public void refundSpawnResources(UUID captainId, int manaAmount) {
 		var state = getOrCreate(captainId);
 		if (manaAmount > 0) {
 			state.setCurrentMana(Math.min(state.getMaxMana(), state.getCurrentMana() + manaAmount));
 		}
-		state.setSpawnCooldownSeconds(0);
 	}
 
 	public void restoreMana(UUID captainId, int amount) {

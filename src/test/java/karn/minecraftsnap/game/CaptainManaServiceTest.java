@@ -58,11 +58,10 @@ class CaptainManaServiceTest {
 		var captainId = UUID.randomUUID();
 		var state = service.getOrCreate(captainId);
 
-		var spent = service.trySpendForSpawn(captainId, 2, 5);
+		var spent = service.trySpendForSpawn(captainId, 2);
 
 		assertTrue(spent);
 		assertEquals(1, state.getCurrentMana());
-		assertEquals(0, state.getSpawnCooldownSeconds());
 	}
 
 	@Test
@@ -102,12 +101,10 @@ class CaptainManaServiceTest {
 		var captainId = UUID.randomUUID();
 		var state = service.getOrCreate(captainId);
 		state.setCurrentMana(2);
-		state.setSpawnCooldownSeconds(10);
 
-		service.refundSpawnResources(captainId, 5, 4);
+		service.refundSpawnResources(captainId, 5);
 
 		assertEquals(3, state.getCurrentMana());
-		assertEquals(0, state.getSpawnCooldownSeconds());
 	}
 
 	@Test

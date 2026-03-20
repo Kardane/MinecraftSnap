@@ -17,19 +17,24 @@ public class UnitAbilityService {
 	private final TextTemplateResolver textTemplateResolver;
 	private final LaneRuntimeRegistry laneRuntimeRegistry;
 	private final Map<UUID, Long> unitCooldownTicks = new HashMap<>();
-	private CaptainSkillService captainSkillService;
+	private final java.util.function.Supplier<CaptainSkillService> captainSkillServiceSupplier;
 
 	public UnitAbilityService() {
-		this(new TextTemplateResolver(), null);
+		this(new TextTemplateResolver(), null, () -> null);
 	}
 
 	public UnitAbilityService(TextTemplateResolver textTemplateResolver) {
-		this(textTemplateResolver, null);
+		this(textTemplateResolver, null, () -> null);
 	}
 
-	public UnitAbilityService(TextTemplateResolver textTemplateResolver, LaneRuntimeRegistry laneRuntimeRegistry) {
+	public UnitAbilityService(
+		TextTemplateResolver textTemplateResolver,
+		LaneRuntimeRegistry laneRuntimeRegistry,
+		java.util.function.Supplier<CaptainSkillService> captainSkillServiceSupplier
+	) {
 		this.textTemplateResolver = textTemplateResolver;
 		this.laneRuntimeRegistry = laneRuntimeRegistry;
+		this.captainSkillServiceSupplier = captainSkillServiceSupplier;
 	}
 
 	public void tick(MinecraftServer server, MatchManager matchManager) {
@@ -37,6 +42,7 @@ public class UnitAbilityService {
 
 	public boolean useCaptainSkill(ServerPlayerEntity captain, MatchManager matchManager, CaptainManaService captainManaService) {
 		var mod = MinecraftSnap.getInstance();
+		var captainSkillService = captainSkillServiceSupplier.get();
 		if (captainSkillService == null || mod == null) {
 			return false;
 		}
@@ -100,7 +106,4 @@ public class UnitAbilityService {
 		runtime.biomeEffect().onActiveSkill(context, player, definition);
 	}
 
-	public void setCaptainSkillService(CaptainSkillService captainSkillService) {
-		this.captainSkillService = captainSkillService;
-	}
 }
