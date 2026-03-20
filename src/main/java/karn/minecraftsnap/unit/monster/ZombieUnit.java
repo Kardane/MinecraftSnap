@@ -20,7 +20,6 @@ public class ZombieUnit extends AbstractMonsterUnit implements ConfiguredUnitCla
 		FactionId.MONSTER,
 		true,
 		1,
-		7,
 		20.0,
 		0.8,
 		item("minecraft:iron_shovel"),

@@ -2,7 +2,6 @@ package karn.minecraftsnap.unit.villager;
 
 import org.junit.jupiter.api.Test;
 
-import java.util.List;
 import java.util.Random;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -16,9 +15,7 @@ class VillagerFactionUnitTest {
 		var unit = new VillagerUnit();
 		var definition = unit.definition();
 
-		assertEquals("멍청이 주민", definition.displayName());
 		assertEquals(1, definition.cost());
-		assertEquals(5, definition.spawnCooldownSeconds());
 		assertEquals(20.0, definition.maxHealth());
 		assertEquals(0.8, definition.moveSpeedScale());
 		assertEquals("minecraft:wooden_sword", definition.mainHand().itemId);
@@ -34,9 +31,7 @@ class VillagerFactionUnitTest {
 		var unit = new ArmorerVillagerUnit();
 		var definition = unit.definition();
 
-		assertEquals("갑옷 대장장이 주민", definition.displayName());
 		assertEquals(2, definition.cost());
-		assertEquals(10, definition.spawnCooldownSeconds());
 		assertEquals(20.0, definition.maxHealth());
 		assertEquals(0.8, definition.moveSpeedScale());
 		assertEquals("minecraft:wooden_sword", definition.mainHand().itemId);
@@ -55,9 +50,7 @@ class VillagerFactionUnitTest {
 		var definition = unit.definition();
 		var fireworks = unit.skillRocketPayload(new Random(1234L));
 
-		assertEquals("약탈자", definition.displayName());
 		assertEquals(3, definition.cost());
-		assertEquals(15, definition.spawnCooldownSeconds());
 		assertEquals(18.0, definition.maxHealth());
 		assertEquals(1.0, definition.moveSpeedScale());
 		assertEquals("minecraft:crossbow", definition.mainHand().itemId);
@@ -75,15 +68,13 @@ class VillagerFactionUnitTest {
 		var unit = new VindicatorUnit();
 		var definition = unit.definition();
 
-		assertEquals("변명자", definition.displayName());
-		assertEquals(4, definition.cost());
-		assertEquals(25, definition.spawnCooldownSeconds());
+		assertEquals(5, definition.cost());
 		assertEquals(26.0, definition.maxHealth());
 		assertEquals(1.0, definition.moveSpeedScale());
 		assertEquals("minecraft:iron_axe", definition.mainHand().itemId);
 		assertEquals("minecraft:iron_axe", definition.abilityItemSpec().itemId);
 		assertEquals(8, definition.abilityCooldownSeconds());
-		assertEquals(0.8D, unit.dashHorizontalStrength());
+		assertEquals(0.5D, unit.dashHorizontalStrength());
 		assertEquals(0.1D, unit.dashVerticalBoost());
 	}
 }

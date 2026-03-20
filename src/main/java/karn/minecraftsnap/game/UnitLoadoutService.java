@@ -321,12 +321,23 @@ public class UnitLoadoutService {
 			return ItemStack.EMPTY;
 		}
 		markUnbreakable(stack);
-		var displayName = spec.displayName.isBlank() ? fallbackDisplayName : spec.displayName;
-		var loreLines = spec.loreLines.isEmpty() ? fallbackLoreLines : spec.loreLines;
-		if (textTemplateResolver != null && displayName != null && !displayName.isBlank()) {
-			stack.set(DataComponentTypes.CUSTOM_NAME, textTemplateResolver.format(displayName));
+		var name = spec.displayName;
+		if ((name == null || name.isBlank()) && fallbackDisplayName != null && !fallbackDisplayName.isBlank()) {
+			// SNBT에 이미 이름이 포함되어 있는지 확인
+			if (!stack.contains(DataComponentTypes.CUSTOM_NAME)) {
+				stack.set(DataComponentTypes.CUSTOM_NAME, textTemplateResolver.format(fallbackDisplayName));
+			}
+		} else if (name != null && !name.isBlank()) {
+			stack.set(DataComponentTypes.CUSTOM_NAME, textTemplateResolver.format(name));
 		}
-		if (textTemplateResolver != null && loreLines != null && !loreLines.isEmpty()) {
+
+		var loreLines = spec.loreLines;
+		if ((loreLines == null || loreLines.isEmpty()) && fallbackLoreLines != null && !fallbackLoreLines.isEmpty()) {
+			// SNBT에 이미 설명이 포함되어 있는지 확인
+			if (!stack.contains(DataComponentTypes.LORE)) {
+				stack.set(DataComponentTypes.LORE, new LoreComponent(fallbackLoreLines.stream().map(textTemplateResolver::format).toList()));
+			}
+		} else if (loreLines != null && !loreLines.isEmpty()) {
 			stack.set(DataComponentTypes.LORE, new LoreComponent(loreLines.stream().map(textTemplateResolver::format).toList()));
 		}
 		applyCustomData(stack, kind, factionId, unitId);

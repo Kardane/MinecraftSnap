@@ -18,7 +18,6 @@ public class ArmorerVillagerUnit extends AbstractVillagerUnit implements Configu
 		FactionId.VILLAGER,
 		true,
 		2,
-		10,
 		20.0,
 		0.8,
 		item("minecraft:wooden_sword"),

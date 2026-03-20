@@ -22,7 +22,6 @@ public class PiglinUnit extends AbstractNetherUnit implements ConfiguredUnitClas
 		FactionId.NETHER,
 		true,
 		2,
-		10,
 		20.0,
 		1.0,
 		item("minecraft:golden_sword"),

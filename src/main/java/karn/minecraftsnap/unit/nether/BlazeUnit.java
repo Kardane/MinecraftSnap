@@ -29,7 +29,6 @@ public class BlazeUnit extends AbstractNetherUnit implements ConfiguredUnitClass
 		FactionId.NETHER,
 		true,
 		3,
-		15,
 		14.0,
 		1.2,
 		item("minecraft:blaze_rod"),

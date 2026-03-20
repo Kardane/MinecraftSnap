@@ -60,6 +60,44 @@ public class UnitRegistry {
 		}
 	}
 
+	public void applyTextConfig(karn.minecraftsnap.config.TextConfigFile textConfig) {
+		for (var factionId : FactionId.values()) {
+			var oldSpec = factionSpecs.getOrDefault(factionId, FactionSpecs.get(factionId));
+			if (oldSpec != null) {
+				var summary = textConfig.factionSummaries.get(factionId.name());
+				var skillDesc = textConfig.captainSkillDescriptions.get(factionId.name());
+				if (summary != null || skillDesc != null) {
+					factionSpecs.put(factionId, new FactionSpec(
+						oldSpec.displayName(),
+						summary != null ? summary : oldSpec.summaryLines(),
+						oldSpec.captainSkillName(),
+						skillDesc != null ? skillDesc : oldSpec.captainSkillDescriptionLines()
+					));
+				}
+			}
+		}
+
+		var updatedUnits = new LinkedHashMap<String, UnitDefinition>();
+		for (var entry : units.entrySet()) {
+			var unit = entry.getValue();
+			var desc = textConfig.unitDescriptions.get(unit.id());
+			if (desc != null) {
+				updatedUnits.put(entry.getKey(), new UnitDefinition(
+					unit.id(), unit.displayName(), unit.factionId(), unit.captainSpawnable(),
+					unit.cost(), unit.maxHealth(), unit.moveSpeedScale(),
+					unit.mainHand(), unit.offHand(), unit.helmet(), unit.chest(),
+					unit.legs(), unit. boots(), unit.abilityItemSpec(), unit.abilityName(),
+					unit.abilityCooldownSeconds(), unit.ammoType(), unit.disguise(),
+					desc, unit.advanceOptions()
+				));
+			} else {
+				updatedUnits.put(entry.getKey(), unit);
+			}
+		}
+		units.clear();
+		units.putAll(updatedUnits);
+	}
+
 	public List<AdvanceOptionEntry> getAdvanceOptions(String unitId) {
 		var definition = get(unitId);
 		if (definition == null || definition.advanceOptions() == null) {

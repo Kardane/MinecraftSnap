@@ -16,14 +16,13 @@ import static karn.minecraftsnap.unit.UnitSpecSupport.none;
 import static karn.minecraftsnap.unit.UnitSpecSupport.unit;
 import static net.minecraft.enchantment.Enchantments.LOYALTY;
 
-public class DrownedUnit extends ZombieUnit implements ConfiguredUnitClass {
+public class DrownedUnit extends ZombieUnit {
 	public static final UnitDefinition DEFINITION = unit(
 		"drowned",
 		"드라운드",
 		FactionId.MONSTER,
 		false,
 		3,
-		10,
 		18.0,
 		1.0,
 		item("minecraft:trident"),

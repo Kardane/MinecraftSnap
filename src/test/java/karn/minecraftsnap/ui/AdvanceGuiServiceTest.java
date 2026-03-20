@@ -30,7 +30,6 @@ class AdvanceGuiServiceTest {
 				FactionId.MONSTER,
 				false,
 				0,
-				0,
 				20.0,
 				1.0,
 				new UnitItemEntry(),

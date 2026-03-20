@@ -12,7 +12,6 @@ public class FactionUnitEntry {
 	public String displayName = "";
 	public boolean captainSpawnable = true;
 	public int cost;
-	public int spawnCooldownSeconds;
 	public double maxHealth = 20.0;
 	public double moveSpeedScale = 1.0;
 	public UnitItemEntry mainHand = UnitItemEntry.create("minecraft:wooden_sword");
@@ -81,7 +80,6 @@ public class FactionUnitEntry {
 			factionId,
 			captainSpawnable,
 			cost,
-			spawnCooldownSeconds,
 			maxHealth,
 			moveSpeedScale,
 			mainHand,

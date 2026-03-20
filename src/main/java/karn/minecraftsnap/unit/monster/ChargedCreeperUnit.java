@@ -20,7 +20,6 @@ public class ChargedCreeperUnit extends CreeperUnit {
 		FactionId.MONSTER,
 		false,
 		0,
-		0,
 		24.0,
 		1.05,
 		item("minecraft:tnt"),

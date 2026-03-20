@@ -21,7 +21,6 @@ public class VillagerUnit extends AbstractVillagerUnit implements ConfiguredUnit
 		FactionId.VILLAGER,
 		true,
 		1,
-		5,
 		20.0,
 		0.8,
 		karn.minecraftsnap.unit.UnitSpecSupport.item("minecraft:wooden_sword"),

@@ -22,7 +22,6 @@ public class BoggedUnit extends AbstractMonsterUnit implements ConfiguredUnitCla
 		FactionId.MONSTER,
 		false,
 		4,
-		15,
 		16.0,
 		0.8,
 		item("minecraft:bow"),

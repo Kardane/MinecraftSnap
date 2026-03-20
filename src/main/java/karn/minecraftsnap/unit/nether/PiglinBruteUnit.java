@@ -24,7 +24,6 @@ public class PiglinBruteUnit extends AbstractNetherUnit implements ConfiguredUni
 		FactionId.NETHER,
 		true,
 		5,
-		30,
 		30.0,
 		1.0,
 		item("minecraft:golden_axe"),

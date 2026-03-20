@@ -21,7 +21,6 @@ public class VindicatorUnit extends AbstractVillagerUnit implements ConfiguredUn
 		FactionId.VILLAGER,
 		true,
 		5,
-		25,
 		26.0,
 		1.0,
 		item("minecraft:iron_axe"),

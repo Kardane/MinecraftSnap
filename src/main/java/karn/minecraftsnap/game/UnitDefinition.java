@@ -13,7 +13,6 @@ public record UnitDefinition(
 	FactionId factionId,
 	boolean captainSpawnable,
 	int cost,
-	int spawnCooldownSeconds,
 	double maxHealth,
 	double moveSpeedScale,
 	UnitItemEntry mainHand,

@@ -41,7 +41,6 @@ public class PillagerUnit extends AbstractVillagerUnit implements ConfiguredUnit
 		FactionId.VILLAGER,
 		true,
 		3,
-		15,
 		18.0,
 		1.0,
 		item("minecraft:crossbow"),

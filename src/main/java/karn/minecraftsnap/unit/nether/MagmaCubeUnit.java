@@ -29,7 +29,6 @@ public class MagmaCubeUnit extends AbstractNetherUnit implements ConfiguredUnitC
 		FactionId.NETHER,
 		true,
 		2,
-		10,
 		20.0,
 		1.0,
 		item("minecraft:magma_cream"),

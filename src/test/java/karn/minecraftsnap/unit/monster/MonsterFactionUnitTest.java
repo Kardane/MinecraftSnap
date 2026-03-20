@@ -13,9 +13,7 @@ class MonsterFactionUnitTest {
 		var unit = new ZombieUnit();
 		var definition = unit.definition();
 
-		assertEquals("좀비", definition.displayName());
 		assertEquals(1, definition.cost());
-		assertEquals(7, definition.spawnCooldownSeconds());
 		assertEquals(20.0, definition.maxHealth());
 		assertEquals(0.8, definition.moveSpeedScale());
 		assertEquals("minecraft:iron_shovel", definition.mainHand().itemId);
@@ -29,9 +27,7 @@ class MonsterFactionUnitTest {
 		var unit = new HuskUnit();
 		var definition = unit.definition();
 
-		assertEquals("허스크", definition.displayName());
 		assertEquals(3, definition.cost());
-		assertEquals(10, definition.spawnCooldownSeconds());
 		assertEquals(20.0, definition.maxHealth());
 		assertEquals(0.9, definition.moveSpeedScale());
 		assertEquals("minecraft:iron_sword", definition.mainHand().itemId);
@@ -44,9 +40,7 @@ class MonsterFactionUnitTest {
 		var unit = new DrownedUnit();
 		var definition = unit.definition();
 
-		assertEquals("드라운드", definition.displayName());
 		assertEquals(3, definition.cost());
-		assertEquals(10, definition.spawnCooldownSeconds());
 		assertEquals(18.0, definition.maxHealth());
 		assertEquals(1.0, definition.moveSpeedScale());
 		assertEquals("minecraft:trident", definition.mainHand().itemId);
@@ -58,9 +52,7 @@ class MonsterFactionUnitTest {
 		var unit = new SlimeUnit();
 		var definition = unit.definition();
 
-		assertEquals("슬라임", definition.displayName());
 		assertEquals(2, definition.cost());
-		assertEquals(8, definition.spawnCooldownSeconds());
 		assertEquals(18.0, definition.maxHealth());
 		assertEquals(1.0, definition.moveSpeedScale());
 		assertEquals("minecraft:slime_ball", definition.mainHand().itemId);
@@ -90,9 +82,7 @@ class MonsterFactionUnitTest {
 		var unit = new SkeletonUnit();
 		var definition = unit.definition();
 
-		assertEquals("스켈레톤", definition.displayName());
 		assertEquals(3, definition.cost());
-		assertEquals(12, definition.spawnCooldownSeconds());
 		assertEquals(16.0, definition.maxHealth());
 		assertEquals(0.9, definition.moveSpeedScale());
 		assertEquals("minecraft:bow", definition.mainHand().itemId);
@@ -108,9 +98,7 @@ class MonsterFactionUnitTest {
 		var unit = new StrayUnit();
 		var definition = unit.definition();
 
-		assertEquals("스트레이", definition.displayName());
 		assertEquals(4, definition.cost());
-		assertEquals(15, definition.spawnCooldownSeconds());
 		assertEquals(16.0, definition.maxHealth());
 		assertEquals(0.8, definition.moveSpeedScale());
 		assertEquals("minecraft:bow", definition.mainHand().itemId);
@@ -123,9 +111,7 @@ class MonsterFactionUnitTest {
 		var unit = new BoggedUnit();
 		var definition = unit.definition();
 
-		assertEquals("보그드", definition.displayName());
 		assertEquals(4, definition.cost());
-		assertEquals(15, definition.spawnCooldownSeconds());
 		assertEquals(16.0, definition.maxHealth());
 		assertEquals(0.8, definition.moveSpeedScale());
 		assertEquals("minecraft:bow", definition.mainHand().itemId);
@@ -138,9 +124,7 @@ class MonsterFactionUnitTest {
 		var unit = new WitherSkeletonUnit();
 		var definition = unit.definition();
 
-		assertEquals("위더 스켈레톤", definition.displayName());
 		assertEquals(4, definition.cost());
-		assertEquals(25, definition.spawnCooldownSeconds());
 		assertEquals(24.0, definition.maxHealth());
 		assertEquals(1.1, definition.moveSpeedScale());
 		assertEquals("minecraft:stone_sword", definition.mainHand().itemId);

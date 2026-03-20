@@ -7,7 +7,7 @@ import net.minecraft.server.network.ServerPlayerEntity;
 public abstract class AbstractNetherUnit extends AbstractUnitClass {
 	@Override
 	public void onKill(UnitContext context, ServerPlayerEntity victim) {
-		context.rewardGold(1);
+		// 보상은 InGameRuleService에서 통합 관리함
 	}
 
 	@Override

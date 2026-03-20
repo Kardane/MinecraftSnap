@@ -26,7 +26,6 @@ public class SlimeUnit extends AbstractMonsterUnit implements ConfiguredUnitClas
 		FactionId.MONSTER,
 		true,
 		2,
-		8,
 		18.0,
 		1.0,
 		item("minecraft:slime_ball"),
@@ -60,6 +59,18 @@ public class SlimeUnit extends AbstractMonsterUnit implements ConfiguredUnitClas
 	public void buildLoadout(UnitContext context) {
 		context.baseBuildLoadout();
 		applyCombatProfile(context.player().getMainHandStack(), definition().id(), weaponAttackDamage(), weaponAttackSpeed());
+	}
+
+	@Override
+	public boolean shouldCancelMove(UnitContext context, net.minecraft.network.packet.c2s.play.PlayerMoveC2SPacket packet) {
+		var player = context.player();
+		if (player == null || packet == null || !player.isOnGround()) {
+			return false;
+		}
+		if (player.getVelocity().y > 0.05D) {
+			return false;
+		}
+		return packet.getY(player.getY()) > player.getY() + 0.05D;
 	}
 
 	@Override

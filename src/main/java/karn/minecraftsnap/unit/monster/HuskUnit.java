@@ -15,14 +15,13 @@ import static karn.minecraftsnap.unit.UnitSpecSupport.item;
 import static karn.minecraftsnap.unit.UnitSpecSupport.none;
 import static karn.minecraftsnap.unit.UnitSpecSupport.unit;
 
-public class HuskUnit extends ZombieUnit implements ConfiguredUnitClass {
+public class HuskUnit extends ZombieUnit {
 	public static final UnitDefinition DEFINITION = unit(
 		"husk",
 		"허스크",
 		FactionId.MONSTER,
 		false,
 		3,
-		10,
 		20.0,
 		0.9,
 		item("minecraft:iron_sword"),

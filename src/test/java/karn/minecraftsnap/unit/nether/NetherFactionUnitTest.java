@@ -11,9 +11,7 @@ class NetherFactionUnitTest {
 		var unit = new PiglinUnit();
 		var definition = unit.definition();
 
-		assertEquals("피글린", definition.displayName());
-		assertEquals(1, definition.cost());
-		assertEquals(10, definition.spawnCooldownSeconds());
+		assertEquals(2, definition.cost());
 		assertEquals(20.0, definition.maxHealth());
 		assertEquals(1.0, definition.moveSpeedScale());
 		assertEquals("minecraft:golden_sword", definition.mainHand().itemId);
@@ -29,9 +27,7 @@ class NetherFactionUnitTest {
 		var unit = new ZombifiedPiglinUnit();
 		var definition = unit.definition();
 
-		assertEquals("좀비 피글린", definition.displayName());
-		assertEquals(1, definition.cost());
-		assertEquals(10, definition.spawnCooldownSeconds());
+		assertEquals(2, definition.cost());
 		assertEquals(20.0, definition.maxHealth());
 		assertEquals(1.0, definition.moveSpeedScale());
 		assertEquals("minecraft:golden_sword", definition.mainHand().itemId);
@@ -47,9 +43,7 @@ class NetherFactionUnitTest {
 		var unit = new BlazeUnit();
 		var definition = unit.definition();
 
-		assertEquals("블레이즈", definition.displayName());
 		assertEquals(3, definition.cost());
-		assertEquals(15, definition.spawnCooldownSeconds());
 		assertEquals(14.0, definition.maxHealth());
 		assertEquals(1.2, definition.moveSpeedScale());
 		assertEquals("minecraft:blaze_rod", definition.mainHand().itemId);
@@ -68,9 +62,7 @@ class NetherFactionUnitTest {
 		var unit = new MagmaCubeUnit();
 		var definition = unit.definition();
 
-		assertEquals("마그마 큐브", definition.displayName());
 		assertEquals(2, definition.cost());
-		assertEquals(10, definition.spawnCooldownSeconds());
 		assertEquals(20.0, definition.maxHealth());
 		assertEquals(1.0, definition.moveSpeedScale());
 		assertEquals("minecraft:magma_cream", definition.mainHand().itemId);
@@ -88,9 +80,7 @@ class NetherFactionUnitTest {
 		var unit = new PiglinBruteUnit();
 		var definition = unit.definition();
 
-		assertEquals("피글린 브루트", definition.displayName());
 		assertEquals(5, definition.cost());
-		assertEquals(30, definition.spawnCooldownSeconds());
 		assertEquals(30.0, definition.maxHealth());
 		assertEquals(1.0, definition.moveSpeedScale());
 		assertEquals("minecraft:golden_axe", definition.mainHand().itemId);

@@ -26,7 +26,6 @@ public class WitherSkeletonUnit extends AbstractMonsterUnit implements Configure
 		FactionId.MONSTER,
 		false,
 		4,
-		25,
 		24.0,
 		1.1,
 		item("minecraft:stone_sword"),

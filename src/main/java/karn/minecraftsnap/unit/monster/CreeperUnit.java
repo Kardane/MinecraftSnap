@@ -42,7 +42,6 @@ public class CreeperUnit extends AbstractMonsterUnit implements ConfiguredUnitCl
 		FactionId.MONSTER,
 		true,
 		5,
-		25,
 		20.0,
 		1.0,
 		item("minecraft:tnt"),
@@ -77,6 +76,11 @@ public class CreeperUnit extends AbstractMonsterUnit implements ConfiguredUnitCl
 		context.baseBuildLoadout();
 		clearBombState(context);
 		applyDisguise(context, false);
+	}
+
+	@Override
+	public boolean shouldCancelMove(UnitContext context, net.minecraft.network.packet.c2s.play.PlayerMoveC2SPacket packet) {
+		return context.getUnitRuntimeLong(BOMB_TICK_KEY) != null;
 	}
 
 	@Override

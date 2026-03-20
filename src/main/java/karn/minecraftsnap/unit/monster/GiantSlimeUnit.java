@@ -13,13 +13,12 @@ import static karn.minecraftsnap.unit.UnitSpecSupport.item;
 import static karn.minecraftsnap.unit.UnitSpecSupport.none;
 import static karn.minecraftsnap.unit.UnitSpecSupport.unit;
 
-public class GiantSlimeUnit extends SlimeUnit implements ConfiguredUnitClass {
+public class GiantSlimeUnit extends SlimeUnit {
 	public static final UnitDefinition DEFINITION = unit(
 		"giant_slime",
 		"거대 슬라임",
 		FactionId.MONSTER,
 		false,
-		0,
 		0,
 		30.0,
 		1.0,

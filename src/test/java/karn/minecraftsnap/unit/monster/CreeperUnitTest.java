@@ -12,7 +12,6 @@ class CreeperUnitTest {
 		var definition = unit.definition();
 
 		assertEquals(5, definition.cost());
-		assertEquals(25, definition.spawnCooldownSeconds());
 		assertEquals(20.0, definition.maxHealth());
 		assertEquals(1.0, definition.moveSpeedScale());
 		assertEquals("minecraft:tnt", definition.mainHand().itemId);

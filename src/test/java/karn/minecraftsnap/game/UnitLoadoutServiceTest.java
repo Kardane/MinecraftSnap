@@ -125,7 +125,6 @@ class UnitLoadoutServiceTest {
 				FactionId.VILLAGER,
 				true,
 				0,
-				0,
 				20.0,
 				1.0,
 				mainHand,

@@ -565,10 +565,10 @@ public class MinecraftSnapConfigManager {
 		config.captainSkill.name = "습격 소집";
 		config.captainSkill.descriptionLines = List.of("&7실제 스킬 로직은 기존 구현 유지", "&7위키와 GUI 설명은 JSON 기준");
 		config.units = List.of(
-			unit("villager", "주민", true, 1, 5, 20.0, 0.8, "minecraft:wooden_sword", "", "", "", "", "", "minecraft:bread", "밥먹기", 10, "NONE", "minecraft:villager", List.of("&7체력 3 회복", "&7기본 유지력 유닛")),
-			unit("armorer_villager", "대장장이 주민", true, 2, 9, 30.0, 0.9, "minecraft:wooden_sword", "minecraft:shield", "", "minecraft:iron_chestplate", "", "", "", "", 0, "NONE", "minecraft:villager", List.of("&7방패와 흉갑 보유", "&7전선 유지용")),
-			unit("vindicator", "변명자", true, 4, 18, 30.0, 1.0, "minecraft:iron_axe", "", "", "", "", "", "minecraft:iron_axe", "도약", 10, "NONE", "minecraft:vindicator", List.of("&7짧은 돌진 스킬", "&7근접 압박용")),
-			unit("pillager", "약탈자", true, 3, 15, 16.0, 1.1, "minecraft:crossbow", "", "", "", "", "", "minecraft:firework_rocket", "폭죽 화살 지급", 15, "FIREWORK", "minecraft:pillager", List.of("&73발 폭죽 지급", "&7원거리 견제용"))
+			unit("villager", "주민", true, 1, 20.0, 0.8, "minecraft:wooden_sword", "", "", "", "", "", "minecraft:bread", "밥먹기", 10, "NONE", "minecraft:villager", List.of("&7체력 3 회복", "&7기본 유지력 유닛")),
+			unit("armorer_villager", "대장장이 주민", true, 2, 30.0, 0.9, "minecraft:wooden_sword", "minecraft:shield", "", "minecraft:iron_chestplate", "", "", "", "", 0, "NONE", "minecraft:villager", List.of("&7방패와 흉갑 보유", "&7전선 유지용")),
+			unit("vindicator", "변명자", true, 4, 30.0, 1.0, "minecraft:iron_axe", "", "", "", "", "", "minecraft:iron_axe", "도약", 10, "NONE", "minecraft:vindicator", List.of("&7짧은 돌진 스킬", "&7근접 압박용")),
+			unit("pillager", "약탈자", true, 3, 16.0, 1.1, "minecraft:crossbow", "", "", "", "", "", "minecraft:firework_rocket", "폭죽 화살 지급", 15, "FIREWORK", "minecraft:pillager", List.of("&73발 폭죽 지급", "&7원거리 견제용"))
 		);
 		config.normalize();
 		return config;
@@ -580,33 +580,33 @@ public class MinecraftSnapConfigManager {
 		config.summaryLines = List.of("&7전직과 기습 중심", "&7환경 적응이 핵심");
 		config.captainSkill.name = "날씨 변화";
 		config.captainSkill.descriptionLines = List.of("&7실제 스킬 로직은 기존 구현 유지", "&7위키와 GUI 설명은 JSON 기준");
-		var zombie = unit("zombie", "좀비", true, 1, 7, 20.0, 0.8, "minecraft:iron_shovel", "", "minecraft:leather_helmet", "", "", "", "", "", 0, "NONE", "minecraft:zombie", List.of("&7사망 시 아군 사령관 소환 쿨 2초 감소"));
+		var zombie = unit("zombie", "좀비", true, 1, 20.0, 0.8, "minecraft:iron_shovel", "", "minecraft:leather_helmet", "", "", "", "", "", 0, "NONE", "minecraft:zombie", List.of("&7사망 시 아군 사령관 소환 쿨 2초 감소"));
 		zombie.advanceOptions = List.of(
 			advanceOption("husk", "허스크", List.of("&7사막/악지에서 20초 버티면 적응"), List.of("minecraft:desert", "minecraft:badlands", "minecraft:eroded_badlands", "minecraft:wooded_badlands"), List.of(), 400),
 			advanceOption("drowned", "드라운드", List.of("&7바다에서 20초 버티면 적응"), List.of("minecraft:ocean", "minecraft:deep_ocean", "minecraft:cold_ocean", "minecraft:deep_cold_ocean", "minecraft:lukewarm_ocean", "minecraft:deep_lukewarm_ocean", "minecraft:warm_ocean", "minecraft:frozen_ocean", "minecraft:deep_frozen_ocean"), List.of(), 400)
 		);
-		var skeleton = unit("skeleton", "스켈레톤", true, 3, 12, 16.0, 0.9, "minecraft:bow", "", "", "", "", "", "minecraft:bone", "뼈 폭발", 12, "ARROW", "minecraft:skeleton", List.of("&74칸 내 적에게 피해 5와 넉백"));
+		var skeleton = unit("skeleton", "스켈레톤", true, 3, 16.0, 0.9, "minecraft:bow", "", "", "", "", "", "minecraft:bone", "뼈 폭발", 12, "ARROW", "minecraft:skeleton", List.of("&74칸 내 적에게 피해 5와 넉백"));
 		skeleton.advanceOptions = List.of(
 			advanceOption("stray", "스트레이", List.of("&7타이가에서 20초 버티면 적응"), List.of("minecraft:taiga", "minecraft:snowy_taiga", "minecraft:old_growth_pine_taiga", "minecraft:old_growth_spruce_taiga"), List.of(), 400),
 			advanceOption("bogged", "보그드", List.of("&7늪에서 20초 버티면 적응"), List.of("minecraft:swamp", "minecraft:mangrove_swamp"), List.of(), 400),
 			advanceOption("wither_skeleton", "위더 스켈레톤", List.of("&7네더에서 30초 버티면 적응"), List.of("minecraft:nether_wastes", "minecraft:soul_sand_valley", "minecraft:crimson_forest", "minecraft:warped_forest", "minecraft:basalt_deltas"), List.of(), 600)
 		);
-		var slime = unit("slime", "슬라임", true, 2, 8, 14.0, 1.0, "minecraft:slime_ball", "", "", "", "", "", "", "", 0, "NONE", "minecraft:slime", List.of("&7사망 시 사이즈 2 슬라임 3마리"));
+		var slime = unit("slime", "슬라임", true, 2, 14.0, 1.0, "minecraft:slime_ball", "", "", "", "", "", "", "", 0, "NONE", "minecraft:slime", List.of("&7사망 시 사이즈 2 슬라임 3마리"));
 		slime.advanceOptions = List.of(advanceOption("giant_slime", "거대 슬라임", List.of("&7늪에서 15초 버티면 적응"), List.of("minecraft:swamp", "minecraft:mangrove_swamp"), List.of(), 300));
-		var creeper = unit("creeper", "크리퍼", true, 5, 25, 20.0, 1.0, "minecraft:tnt", "", "", "", "", "", "minecraft:tnt", "자폭", 20, "NONE", "minecraft:creeper", List.of("&71초 뒤 자폭", "&7근접 폭발 특화"));
+		var creeper = unit("creeper", "크리퍼", true, 5, 20.0, 1.0, "minecraft:tnt", "", "", "", "", "", "minecraft:tnt", "자폭", 20, "NONE", "minecraft:creeper", List.of("&71초 뒤 자폭", "&7근접 폭발 특화"));
 		creeper.advanceOptions = List.of(advanceOption("charged_creeper", "대전된 크리퍼", List.of("&7천둥 아래에서 대전됨"), List.of("minecraft:plains", "minecraft:forest", "minecraft:dark_forest"), List.of("thunder"), 10));
 		config.units = List.of(
 			zombie,
 			skeleton,
 			slime,
 			creeper,
-			unit("husk", "허스크", false, 0, 0, 20.0, 0.9, "minecraft:iron_sword", "", "", "", "", "", "", "", 0, "NONE", "minecraft:husk", List.of("&7공격 시 구속 I, 나약함 I 3초")),
-			unit("drowned", "드라운드", false, 0, 0, 18.0, 1.0, "minecraft:trident", "", "", "", "", "", "", "", 0, "NONE", "minecraft:drowned", List.of("&7수중 호흡 무한, 물속 이동 강화")),
-			unit("stray", "스트레이", false, 0, 0, 16.0, 0.8, "minecraft:bow", "", "", "", "", "", "", "", 0, "ARROW", "minecraft:stray", List.of("&7공격 시 구속 II 3초")),
-			unit("bogged", "보그드", false, 0, 0, 16.0, 0.8, "minecraft:bow", "", "", "", "", "", "", "", 0, "ARROW", "minecraft:bogged", List.of("&7공격 시 독 III 5초")),
-			unit("wither_skeleton", "위더 스켈레톤", false, 0, 0, 24.0, 1.1, "minecraft:stone_sword", "", "", "", "", "", "minecraft:stone_sword", "위더 해골", 8, "NONE", "minecraft:wither_skeleton", List.of("&7공격 시 시듦 II 4초")),
-			unit("giant_slime", "거대 슬라임", false, 0, 0, 30.0, 1.0, "minecraft:slime_ball", "", "", "", "", "", "", "", 0, "NONE", "minecraft:slime", List.of("&7사망 시 사이즈 4 슬라임 2마리")),
-			unit("charged_creeper", "대전된 크리퍼", false, 0, 0, 24.0, 1.05, "minecraft:tnt", "", "", "", "", "", "minecraft:tnt", "자폭", 15, "NONE", "minecraft:creeper", List.of("&7천둥 조건 전직 결과"))
+			unit("husk", "허스크", false, 0, 20.0, 0.9, "minecraft:iron_sword", "", "", "", "", "", "", "", 0, "NONE", "minecraft:husk", List.of("&7공격 시 구속 I, 나약함 I 3초")),
+			unit("drowned", "드라운드", false, 0, 18.0, 1.0, "minecraft:trident", "", "", "", "", "", "", "", 0, "NONE", "minecraft:drowned", List.of("&7수중 호흡 무한, 물속 이동 강화")),
+			unit("stray", "스트레이", false, 0, 16.0, 0.8, "minecraft:bow", "", "", "", "", "", "", "", 0, "ARROW", "minecraft:stray", List.of("&7공격 시 구속 II 3초")),
+			unit("bogged", "보그드", false, 0, 16.0, 0.8, "minecraft:bow", "", "", "", "", "", "", "", 0, "ARROW", "minecraft:bogged", List.of("&7공격 시 독 III 5초")),
+			unit("wither_skeleton", "위더 스켈레톤", false, 0, 24.0, 1.1, "minecraft:stone_sword", "", "", "", "", "", "minecraft:stone_sword", "위더 해골", 8, "NONE", "minecraft:wither_skeleton", List.of("&7공격 시 시듦 II 4초")),
+			unit("giant_slime", "거대 슬라임", false, 0, 30.0, 1.0, "minecraft:slime_ball", "", "", "", "", "", "", "", 0, "NONE", "minecraft:slime", List.of("&7사망 시 사이즈 4 슬라임 2마리")),
+			unit("charged_creeper", "대전된 크리퍼", false, 0, 24.0, 1.05, "minecraft:tnt", "", "", "", "", "", "minecraft:tnt", "자폭", 15, "NONE", "minecraft:creeper", List.of("&7천둥 조건 전직 결과"))
 		);
 		config.normalize();
 		return config;
@@ -619,10 +619,10 @@ public class MinecraftSnapConfigManager {
 		config.captainSkill.name = "포탈 생성";
 		config.captainSkill.descriptionLines = List.of("&7실제 스킬 로직은 기존 구현 유지", "&7위키와 GUI 설명은 JSON 기준");
 		config.units = List.of(
-			unit("piglin", "피글린", true, 2, 5, 20.0, 1.0, "minecraft:golden_sword", "", "", "", "", "", "", "", 0, "NONE", "minecraft:piglin", List.of("&750% 확률로 좀비 피글린 생성")),
-			unit("zombified_piglin", "좀비 피글린", true, 2, 8, 20.0, 0.8, "minecraft:golden_sword", "", "", "", "", "", "minecraft:golden_sword", "분노", 15, "NONE", "minecraft:zombified_piglin", List.of("&7주변 아군 강화")),
-			unit("blaze", "블레이즈", true, 3, 16, 16.0, 1.2, "minecraft:blaze_rod", "", "", "", "", "", "minecraft:blaze_rod", "화염구", 5, "NONE", "minecraft:blaze", List.of("&7작은 화염구 3연사")),
-			unit("piglin_brute", "피글린 브루트", true, 6, 25, 40.0, 1.0, "minecraft:golden_axe", "", "", "", "", "", "minecraft:golden_axe", "광란", 30, "NONE", "minecraft:piglin_brute", List.of("&7자가 강화 폭발력"))
+			unit("piglin", "피글린", true, 2, 20.0, 1.0, "minecraft:golden_sword", "", "", "", "", "", "", "", 0, "NONE", "minecraft:piglin", List.of("&750% 확률로 좀비 피글린 생성")),
+			unit("zombified_piglin", "좀비 피글린", true, 2, 20.0, 0.8, "minecraft:golden_sword", "", "", "", "", "", "minecraft:golden_sword", "분노", 15, "NONE", "minecraft:zombified_piglin", List.of("&7주변 아군 강화")),
+			unit("blaze", "블레이즈", true, 3, 16.0, 1.2, "minecraft:blaze_rod", "", "", "", "", "", "minecraft:blaze_rod", "화염구", 5, "NONE", "minecraft:blaze", List.of("&7작은 화염구 3연사")),
+			unit("piglin_brute", "피글린 브루트", true, 6, 40.0, 1.0, "minecraft:golden_axe", "", "", "", "", "", "minecraft:golden_axe", "광란", 30, "NONE", "minecraft:piglin_brute", List.of("&7자가 강화 폭발력"))
 		);
 		config.normalize();
 		return config;
@@ -633,7 +633,6 @@ public class MinecraftSnapConfigManager {
 		String displayName,
 		boolean captainSpawnable,
 		int cost,
-		int spawnCooldownSeconds,
 		double maxHealth,
 		double moveSpeedScale,
 		String mainHandItemId,
@@ -654,7 +653,6 @@ public class MinecraftSnapConfigManager {
 		entry.displayName = displayName;
 		entry.captainSpawnable = captainSpawnable;
 		entry.cost = cost;
-		entry.spawnCooldownSeconds = spawnCooldownSeconds;
 		entry.maxHealth = maxHealth;
 		entry.moveSpeedScale = moveSpeedScale;
 		entry.mainHand = UnitItemEntry.create(mainHandItemId);

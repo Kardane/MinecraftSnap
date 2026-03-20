@@ -205,6 +205,39 @@ public class TextConfigFile {
 	public String runningSidebarContestedIcon = "&e⬛";
 	public String runningSidebarRedIcon = "&c⬛";
 	public String runningSidebarBlueIcon = "&9⬛";
+	public java.util.Map<String, java.util.List<String>> factionSummaries = new java.util.LinkedHashMap<>();
+	public java.util.Map<String, java.util.List<String>> captainSkillDescriptions = new java.util.LinkedHashMap<>();
+	public java.util.Map<String, java.util.List<String>> unitDescriptions = new java.util.LinkedHashMap<>();
+
+	{
+		factionSummaries.put("VILLAGER", java.util.List.of("&7주민과 우민 유닛을 사용합니다.", "&7유닛은 적 처치, 점령을 통해 에메랄드를 얻고", "&7상점을 이용할 수 있습니다."));
+		factionSummaries.put("MONSTER", java.util.List.of("&7몬스터 유닛을 사용합니다.", "&7유닛은 위치한 바이옴에 적응하여 전직할 수 있습니다."));
+		factionSummaries.put("NETHER", java.util.List.of("&7네더 유닛을 사용합니다.", "&7유닛은 적을 처치하여 금괴를 얻고", "&7상점을 이용할 수 있습니다."));
+
+		captainSkillDescriptions.put("VILLAGER", java.util.List.of("&7[마나 4 필요] 다른 라인의 아군 유닛을 사령관이 있는 라인으로 소집합니다.", "&7유닛은 체력을 모두 회복하고, 재생, 신속, 성급함이 부여됩니다."));
+		captainSkillDescriptions.put("MONSTER", java.util.List.of("&7[마나 4 필요] 맑음 / 비 / 폭풍우 선택합니다.", "&7비와 폭풍우는 아군 유닛을 버프하며", "&7폭풍우는 적에게 낮은 확률로 피해를 입힙니다."));
+		captainSkillDescriptions.put("NETHER", java.util.List.of("&7[마나 5 필요] 가장 가까운 라인에 포탈을 생성합니다.", "&7해당 라인에 있는 아군은 힘을 얻고, 유닛 소환시 소모한 마나의 일부를 환급받습니다."));
+
+		unitDescriptions.put("villager", java.util.List.of("&7체력 3 회복", "&7기본 유지력 유닛"));
+		unitDescriptions.put("armorer_villager", java.util.List.of("&7방패와 흉갑 보유", "&7전선 유지용"));
+		unitDescriptions.put("vindicator", java.util.List.of("&7짧은 돌진 스킬", "&7근접 압박용"));
+		unitDescriptions.put("pillager", java.util.List.of("&73발 폭죽 지급", "&7원거리 견제용"));
+		unitDescriptions.put("zombie", java.util.List.of("&7사망 시 아군 사령관 소환 쿨 2초 감소"));
+		unitDescriptions.put("skeleton", java.util.List.of("&74칸 내 적에게 피해 5와 넉백"));
+		unitDescriptions.put("slime", java.util.List.of("&7사망 시 사이즈 2 슬라임 3마리"));
+		unitDescriptions.put("creeper", java.util.List.of("&71초 뒤 자폭", "&7근접 폭발 특화"));
+		unitDescriptions.put("husk", java.util.List.of("&7공격 시 구속 I, 나약함 I 3초"));
+		unitDescriptions.put("drowned", java.util.List.of("&7수중 호흡 무한, 물속 이동 강화"));
+		unitDescriptions.put("stray", java.util.List.of("&7공격 시 구속 II 3초"));
+		unitDescriptions.put("bogged", java.util.List.of("&7공격 시 독 III 5초"));
+		unitDescriptions.put("wither_skeleton", java.util.List.of("&7공격 시 시듦 II 4초"));
+		unitDescriptions.put("giant_slime", java.util.List.of("&7사망 시 사이즈 4 슬라임 2마리"));
+		unitDescriptions.put("charged_creeper", java.util.List.of("&7천둥 조건 전직 결과"));
+		unitDescriptions.put("piglin", java.util.List.of("&750% 확률로 좀비 피글린 생성"));
+		unitDescriptions.put("zombified_piglin", java.util.List.of("&7주변 아군 강화"));
+		unitDescriptions.put("blaze", java.util.List.of("&7작은 화염구 3연사"));
+		unitDescriptions.put("piglin_brute", java.util.List.of("&7자가 강화 폭발력"));
+	}
 
 	public void normalize() {
 		var defaults = new TextConfigFile();
@@ -412,6 +445,9 @@ public class TextConfigFile {
 		runningSidebarContestedIcon = value(runningSidebarContestedIcon, defaults.runningSidebarContestedIcon);
 		runningSidebarRedIcon = value(runningSidebarRedIcon, defaults.runningSidebarRedIcon);
 		runningSidebarBlueIcon = value(runningSidebarBlueIcon, defaults.runningSidebarBlueIcon);
+		if (factionSummaries.isEmpty() && defaults.factionSummaries != null) factionSummaries.putAll(defaults.factionSummaries);
+		if (captainSkillDescriptions.isEmpty() && defaults.captainSkillDescriptions != null) captainSkillDescriptions.putAll(defaults.captainSkillDescriptions);
+		if (unitDescriptions.isEmpty() && defaults.unitDescriptions != null) unitDescriptions.putAll(defaults.unitDescriptions);
 	}
 
 	public void applyTo(SystemConfig systemConfig) {

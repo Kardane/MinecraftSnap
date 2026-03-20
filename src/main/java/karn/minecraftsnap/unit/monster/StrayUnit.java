@@ -22,7 +22,6 @@ public class StrayUnit extends AbstractMonsterUnit implements ConfiguredUnitClas
 		FactionId.MONSTER,
 		false,
 		4,
-		15,
 		16.0,
 		0.8,
 		item("minecraft:bow"),

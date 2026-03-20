@@ -5,7 +5,7 @@ import karn.minecraftsnap.game.UnitDefinition;
 import karn.minecraftsnap.unit.ConfiguredUnitClass;
 import karn.minecraftsnap.unit.UnitContext;
 import net.minecraft.entity.LivingEntity;
-import net.minecraft.server.network.ServerPlayerEntity;
+import net.minecraft.server.world.ServerWorld;
 import net.minecraft.sound.SoundCategory;
 import net.minecraft.sound.SoundEvents;
 
@@ -25,7 +25,6 @@ public class SkeletonUnit extends AbstractMonsterUnit implements ConfiguredUnitC
 		FactionId.MONSTER,
 		true,
 		3,
-		12,
 		16.0,
 		0.9,
 		item("minecraft:bow"),

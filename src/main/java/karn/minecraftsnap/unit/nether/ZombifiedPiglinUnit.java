@@ -26,7 +26,6 @@ public class ZombifiedPiglinUnit extends AbstractNetherUnit implements Configure
 		FactionId.NETHER,
 		true,
 		1,
-		10,
 		20.0,
 		1.0,
 		item("minecraft:golden_sword"),
