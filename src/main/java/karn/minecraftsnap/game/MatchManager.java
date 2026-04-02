@@ -28,6 +28,7 @@ public class MatchManager {
 	private long serverTicks;
 	private long phaseTicks;
 	private MinecraftServer server;
+	private final VanillaPlayerTeamService vanillaPlayerTeamService = new VanillaPlayerTeamService();
 
 	public MatchManager() {
 		for (var laneId : LaneId.values()) {
@@ -38,6 +39,9 @@ public class MatchManager {
 
 	public void bindServer(MinecraftServer server) {
 		this.server = server;
+		if (server != null) {
+			vanillaPlayerTeamService.ensureManagedTeams(server.getScoreboard());
+		}
 	}
 
 	public MinecraftServer getServer() {
@@ -52,6 +56,7 @@ public class MatchManager {
 
 	public void handleJoin(ServerPlayerEntity player) {
 		getOrCreateState(player.getUuid());
+		syncPlayerTeamFromScoreboard(player);
 	}
 
 	public void handleDisconnect(ServerPlayerEntity player) {
@@ -62,11 +67,11 @@ public class MatchManager {
 		serverTicks++;
 		phaseTicks++;
 
-		if (phase != MatchPhase.GAME_RUNNING || serverTicks % 20L != 0L) {
+		if (phase != MatchPhase.GAME_RUNNING) {
 			return;
 		}
 
-		if (clock.tickSecond()) {
+		if (clock.tick()) {
 			decideWinnerByScore();
 			setPhase(MatchPhase.GAME_END);
 		}
@@ -107,6 +112,7 @@ public class MatchManager {
 			hideAllLanes();
 			clearAssignedBiomes();
 			factionSelections.clear();
+			clearOnlineScoreboardTeams();
 			playerStates.values().forEach(PlayerMatchState::clear);
 		} else if (phase == MatchPhase.TEAM_SELECT) {
 			factionSelections.clear();
@@ -137,6 +143,10 @@ public class MatchManager {
 		return clock.getRemainingSeconds();
 	}
 
+	public int getRemainingTicks() {
+		return clock.getRemainingTicks();
+	}
+
 	public void reduceRemainingSeconds(int seconds) {
 		if ((phase != MatchPhase.GAME_RUNNING && phase != MatchPhase.GAME_START) || seconds <= 0) {
 			return;
@@ -149,6 +159,24 @@ public class MatchManager {
 
 	public int getTotalSeconds() {
 		return clock.getTotalSeconds();
+	}
+
+	public int getTotalTicks() {
+		return clock.getTotalTicks();
+	}
+
+	public int getElapsedSeconds() {
+		return clock.getElapsedSeconds();
+	}
+
+	public void adjustDurationTicks(int deltaTicks) {
+		if ((phase != MatchPhase.GAME_RUNNING && phase != MatchPhase.GAME_START) || deltaTicks == 0) {
+			return;
+		}
+		if (clock.adjustDurationTicks(deltaTicks)) {
+			decideWinnerByScore();
+			setPhase(MatchPhase.GAME_END);
+		}
 	}
 
 	public long getServerTicks() {
@@ -168,31 +196,49 @@ public class MatchManager {
 	}
 
 	public void setCaptain(TeamId teamId, ServerPlayerEntity player) {
-		var state = getOrCreateState(player.getUuid());
-		state.setTeam(teamId, RoleType.CAPTAIN);
-		state.setCurrentUnitId(null);
+		setCaptain(teamId, player == null ? null : player.getUuid());
 	}
 
 	public void setCaptain(TeamId teamId, UUID playerId) {
-		var state = getOrCreateState(playerId);
-		state.setTeam(teamId, RoleType.CAPTAIN);
-		state.setCurrentUnitId(null);
+		if (teamId == null || playerId == null) {
+			return;
+		}
+		playerStates.entrySet().stream()
+			.filter(entry -> entry.getValue().getTeamId() == teamId)
+			.filter(entry -> entry.getValue().getRoleType() == RoleType.CAPTAIN)
+			.map(Map.Entry::getKey)
+			.filter(existingCaptainId -> !existingCaptainId.equals(playerId))
+			.toList()
+			.forEach(existingCaptainId -> {
+				setRole(existingCaptainId, teamId, RoleType.UNIT);
+				getOrCreateState(existingCaptainId).setCurrentUnitId(null);
+			});
+		setRole(playerId, teamId, RoleType.CAPTAIN);
+		getOrCreateState(playerId).setCurrentUnitId(null);
 	}
 
 	public void setRole(ServerPlayerEntity player, TeamId teamId, RoleType roleType) {
-		var state = getOrCreateState(player.getUuid());
-		state.setTeam(teamId, roleType);
-		if (roleType != RoleType.UNIT) {
-			state.setCurrentUnitId(null);
+		if (player == null) {
+			return;
 		}
+		if (teamId == null) {
+			vanillaPlayerTeamService.clearPlayer(player);
+		} else {
+			vanillaPlayerTeamService.assignPlayer(player, teamId);
+		}
+		applyRoleState(player.getUuid(), teamId, roleType);
 	}
 
 	public void setRole(UUID playerId, TeamId teamId, RoleType roleType) {
-		var state = getOrCreateState(playerId);
-		state.setTeam(teamId, roleType);
-		if (roleType != RoleType.UNIT) {
-			state.setCurrentUnitId(null);
+		if (playerId == null) {
+			return;
 		}
+		var player = onlinePlayer(playerId);
+		if (player != null) {
+			setRole(player, teamId, roleType);
+			return;
+		}
+		applyRoleState(playerId, teamId, roleType);
 	}
 
 	public PlayerMatchState getPlayerState(UUID playerId) {
@@ -277,8 +323,19 @@ public class MatchManager {
 	}
 
 	public void clearPlayerAssignments() {
-		playerStates.values().forEach(PlayerMatchState::clear);
+		clearOnlineScoreboardTeams();
+		playerStates.values().forEach(PlayerMatchState::clearTeamAssignment);
 		factionSelections.clear();
+	}
+
+	public void syncOnlinePlayersFromScoreboard() {
+		if (server == null) {
+			return;
+		}
+		vanillaPlayerTeamService.ensureManagedTeams(server.getScoreboard());
+		for (var player : server.getPlayerManager().getPlayerList()) {
+			syncPlayerTeamFromScoreboard(player);
+		}
 	}
 
 	public Map<TeamId, FactionId> getFactionSelectionsSnapshot() {
@@ -434,6 +491,47 @@ public class MatchManager {
 		return playerStates.computeIfAbsent(playerId, ignored -> new PlayerMatchState());
 	}
 
+	private void syncPlayerTeamFromScoreboard(ServerPlayerEntity player) {
+		if (player == null) {
+			return;
+		}
+		var teamId = vanillaPlayerTeamService.resolveTeam(player);
+		var state = getOrCreateState(player.getUuid());
+		if (teamId == null) {
+			state.clearTeamAssignment();
+			return;
+		}
+		VanillaPlayerTeamService.syncState(state, teamId);
+		if (state.getFactionId() == null) {
+			state.setFactionId(factionSelections.get(teamId));
+		}
+	}
+
+	private void applyRoleState(UUID playerId, TeamId teamId, RoleType roleType) {
+		var state = getOrCreateState(playerId);
+		if (teamId == null || roleType == null || roleType == RoleType.NONE) {
+			state.clearTeamAssignment();
+			return;
+		}
+		VanillaPlayerTeamService.syncState(state, teamId);
+		state.setTeam(teamId, roleType);
+		state.setFactionId(factionSelections.get(teamId));
+		if (roleType != RoleType.UNIT) {
+			state.setCurrentUnitId(null);
+		}
+	}
+
+	private ServerPlayerEntity onlinePlayer(UUID playerId) {
+		return server == null || playerId == null ? null : server.getPlayerManager().getPlayer(playerId);
+	}
+
+	private void clearOnlineScoreboardTeams() {
+		if (server == null) {
+			return;
+		}
+		vanillaPlayerTeamService.clearAllOnlinePlayers(server);
+	}
+
 	private void deactivateAllLanes() {
 		for (var laneId : LaneId.values()) {
 			laneActiveStates.put(laneId, false);
@@ -498,5 +596,13 @@ public class MatchManager {
 		} else {
 			winnerTeam = null;
 		}
+	}
+
+	public void declareSurrender(TeamId surrenderingTeam) {
+		if (surrenderingTeam == null) {
+			return;
+		}
+		winnerTeam = surrenderingTeam == TeamId.RED ? TeamId.BLUE : TeamId.RED;
+		setPhase(MatchPhase.GAME_END);
 	}
 }

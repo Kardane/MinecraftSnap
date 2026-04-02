@@ -23,7 +23,7 @@ public class PiglinBruteUnit extends AbstractNetherUnit implements ConfiguredUni
 		"피글린 브루트",
 		FactionId.NETHER,
 		true,
-		5,
+		3,
 		30.0,
 		1.0,
 		item("minecraft:golden_axe"),
@@ -50,7 +50,7 @@ public class PiglinBruteUnit extends AbstractNetherUnit implements ConfiguredUni
 	public void buildLoadout(UnitContext context) {
 		context.baseBuildLoadout();
 		applyEnchantment(context.world(), context.player().getMainHandStack(), SHARPNESS, weaponSharpnessLevel());
-		context.player().getInventory().insertStack(new ItemStack(Items.GOLD_INGOT, supportGoldCount()));
+		//context.player().getInventory().insertStack(new ItemStack(Items.GOLD_INGOT, supportGoldCount()));
 	}
 
 	@Override

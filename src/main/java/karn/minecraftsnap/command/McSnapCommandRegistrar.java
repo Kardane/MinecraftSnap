@@ -19,7 +19,7 @@ import net.minecraft.server.network.ServerPlayerEntity;
 import java.util.concurrent.CompletableFuture;
 
 public class McSnapCommandRegistrar {
-	static final java.util.List<String> ADMIN_GUI_IDS = java.util.List.of("wiki", "faction", "preparation", "captain_spawn", "trade", "advance");
+	static final java.util.List<String> ADMIN_GUI_IDS = java.util.List.of("wiki", "rules", "unit_index", "biome_index", "admin_tools", "faction", "preparation", "captain_spawn", "trade", "advance");
 	private final MinecraftSnap mod;
 
 	public McSnapCommandRegistrar(MinecraftSnap mod) {
@@ -71,9 +71,13 @@ public class McSnapCommandRegistrar {
 					.then(CommandManager.literal("game_running").executes(ctx -> setPhase(ctx.getSource(), MatchPhase.GAME_RUNNING)))
 					.then(CommandManager.literal("game_end").executes(ctx -> setPhase(ctx.getSource(), MatchPhase.GAME_END))))
 				.then(CommandManager.literal("teamsel").executes(ctx -> startTeamSelection(ctx.getSource())))
+				.then(CommandManager.literal("clearteams").executes(ctx -> clearTeams(ctx.getSource())))
 				.then(CommandManager.literal("bots")
 					.then(CommandManager.argument("count", IntegerArgumentType.integer(1))
 						.executes(ctx -> spawnBots(ctx.getSource(), IntegerArgumentType.getInteger(ctx, "count")))))
+				.then(CommandManager.literal("time")
+					.then(CommandManager.argument("ticks", IntegerArgumentType.integer())
+						.executes(ctx -> adjustTime(ctx.getSource(), IntegerArgumentType.getInteger(ctx, "ticks")))))
 				.then(CommandManager.literal("autostart").executes(ctx -> toggleAutoStart(ctx.getSource())))
 				.then(CommandManager.literal("gamestart").executes(ctx -> forceStartGame(ctx.getSource())))
 				.then(CommandManager.literal("gamestop").executes(ctx -> setPhase(ctx.getSource(), MatchPhase.GAME_END)))
@@ -114,6 +118,13 @@ public class McSnapCommandRegistrar {
 					.then(CommandManager.literal("monster").executes(ctx -> triggerCaptainSkill(ctx.getSource(), FactionId.MONSTER)))
 					.then(CommandManager.literal("nether").executes(ctx -> triggerCaptainSkill(ctx.getSource(), FactionId.NETHER)))))
 		);
+		registerSurrenderAlias(dispatcher, "항복");
+		registerSurrenderAlias(dispatcher, "gg");
+		registerSurrenderAlias(dispatcher, "ㅈㅈ");
+		registerSurrenderAlias(dispatcher, "ww");
+		dispatcher.register(CommandManager.literal("중참")
+			.requires(ServerCommandSource::isExecutedByPlayer)
+			.executes(ctx -> send(ctx.getSource(), mod.joinOngoingMatch(ctx.getSource().getPlayer()))));
 	}
 
 	private int showStat(ServerCommandSource source, ServerPlayerEntity player) {
@@ -172,8 +183,17 @@ public class McSnapCommandRegistrar {
 		return send(source, textConfig().commandTeamSelectionMessage);
 	}
 
+	private int clearTeams(ServerCommandSource source) {
+		mod.clearAllTeams();
+		return send(source, textConfig().commandClearTeamsMessage);
+	}
+
 	private int spawnBots(ServerCommandSource source, int count) {
 		return send(source, mod.spawnBots(source, count));
+	}
+
+	private int adjustTime(ServerCommandSource source, int ticks) {
+		return send(source, mod.adjustMatchTime(ticks));
 	}
 
 	private int forceStartGame(ServerCommandSource source) {
@@ -257,6 +277,12 @@ public class McSnapCommandRegistrar {
 	private int send(ServerCommandSource source, String message) {
 		source.sendFeedback(() -> mod.getTextTemplateResolver().format(message), false);
 		return Command.SINGLE_SUCCESS;
+	}
+
+	private void registerSurrenderAlias(com.mojang.brigadier.CommandDispatcher<ServerCommandSource> dispatcher, String literal) {
+		dispatcher.register(CommandManager.literal(literal)
+			.requires(ServerCommandSource::isExecutedByPlayer)
+			.executes(ctx -> send(ctx.getSource(), mod.voteSurrender(ctx.getSource().getPlayer()))));
 	}
 
 	private com.mojang.brigadier.builder.LiteralArgumentBuilder<ServerCommandSource> registerOpenGuiTree() {

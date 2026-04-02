@@ -1,6 +1,7 @@
 package karn.minecraftsnap.game;
 
 import karn.minecraftsnap.config.AdvanceOptionEntry;
+import karn.minecraftsnap.config.UnitConfigEntry;
 import karn.minecraftsnap.unit.UnitClassRegistry;
 
 import java.util.Collection;
@@ -60,6 +61,19 @@ public class UnitRegistry {
 		}
 	}
 
+	public void applyUnitConfigs(Map<String, UnitConfigEntry> unitConfigs) {
+		if (unitConfigs == null || unitConfigs.isEmpty()) {
+			return;
+		}
+		for (var entry : new LinkedHashMap<>(units).entrySet()) {
+			var config = unitConfigs.get(entry.getKey());
+			if (config == null) {
+				continue;
+			}
+			register(config.mergeOnto(entry.getValue()));
+		}
+	}
+
 	public void applyTextConfig(karn.minecraftsnap.config.TextConfigFile textConfig) {
 		for (var factionId : FactionId.values()) {
 			var oldSpec = factionSpecs.getOrDefault(factionId, FactionSpecs.get(factionId));
@@ -76,26 +90,6 @@ public class UnitRegistry {
 				}
 			}
 		}
-
-		var updatedUnits = new LinkedHashMap<String, UnitDefinition>();
-		for (var entry : units.entrySet()) {
-			var unit = entry.getValue();
-			var desc = textConfig.unitDescriptions.get(unit.id());
-			if (desc != null) {
-				updatedUnits.put(entry.getKey(), new UnitDefinition(
-					unit.id(), unit.displayName(), unit.factionId(), unit.captainSpawnable(),
-					unit.cost(), unit.maxHealth(), unit.moveSpeedScale(),
-					unit.mainHand(), unit.offHand(), unit.helmet(), unit.chest(),
-					unit.legs(), unit. boots(), unit.abilityItemSpec(), unit.abilityName(),
-					unit.abilityCooldownSeconds(), unit.ammoType(), unit.disguise(),
-					desc, unit.advanceOptions()
-				));
-			} else {
-				updatedUnits.put(entry.getKey(), unit);
-			}
-		}
-		units.clear();
-		units.putAll(updatedUnits);
 	}
 
 	public List<AdvanceOptionEntry> getAdvanceOptions(String unitId) {

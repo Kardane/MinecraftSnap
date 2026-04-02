@@ -8,6 +8,7 @@ public class PlayerStats {
 	public int deaths = 0;
 	public int wins = 0;
 	public int losses = 0;
+	public int captainGames = 0;
 	public int captures = 0;
 	public int emeralds = 0;
 	public int goldIngots = 0;

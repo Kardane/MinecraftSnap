@@ -68,6 +68,46 @@ class CaptainSelectionServiceTest {
 		assertEquals(second.playerId(), chooseSecond.get(TeamId.RED));
 	}
 
+	@Test
+	void autoSelectedCaptainsStayWithinOneHundredLadderWhenPossible() {
+		var redHigh = new TeamAssignmentService.PlayerCandidate(UUID.randomUUID(), "red-high", 400, "captain", TeamId.RED, false);
+		var redClose = new TeamAssignmentService.PlayerCandidate(UUID.randomUUID(), "red-close", 320, "captain", TeamId.RED, false);
+		var blueLow = new TeamAssignmentService.PlayerCandidate(UUID.randomUUID(), "blue-low", 180, "captain", TeamId.BLUE, false);
+		var blueClose = new TeamAssignmentService.PlayerCandidate(UUID.randomUUID(), "blue-close", 250, "captain", TeamId.BLUE, false);
+
+		var result = new CaptainSelectionService(new FixedRandom(0)).selectCaptains(
+			List.of(redHigh, redClose, blueLow, blueClose),
+			Map.of(
+				redHigh.playerId(), TeamId.RED,
+				redClose.playerId(), TeamId.RED,
+				blueLow.playerId(), TeamId.BLUE,
+				blueClose.playerId(), TeamId.BLUE
+			)
+		);
+
+		assertEquals(redClose.playerId(), result.get(TeamId.RED));
+		assertEquals(blueClose.playerId(), result.get(TeamId.BLUE));
+	}
+
+	@Test
+	void forcedCaptainIgnoresCrossTeamLadderConstraint() {
+		var forced = new TeamAssignmentService.PlayerCandidate(UUID.randomUUID(), "forced", 400, "unit:piglin", TeamId.RED, true);
+		var blueHigh = new TeamAssignmentService.PlayerCandidate(UUID.randomUUID(), "blue-high", 320, "captain", TeamId.BLUE, false);
+		var blueLow = new TeamAssignmentService.PlayerCandidate(UUID.randomUUID(), "blue-low", 150, "captain", TeamId.BLUE, false);
+
+		var result = new CaptainSelectionService(new FixedRandom(0)).selectCaptains(
+			List.of(forced, blueHigh, blueLow),
+			Map.of(
+				forced.playerId(), TeamId.RED,
+				blueHigh.playerId(), TeamId.BLUE,
+				blueLow.playerId(), TeamId.BLUE
+			)
+		);
+
+		assertEquals(forced.playerId(), result.get(TeamId.RED));
+		assertEquals(blueHigh.playerId(), result.get(TeamId.BLUE));
+	}
+
 	private static final class FixedRandom extends Random {
 		private final int value;
 

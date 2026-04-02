@@ -8,6 +8,7 @@ import karn.minecraftsnap.config.BiomeEntry;
 import karn.minecraftsnap.config.SystemConfig;
 import karn.minecraftsnap.lane.LaneRuntime;
 import karn.minecraftsnap.lane.LaneRuntimeRegistry;
+import karn.minecraftsnap.ui.BossBarFormatter;
 import karn.minecraftsnap.util.TextTemplateResolver;
 import net.minecraft.server.MinecraftServer;
 
@@ -60,7 +61,7 @@ public class BiomeRevealService {
 		if (systemConfig.biomeReveal.lane1RevealSecond == 0) {
 			var lane1 = assignments.get(LaneId.LANE_1);
 			if (lane1 != null) {
-				activateBiomeForLane(server, systemConfig, laneBiomeService, LaneId.LANE_1, lane1, 0, true);
+				activateBiomeForLane(server, systemConfig, laneBiomeService, LaneId.LANE_1, lane1, 0, true, false);
 			}
 		}
 	}
@@ -70,13 +71,30 @@ public class BiomeRevealService {
 			return List.of();
 		}
 
-		var elapsedSeconds = matchManager.getTotalSeconds() - matchManager.getRemainingSeconds();
+		var elapsedSeconds = matchManager.getElapsedSeconds();
 		List<LaneId> revealed = List.of();
 		if (matchManager.getServerTicks() % 20L == 0L) {
 			revealed = syncRevealState(elapsedSeconds, systemConfig, biomeCatalog, laneBiomeService, server);
 		}
 		tickActiveEffects(server, systemConfig.world, elapsedSeconds);
 		return revealed;
+	}
+
+	public int nextRevealRemainingSeconds(SystemConfig systemConfig) {
+		if (systemConfig == null || systemConfig.biomeReveal == null) {
+			return -1;
+		}
+		var elapsedSeconds = matchManager.getElapsedSeconds();
+		int nextReveal = Integer.MAX_VALUE;
+		nextReveal = nextRevealSecond(LaneId.LANE_1, systemConfig.biomeReveal.lane1RevealSecond, elapsedSeconds, nextReveal);
+		nextReveal = nextRevealSecond(LaneId.LANE_2, systemConfig.biomeReveal.lane2RevealSecond, elapsedSeconds, nextReveal);
+		nextReveal = nextRevealSecond(LaneId.LANE_3, systemConfig.biomeReveal.lane3RevealSecond, elapsedSeconds, nextReveal);
+		return nextReveal == Integer.MAX_VALUE ? -1 : nextReveal;
+	}
+
+	public String nextRevealRemainingTime(SystemConfig systemConfig) {
+		var remainingSeconds = nextRevealRemainingSeconds(systemConfig);
+		return remainingSeconds < 0 ? "--:--" : BossBarFormatter.formatTime(remainingSeconds);
 	}
 
 	Map<LaneId, BiomeEntry> assignBiomes(BiomeCatalog catalog) {
@@ -137,11 +155,19 @@ public class BiomeRevealService {
 			matchManager.revealLane(laneId);
 		}
 		if (alreadyActivated) {
+			applyRevealEffectIfNeeded(server, systemConfig.world, laneId, biome, elapsedSeconds);
 			return;
 		}
 
-		activateBiomeForLane(server, systemConfig, laneBiomeService, laneId, biome, elapsedSeconds, true);
+		activateBiomeForLane(server, systemConfig, laneBiomeService, laneId, biome, elapsedSeconds, true, true);
 		revealed.add(laneId);
+	}
+
+	private int nextRevealSecond(LaneId laneId, int revealSecond, int elapsedSeconds, int currentBest) {
+		if (matchManager.isLaneRevealed(laneId)) {
+			return currentBest;
+		}
+		return Math.min(currentBest, Math.max(0, revealSecond - elapsedSeconds));
 	}
 
 	private void activateBiomeForLane(
@@ -151,7 +177,8 @@ public class BiomeRevealService {
 		LaneId laneId,
 		BiomeEntry biomeEntry,
 		int elapsedSeconds,
-		boolean announce
+		boolean announce,
+		boolean applyRevealEffect
 	) {
 		var laneRegion = laneRegionOf(laneId, systemConfig);
 		if (laneRegion == null) {
@@ -178,9 +205,25 @@ public class BiomeRevealService {
 		if (announce) {
 			broadcastRevealMessages(server, laneId, biomeEntry, biomeEffect, context, systemConfig);
 		}
-		if (biomeEffect != null && context != null) {
+		if (applyRevealEffect && biomeEffect != null && context != null) {
 			biomeEffect.onReveal(context);
+			if (runtime != null) {
+				runtime.markRevealEffectApplied();
+			}
 		}
+	}
+
+	private void applyRevealEffectIfNeeded(MinecraftServer server, String worldId, LaneId laneId, BiomeEntry biomeEntry, int elapsedSeconds) {
+		var runtime = runtimeFor(laneId);
+		if (runtime == null || !runtime.hasActiveBiome() || runtime.revealEffectApplied()) {
+			return;
+		}
+		var context = createContext(server, worldId, laneId, biomeEntry, elapsedSeconds);
+		if (context == null) {
+			return;
+		}
+		runtime.biomeEffect().onReveal(context);
+		runtime.markRevealEffectApplied();
 	}
 
 	private void tickActiveEffects(MinecraftServer server, String worldId, int elapsedSeconds) {

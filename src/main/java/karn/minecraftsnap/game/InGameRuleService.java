@@ -5,13 +5,16 @@ import karn.minecraftsnap.biome.BiomeRuntimeContext;
 import karn.minecraftsnap.config.TextConfigFile;
 import karn.minecraftsnap.config.StatsRepository;
 import karn.minecraftsnap.config.SystemConfig;
+import karn.minecraftsnap.unit.SummonedMobSupport;
 import karn.minecraftsnap.lane.LaneRuntimeRegistry;
 import karn.minecraftsnap.util.TextTemplateResolver;
 import net.minecraft.entity.LivingEntity;
-import net.minecraft.entity.projectile.ProjectileEntity;
 import net.minecraft.entity.damage.DamageSource;
 import net.minecraft.entity.effect.StatusEffectInstance;
 import net.minecraft.entity.effect.StatusEffects;
+import net.minecraft.entity.projectile.ProjectileEntity;
+import net.minecraft.item.ItemStack;
+import net.minecraft.item.Items;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.world.GameRules;
@@ -24,9 +27,11 @@ import java.util.Set;
 import java.util.UUID;
 
 public class InGameRuleService {
+	private static final double UNIT_VOID_DEATH_Y = -60.0D;
 	private final MatchManager matchManager;
 	private final StatsRepository statsRepository;
 	private final TextTemplateResolver textTemplateResolver;
+	private final UnitSpawnQueueService unitSpawnQueueService;
 	private final UnitSpawnService unitSpawnService;
 	private final CaptainManaService captainManaService;
 	private final UnitRegistry unitRegistry;
@@ -39,13 +44,14 @@ public class InGameRuleService {
 	private final Map<UUID, Long> laneWarningTicks = new HashMap<>();
 
 	public InGameRuleService(MatchManager matchManager, StatsRepository statsRepository, TextTemplateResolver textTemplateResolver) {
-		this(matchManager, statsRepository, textTemplateResolver, null, null, null, null, null, null, null);
+		this(matchManager, statsRepository, textTemplateResolver, null, null, null, null, null, null, null, null);
 	}
 
 	public InGameRuleService(
 		MatchManager matchManager,
 		StatsRepository statsRepository,
 		TextTemplateResolver textTemplateResolver,
+		UnitSpawnQueueService unitSpawnQueueService,
 		UnitSpawnService unitSpawnService,
 		CaptainManaService captainManaService,
 		UnitRegistry unitRegistry,
@@ -57,6 +63,7 @@ public class InGameRuleService {
 		this.matchManager = matchManager;
 		this.statsRepository = statsRepository;
 		this.textTemplateResolver = textTemplateResolver;
+		this.unitSpawnQueueService = unitSpawnQueueService;
 		this.unitSpawnService = unitSpawnService;
 		this.captainManaService = captainManaService;
 		this.unitRegistry = unitRegistry;
@@ -73,6 +80,12 @@ public class InGameRuleService {
 
 		for (var player : server.getPlayerManager().getPlayerList()) {
 			var state = matchManager.getPlayerState(player.getUuid());
+			if (phase == MatchPhase.GAME_RUNNING
+				&& shouldForceUnitVoidDeath(state, player.getY())
+				&& !pendingSpectators.contains(player.getUuid())) {
+				handlePotentialDeath(player, player.getDamageSources().outOfWorld(), Float.MAX_VALUE);
+				continue;
+			}
 
 			applyFlightPolicy(player, state, phase, systemConfig);
 			if (state.isCaptain()) {
@@ -138,7 +151,8 @@ public class InGameRuleService {
 		var effects = java.util.List.copyOf(player.getStatusEffects());
 
 		for (var effect : effects) {
-			if (effect.getEffectType().value() == StatusEffects.INVISIBILITY && shouldBeInvisible) {
+			var effectType = effect.getEffectType();
+			if (shouldKeepCaptainEffect(effectType, phase)) {
 				continue;
 			}
 			player.removeStatusEffect(effect.getEffectType());
@@ -149,6 +163,10 @@ public class InGameRuleService {
 			if (currentInvis == null || currentInvis.getDuration() <= 40) {
 				player.addStatusEffect(new StatusEffectInstance(StatusEffects.INVISIBILITY, 200, 0, false, false, false));
 			}
+		}
+		var currentNightVision = player.getStatusEffect(StatusEffects.NIGHT_VISION);
+		if (currentNightVision == null || currentNightVision.getDuration() <= 40) {
+			player.addStatusEffect(new StatusEffectInstance(StatusEffects.NIGHT_VISION, 20000, 0, false, false, false));
 		}
 	}
 
@@ -165,6 +183,9 @@ public class InGameRuleService {
 		}
 		if (!(entity instanceof ServerPlayerEntity victim)) {
 			return true;
+		}
+		if (shouldBlockFriendlySummonedMobDamage(matchManager.getPlayerState(victim.getUuid()), resolveSummonedMobTeam(source))) {
+			return false;
 		}
 		if (unitHookService != null) {
 			unitHookService.handleDamaged(victim, source, amount, nullSafeSystemConfig());
@@ -334,10 +355,21 @@ public class InGameRuleService {
 		if (state == null || laneId == null) {
 			return false;
 		}
-		if (state.isCaptain()) {
-			return true;
-		}
 		return state.getRoleType() == RoleType.UNIT && !matchManager.isLaneRevealed(laneId);
+	}
+
+	public boolean shouldBlockCaptainLane(PlayerMatchState state, LaneId laneId) {
+		if (state == null || laneId == null) {
+			return false;
+		}
+		return state.isCaptain() && matchManager.isLaneRevealed(laneId);
+	}
+
+	static boolean shouldForceUnitVoidDeath(PlayerMatchState state, double y) {
+		return state != null
+			&& state.getRoleType() == RoleType.UNIT
+			&& state.getCurrentUnitId() != null
+			&& y <= UNIT_VOID_DEATH_Y;
 	}
 
 	public LaneId findContainingLane(String configuredWorldId, String worldId, double x, double y, double z, SystemConfig.InGameConfig config) {
@@ -367,14 +399,18 @@ public class InGameRuleService {
 	private void applyLaneRestriction(ServerPlayerEntity player, SystemConfig systemConfig) {
 		var state = matchManager.getPlayerState(player.getUuid());
 		var laneId = findContainingLane(systemConfig.world, player.getWorld().getRegistryKey().getValue().toString(), player.getX(), player.getY(), player.getZ(), systemConfig.inGame);
-		if (laneId == null || !shouldBlockClosedLane(state, laneId)) {
+		if (laneId == null) {
 			return;
 		}
-		if (state.isUnit() && isInsideCaptureRegion(player, systemConfig.capture)) {
-			return;
-		}
-		if (state.isCaptain() && state.getTeamId() != null) {
+		if (shouldBlockCaptainLane(state, laneId)) {
 			teleportToCaptainSpawn(player, systemConfig, state);
+		} else {
+			if (!shouldBlockClosedLane(state, laneId)) {
+				return;
+			}
+			if (state.isUnit() && isInsideCaptureRegion(player, systemConfig.capture)) {
+				return;
+			}
 		}
 
 		var lastTick = laneWarningTicks.getOrDefault(player.getUuid(), Long.MIN_VALUE);
@@ -408,6 +444,9 @@ public class InGameRuleService {
 			teleportToCaptainSpawn(player, nullSafeSystemConfig(), matchManager.getPlayerState(playerId));
 			player.getInventory().clear();
 			matchManager.clearCurrentUnit(playerId);
+			if (unitSpawnQueueService != null) {
+				unitSpawnQueueService.enqueueReturnedUnit(matchManager, matchManager.getPlayerState(playerId).getTeamId(), playerId);
+			}
 			processed.add(playerId);
 		}
 		pendingSpectators.removeAll(processed);
@@ -417,12 +456,28 @@ public class InGameRuleService {
 		if (state.getRoleType() != RoleType.UNIT || state.getCurrentUnitId() == null) {
 			return;
 		}
-		if (state.getFactionId() == FactionId.VILLAGER) {
-			state.addEmeralds(1);
-			statsRepository.addEmeralds(playerId, playerName, 1);
-		} else if (state.getFactionId() == FactionId.NETHER) {
+		if (state.getFactionId() == FactionId.NETHER) {
 			state.addGoldIngots(1);
 			statsRepository.addGoldIngots(playerId, playerName, 1);
+			grantInventoryCurrency(playerId, FactionId.NETHER, 1);
+		}
+	}
+
+	private void grantInventoryCurrency(UUID playerId, FactionId factionId, int amount) {
+		if (playerId == null || factionId == null || amount <= 0 || matchManager.getServer() == null) {
+			return;
+		}
+		var player = matchManager.getServer().getPlayerManager().getPlayer(playerId);
+		if (player == null) {
+			return;
+		}
+		var stack = switch (factionId) {
+			case VILLAGER -> new ItemStack(Items.EMERALD, amount);
+			case NETHER -> new ItemStack(Items.GOLD_INGOT, amount);
+			default -> ItemStack.EMPTY;
+		};
+		if (!stack.isEmpty()) {
+			player.getInventory().insertStack(stack);
 		}
 	}
 
@@ -491,6 +546,11 @@ public class InGameRuleService {
 		return phase == MatchPhase.GAME_START || phase == MatchPhase.GAME_RUNNING || phase == MatchPhase.GAME_END;
 	}
 
+	static boolean shouldKeepCaptainEffect(net.minecraft.registry.entry.RegistryEntry<net.minecraft.entity.effect.StatusEffect> effectType, MatchPhase phase) {
+		return effectType == StatusEffects.NIGHT_VISION
+			|| (effectType == StatusEffects.INVISIBILITY && isCaptainGamePhase(phase));
+	}
+
 	static boolean isAttackDisabledUnit(PlayerMatchState state) {
 		if (state == null || state.getRoleType() != RoleType.UNIT) {
 			return false;
@@ -501,6 +561,13 @@ public class InGameRuleService {
 
 	static boolean isExplosionDamage(DamageSource source) {
 		return source != null && source.isIn(net.minecraft.registry.tag.DamageTypeTags.IS_EXPLOSION);
+	}
+
+	static boolean shouldBlockFriendlySummonedMobDamage(PlayerMatchState victimState, TeamId attackerTeamId) {
+		return victimState != null
+			&& victimState.getTeamId() != null
+			&& attackerTeamId != null
+			&& victimState.getTeamId() == attackerTeamId;
 	}
 
 	private void notifyDamagedHook(ServerPlayerEntity victim, DamageSource source, float amount) {
@@ -558,7 +625,7 @@ public class InGameRuleService {
 		if (runtime == null || !runtime.hasActiveBiome()) {
 			return null;
 		}
-		var elapsedSeconds = matchManager.getTotalSeconds() - matchManager.getRemainingSeconds();
+		var elapsedSeconds = matchManager.getElapsedSeconds();
 		return new BiomeRuntimeContext(
 			player.getServer(),
 			(net.minecraft.server.world.ServerWorld) player.getWorld(),
@@ -573,6 +640,17 @@ public class InGameRuleService {
 
 	private SystemConfig nullSafeSystemConfig() {
 		return lastSystemConfig == null ? new SystemConfig() : lastSystemConfig;
+	}
+
+	private TeamId resolveSummonedMobTeam(DamageSource source) {
+		if (source == null) {
+			return null;
+		}
+		var attackerTeam = SummonedMobSupport.resolveManagedTeam(source.getAttacker());
+		if (attackerTeam != null) {
+			return attackerTeam;
+		}
+		return SummonedMobSupport.resolveManagedTeam(source.getSource());
 	}
 
 	private TextConfigFile textConfig() {

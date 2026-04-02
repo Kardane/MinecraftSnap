@@ -30,4 +30,15 @@ class PlayerMatchStateTest {
 		assertNull(state.getUnitRuntimeLong("slime_airborne"));
 		assertEquals(0, state.getAdvanceExp());
 	}
+
+	@Test
+	void changingCurrentUnitClearsRuntimeInts() {
+		var state = new PlayerMatchState();
+		state.setCurrentUnitId("villager");
+		state.setUnitRuntimeInt("villager_enchant_sharpness", 2);
+
+		state.setCurrentUnitId("pillager");
+
+		assertNull(state.getUnitRuntimeInt("villager_enchant_sharpness"));
+	}
 }

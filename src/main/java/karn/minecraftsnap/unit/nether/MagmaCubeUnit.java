@@ -28,8 +28,8 @@ public class MagmaCubeUnit extends AbstractNetherUnit implements ConfiguredUnitC
 		"마그마 큐브",
 		FactionId.NETHER,
 		true,
-		2,
-		20.0,
+		1,
+		18.0,
 		1.0,
 		item("minecraft:magma_cream"),
 		none(),
@@ -119,7 +119,7 @@ public class MagmaCubeUnit extends AbstractNetherUnit implements ConfiguredUnitC
 	private void applyJumpStrength(UnitContext context) {
 		var jumpStrength = context.player().getAttributeInstance(EntityAttributes.JUMP_STRENGTH);
 		if (jumpStrength != null) {
-			jumpStrength.setBaseValue(jumpStrengthValue());
+			jumpStrength.setBaseValue(context.unitDefinition().extraAttributes().jumpStrengthOrDefault(jumpStrengthValue()));
 		}
 	}
 }

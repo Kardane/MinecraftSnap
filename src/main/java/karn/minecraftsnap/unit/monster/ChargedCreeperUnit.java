@@ -21,7 +21,7 @@ public class ChargedCreeperUnit extends CreeperUnit {
 		false,
 		0,
 		24.0,
-		1.05,
+		1.5,
 		item("minecraft:tnt"),
 		none(),
 		none(),
@@ -54,7 +54,7 @@ public class ChargedCreeperUnit extends CreeperUnit {
 
 	@Override
 	double blastRadius() {
-		return 7.0D;
+		return 11.0D;
 	}
 
 	@Override

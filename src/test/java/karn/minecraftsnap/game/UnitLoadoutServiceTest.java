@@ -41,6 +41,37 @@ class UnitLoadoutServiceTest {
 	}
 
 	@Test
+	void identicalMainHandAbilityDoesNotCreateExtraTriggerItem() {
+		var mainHand = UnitItemEntry.create("minecraft:snowball");
+		var definition = unit(
+			"trigger_main_same_item",
+			mainHand,
+			new UnitItemEntry(),
+			"투척",
+			5
+		).withAbility(mainHand).build();
+
+		assertEquals(UnitLoadoutService.AbilityTriggerTarget.MAIN_HAND, service.determineAbilityTriggerTarget(definition));
+	}
+
+	@Test
+	void sameMainHandItemIdWithDifferentAbilityMetadataStillUsesSingleTriggerItem() {
+		var mainHand = UnitItemEntry.create("minecraft:ender_eye");
+		var ability = UnitItemEntry.create("minecraft:ender_eye");
+		ability.displayName = "&b차원 이동";
+		ability.loreLines = List.of("&715초 쿨다운");
+		var definition = unit(
+			"trigger_main_same_item_id",
+			mainHand,
+			new UnitItemEntry(),
+			"차원 이동",
+			15
+		).withAbility(ability).build();
+
+		assertEquals(UnitLoadoutService.AbilityTriggerTarget.MAIN_HAND, service.determineAbilityTriggerTarget(definition));
+	}
+
+	@Test
 	void distinctAbilityItemCreatesSeparateTriggerItem() {
 		var definition = unit(
 			"trigger_extra",
@@ -93,6 +124,38 @@ class UnitLoadoutServiceTest {
 		assertFalse(service.matchesCaptainSkillTriggerItemId("minecraft:stick"));
 	}
 
+	@Test
+	void newArrowAmmoTypesExistForMonsterArchers() {
+		assertEquals("SLOWNESS_ARROW", UnitDefinition.AmmoType.SLOWNESS_ARROW.name());
+		assertEquals("POISON_ARROW", UnitDefinition.AmmoType.POISON_ARROW.name());
+	}
+
+	@Test
+	void identicalMainHandAbilityAndAmmoDoNotCreateExtraTriggerItem() {
+		var mainHand = UnitItemEntry.create("minecraft:firework_rocket");
+		var definition = unit(
+			"trigger_main_ammo_same_item",
+			mainHand,
+			new UnitItemEntry(),
+			"로켓 발사",
+			5
+		).withAbility(mainHand).withAmmo(UnitDefinition.AmmoType.FIREWORK).build();
+
+		assertEquals(UnitLoadoutService.AbilityTriggerTarget.MAIN_HAND, service.determineAbilityTriggerTarget(definition));
+		assertTrue(service.matchesUnitAbilityTriggerItemId("minecraft:firework_rocket", definition));
+	}
+
+	@Test
+	void resetDefaultsIncludeMobilityAttributes() {
+		assertEquals(20.0D, UnitLoadoutService.defaultMaxHealth());
+		assertEquals(0.1D, UnitLoadoutService.defaultMoveSpeed());
+		assertEquals(1.0D, UnitLoadoutService.defaultAttackDamage());
+		assertEquals(4.0D, UnitLoadoutService.defaultAttackSpeed());
+		assertEquals(1.0D, UnitLoadoutService.defaultScale());
+		assertEquals(0.42D, UnitLoadoutService.defaultJumpStrength());
+		assertEquals(0.6D, UnitLoadoutService.defaultStepHeight());
+	}
+
 	private TestUnitDefinitionBuilder unit(String id, UnitItemEntry mainHand, UnitItemEntry offHand, String abilityName, int cooldown) {
 		return new TestUnitDefinitionBuilder(id, mainHand, offHand, abilityName, cooldown);
 	}
@@ -104,6 +167,7 @@ class UnitLoadoutServiceTest {
 		private final String abilityName;
 		private final int cooldown;
 		private UnitItemEntry abilityItem = new UnitItemEntry();
+		private UnitDefinition.AmmoType ammoType = UnitDefinition.AmmoType.NONE;
 
 		private TestUnitDefinitionBuilder(String id, UnitItemEntry mainHand, UnitItemEntry offHand, String abilityName, int cooldown) {
 			this.id = id;
@@ -115,6 +179,11 @@ class UnitLoadoutServiceTest {
 
 		private TestUnitDefinitionBuilder withAbility(UnitItemEntry abilityItem) {
 			this.abilityItem = abilityItem;
+			return this;
+		}
+
+		private TestUnitDefinitionBuilder withAmmo(UnitDefinition.AmmoType ammoType) {
+			this.ammoType = ammoType;
 			return this;
 		}
 
@@ -136,7 +205,7 @@ class UnitLoadoutServiceTest {
 				abilityItem,
 				abilityName,
 				cooldown,
-				UnitDefinition.AmmoType.NONE,
+				ammoType,
 				new EntitySpecEntry(),
 				List.of(),
 				List.of()

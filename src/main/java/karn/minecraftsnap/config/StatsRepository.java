@@ -10,6 +10,7 @@ import java.io.Writer;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 import java.util.UUID;
 
 public class StatsRepository {
@@ -133,6 +134,24 @@ public class StatsRepository {
 		dirty = true;
 	}
 
+	public void addWin(UUID playerId, String name, int amount) {
+		var stats = getOrCreate(playerId, name);
+		stats.wins += amount;
+		dirty = true;
+	}
+
+	public void addLoss(UUID playerId, String name, int amount) {
+		var stats = getOrCreate(playerId, name);
+		stats.losses += amount;
+		dirty = true;
+	}
+
+	public void addCaptainGame(UUID playerId, String name, int amount) {
+		var stats = getOrCreate(playerId, name);
+		stats.captainGames += amount;
+		dirty = true;
+	}
+
 	public void addEmeralds(UUID playerId, String name, int amount) {
 		var stats = getOrCreate(playerId, name);
 		stats.emeralds += amount;
@@ -143,5 +162,14 @@ public class StatsRepository {
 		var stats = getOrCreate(playerId, name);
 		stats.goldIngots += amount;
 		dirty = true;
+	}
+
+	public List<PlayerStatsEntry> allEntries() {
+		return statsFile.players.entrySet().stream()
+			.map(entry -> new PlayerStatsEntry(UUID.fromString(entry.getKey()), entry.getValue()))
+			.toList();
+	}
+
+	public record PlayerStatsEntry(UUID playerId, PlayerStats stats) {
 	}
 }

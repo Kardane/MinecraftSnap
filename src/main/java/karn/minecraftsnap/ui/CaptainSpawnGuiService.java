@@ -33,20 +33,19 @@ public class CaptainSpawnGuiService {
 
 	public void open(ServerPlayerEntity player, FactionId factionId, CaptainState captainState, String title, Consumer<UnitDefinition> onSelect) {
 		var gui = new SimpleGui(ScreenHandlerType.GENERIC_9X3, player, false);
-		gui.setTitle(textTemplateResolver.format(title));
-		int slot = 10;
-		for (var definition : unitRegistry.byFaction(factionId)) {
+		gui.setTitle(textTemplateResolver.formatUi(title));
+		int slot = 0;
+		for (var definition : orderedDefinitions(unitRegistry.byFaction(factionId))) {
 			var blocked = captainState.getCurrentMana() < definition.cost();
 			var lore = new java.util.ArrayList<String>();
 			lore.add(textConfig().captainSpawnCostLoreTemplate.replace("{cost}", Integer.toString(definition.cost())));
 			lore.add(textConfig().captainSpawnHealthLoreTemplate.replace("{health}", Integer.toString((int) definition.maxHealth())));
 			lore.addAll(definition.descriptionLines());
 			lore.add(blocked ? textConfig().captainSpawnBlockedLore : textConfig().captainSpawnReadyLore);
-			var builder = new GuiElementBuilder(definition.mainHandItem())
-				.setName(textTemplateResolver.format("&f" + definition.displayName()))
-				.setLore(lore.stream().map(textTemplateResolver::format).toList());
+			var builder = new GuiElementBuilder(definition.guiIconItem())
+				.setName(textTemplateResolver.formatUi("&f" + definition.displayName()))
+				.setLore(lore.stream().map(textTemplateResolver::formatUi).toList());
 			if (!blocked) {
-				builder.glow();
 				builder.setCallback((index, clickType, action, slotGui) -> {
 					if (uiSoundService != null) {
 						uiSoundService.playUiConfirm(gui.getPlayer());
@@ -64,6 +63,12 @@ public class CaptainSpawnGuiService {
 			gui.setSlot(slot++, builder.build());
 		}
 		gui.open();
+	}
+
+	static List<UnitDefinition> orderedDefinitions(java.util.Collection<UnitDefinition> definitions) {
+		var ordered = new java.util.ArrayList<>(definitions);
+		ordered.sort(java.util.Comparator.comparingInt(UnitDefinition::cost));
+		return ordered;
 	}
 
 	private TextConfigFile textConfig() {

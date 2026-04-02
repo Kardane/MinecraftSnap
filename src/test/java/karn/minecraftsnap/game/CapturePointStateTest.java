@@ -50,4 +50,18 @@ class CapturePointStateTest {
 		}
 		assertEquals(CaptureOwner.BLUE, state.getOwner());
 	}
+
+	@Test
+	void uncontestedOccupantClearsContestedStateImmediately() {
+		var state = new CapturePointState(LaneId.LANE_1);
+
+		state.update(null, true, 5);
+		assertTrue(state.getProgress().isContested());
+
+		state.update(TeamId.RED, false, 5);
+
+		assertFalse(state.getProgress().isContested());
+		assertEquals(TeamId.RED, state.getProgress().getTeamId());
+		assertEquals(1, state.getProgress().getTicks());
+	}
 }

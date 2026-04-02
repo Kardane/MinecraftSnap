@@ -18,6 +18,7 @@ class GameEndServiceTest {
 			new TextTemplateResolver(),
 			message -> events.add("title:" + message),
 			(team, seconds) -> events.add("glow:" + team + ":" + seconds),
+			() -> events.add("reset"),
 			() -> events.add("clear"),
 			rate -> events.add("tick:" + rate),
 			() -> events.add("reward"),
@@ -33,16 +34,17 @@ class GameEndServiceTest {
 		assertEquals("title:&6승리: &f레드", events.get(0));
 		assertEquals("reward", events.get(1));
 		assertEquals("glow:RED:5", events.get(2));
-		assertEquals("tick:10", events.get(3));
+		assertEquals("reset", events.get(3));
+		assertEquals("tick:10", events.get(4));
 
 		for (int i = 0; i < config.gameEnd.returnToLobbyDelaySeconds * 20; i++) {
 			manager.tick();
 		}
 		service.tick(config);
 
-		assertEquals("tick:20", events.get(4));
-		assertEquals("clear", events.get(5));
-		assertEquals("restore", events.get(6));
-		assertEquals("lobby", events.get(7));
+		assertEquals("tick:20", events.get(5));
+		assertEquals("clear", events.get(6));
+		assertEquals("restore", events.get(7));
+		assertEquals("lobby", events.get(8));
 	}
 }

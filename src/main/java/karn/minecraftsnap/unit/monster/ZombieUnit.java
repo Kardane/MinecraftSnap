@@ -38,20 +38,24 @@ public class ZombieUnit extends AbstractMonsterUnit implements ConfiguredUnitCla
 			advanceOption(
 				"husk",
 				"허스크",
-				List.of("&7사막/악지에서 20초 버티면 적응"),
+				List.of("&7사막/악지에서 15초 버티면 적응"),
 				List.of("minecraft:desert", "minecraft:badlands"),
 				List.of(),
-				400
+				300
 			),
 			advanceOption(
 				"drowned",
 				"드라운드",
-				List.of("&7바다에서 20초 버티면 적응"),
+				List.of("&7바다에서 15초 버티면 적응"),
 				List.of(
-					"minecraft:ocean"
+					"minecraft:ocean",
+					"minecraft:deep_ocean",
+					"minecraft:cold_ocean",
+					"minecraft:frozen_ocean",
+					"minecraft:warm_ocean"
 				),
 				List.of(),
-				400
+				300
 			)
 		)
 	);

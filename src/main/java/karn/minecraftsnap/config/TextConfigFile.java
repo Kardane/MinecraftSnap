@@ -1,8 +1,12 @@
 package karn.minecraftsnap.config;
 
+import java.util.List;
+
 public class TextConfigFile {
+	private static final String LEGACY_BOSS_BAR_TEMPLATE = "&c레드 {red_score} &8| &f남은 시간 {time} &8| &9블루 {blue_score}";
+	private static final String LEGACY_CAPTAIN_HUD_TEMPLATE = "&d다음 소환 &f{player} &8| &e라인 &f{lane}";
 	public String prefix = "&7[&6!&7]&f ";
-	public String bossBarTemplate = "&c레드 {red_score} &8| &f남은 시간 {time} &8| &9블루 {blue_score}";
+	public String bossBarTemplate = "&c레드 &f{red_score} &8| &f⌛{time} &8| &e다음 라인 공개: &f{next_reveal_time} &8| &9블루 &f{blue_score}";
 	public String bossBarTitle = "&fMCsnap";
 	public String teamChatFormat = "&8[&a팀&8] &7[{team} / {role}] &f{player}&7: {message}";
 	public String teamChatNoTeamMessage = "&c팀 채팅은 팀 배정 이후에만 사용할 수 있음";
@@ -16,12 +20,22 @@ public class TextConfigFile {
 	public String unitHudCooldownTemplate = "&e{seconds}초";
 	public String unitHudFallbackSkillName = "기본 스킬";
 	public String unitHudUnknownUnitName = "알 수 없는 유닛";
+	public String captainHudTemplate = "&b{current_mana}&7/&f{max_mana} &8({mana_cooldown}초) &8| &e{lane} &8| &d{player} &8| &c{skill_cooldown}초";
+	public String captainHudNoTargetPlayerName = "대기 중 없음";
+	public String spectatorQueueHudTemplate = "&7소환 대기열: &f{position}번";
 	public String captureDefaultBossBarText = "&f점령";
 	public String captureContestedBossBarText = "&e격돌중!";
 	public String captureRedOwnerBossBarText = "레드 점령지";
 	public String captureBlueOwnerBossBarText = "블루 점령지";
 	public String captureNeutralOwnerBossBarText = "중립 점령지";
 	public String captureProgressBossBarTemplate = "&f{owner} &8| &e{current}&7/&f{required}";
+	public String captureOwnerChangedBroadcastTemplate = "&e{lane} 점령지 -> {owner}";
+	public String captureLane1Name = "1라인";
+	public String captureLane2Name = "2라인";
+	public String captureLane3Name = "3라인";
+	public String captureOwnerRedName = "&c레드";
+	public String captureOwnerBlueName = "&9블루";
+	public String captureOwnerNeutralName = "&f중립";
 	public String lobbyPhaseMessage = "&e로비로 복귀";
 	public String teamSelectPhaseMessage = "&a팀 배정 시작";
 	public String factionSelectPhaseMessage = "&6팩션 선택 시작";
@@ -46,22 +60,65 @@ public class TextConfigFile {
 	public String customDeathMessageWithAttacker = "&8[사망] &f{victim} &7사망 &8(공격자: &f{attacker}&8)";
 	public String autoStartEnabledMessage = "&a팀 선택 자동 시작: &f켜짐";
 	public String autoStartDisabledMessage = "&c팀 선택 자동 시작: &f꺼짐";
-	public String lobbyScoreboardTitle = "&6MCsnap 로비";
+	public String mainLobbyTitle = "&0메인 UI";
+	public String mainLobbyCaptainPreferenceName = "&6사령관 선호";
+	public List<String> mainLobbyCaptainPreferenceLore = List.of("&7사령관 우선 배정 설정", "{state}");
+	public String mainLobbyCaptainPreferenceEnabledLore = "&a현재 활성화됨";
+	public String mainLobbyCaptainPreferenceDisabledLore = "&8현재 비활성화됨";
+	public String mainLobbyStatsName = "&e개인 통계";
+	public List<String> mainLobbyStatsLore = List.of(
+		"&7점수: &b{score}",
+		"&7승률: &f{win_rate}",
+		"&7플레이 횟수: &f{games}",
+		"&7사령관 횟수: &f{captain_games}",
+		"&7평균 점령 포인트: &f{average_capture}",
+		"&7K/D: &f{kd} &8({kills}/{deaths})"
+	);
+	public String mainLobbyRulesName = "&e게임 설명";
+	public List<String> mainLobbyRulesLore = List.of("&7클릭해서 게임 규칙 확인");
+	public String mainLobbyUnitGuideName = "&a유닛 도감";
+	public List<String> mainLobbyUnitGuideLore = List.of("&7클릭해서 유닛 정보 확인");
+	public String mainLobbyBiomeGuideName = "&2바이옴 도감";
+	public List<String> mainLobbyBiomeGuideLore = List.of("&7클릭해서 바이옴 정보 확인");
+	public String mainLobbyAdminToolsName = "&c관리자 도구";
+	public String mainLobbyCloseName = "&c닫기";
+	public String adminToolsGuiTitle = "&0관리자 도구";
+	public String adminToolsAssignTeamsName = "&5팀 배정";
+	public String adminToolsClearTeamsName = "&f팀 해제";
+	public String adminToolsFactionSelectName = "&d팩션 선택";
+	public String adminToolsGameEndName = "&c게임 종료";
+	public String adminToolsCloseName = "&c닫기";
+	public String adminToolsFactionSelectBlockedMessage = "&c먼저 팀 배정을 완료해야 합니다";
+	public String lobbyScoreboardTitle = "&6마크스냅";
 	public String lobbyScoreboardPhaseTemplate = "&f페이즈: &e{phase}";
 	public String lobbyScoreboardPlayerTemplate = "&f{rank}. &e{player} &7- &b{ladder}";
 	public String lobbyScoreboardWikiHint = "&7/mcsnap wiki 로 안내 확인";
 	public String wikiMainTitle = "&6MCsnap 위키";
 	public String wikiOverviewName = "&e게임 개요";
+	public List<String> wikiOverviewLore = List.of(
+		"&73개 라인의 점령지를 두고 싸우는 RTS형 미니게임입니다.",
+		"&7라인은 시간이 지나면서 순서대로 공개됩니다.",
+		"&7시간 종료 시 점수가 높은 팀이 승리합니다."
+	);
+	public String wikiCommanderName = "&f사령관 설명";
+	public List<String> wikiCommanderLore = List.of(
+		"&7사령관은 유닛을 소환해 라인으로 보냅니다.",
+		"&7라인 공개와 시간 경과에 따라 마나를 회복합니다.",
+		"&7팩션별 전용 스킬을 사용할 수 있습니다."
+	);
 	public String wikiOverviewPhaseLoreTemplate = "&f현재 페이즈: &a{phase}";
 	public String wikiOverviewRuleLore = "&79분 동안 3개 라인의 점령 점수 경쟁";
 	public String wikiOverviewHintLore = "&7Shift+F로 상황별 GUI 열기";
 	public String wikiFactionButtonName = "&a팩션";
+	public List<String> wikiFactionButtonLore = List.of("&7팩션별 요약과 사령관 스킬 확인");
 	public String wikiFactionButtonLore1 = "&7주민&우민 / 몬스터 / 네더";
 	public String wikiFactionButtonLore2 = "&7요약과 사령관 스킬 설명 보기";
 	public String wikiUnitButtonName = "&c유닛";
+	public List<String> wikiUnitButtonLore = List.of("&7팩션별 유닛과 전직 정보 확인");
 	public String wikiUnitButtonLore1 = "&7팩션별 유닛 목록과 상세 보기";
 	public String wikiUnitButtonLore2 = "&7전직 유닛도 포함";
 	public String wikiBiomeButtonName = "&2바이옴";
+	public List<String> wikiBiomeButtonLore = List.of("&7출현 가능한 바이옴과 효과 확인");
 	public String wikiBiomeButtonLore1 = "&7출현 가능한 바이옴 목록";
 	public String wikiBiomeButtonLore2 = "&7공개 메시지와 설명 확인";
 	public String wikiFactionIndexTitle = "&a팩션 도감";
@@ -128,9 +185,16 @@ public class TextConfigFile {
 	public String tradeInvalidEntryMessage = "&c상점 품목 설정 오류";
 	public String tradeUnsupportedFactionMessage = "&c이 팩션은 상점을 사용할 수 없음";
 	public String tradeVillagerTitle = "&a주민 상점";
+	public String tradeVillagerEnchantTitle = "&a주민 강화 상점";
 	public String tradeNetherTitle = "&6네더 상점";
 	public String tradePriceLoreTemplate = "&f가격: {color}{price}";
 	public String tradeClickLore = "&7클릭해서 구매";
+	public String tradeMaxLevelMessage = "&c이미 최대 레벨";
+	public String tradeNoEligibleEquipmentMessage = "&c강화 가능한 장비가 없음";
+	public String tradeEnchantTargetLoreTemplate = "&7대상: {target}";
+	public String tradeEnchantCurrentLoreTemplate = "&7현재: {label} {level}";
+	public String tradeEnchantNextLoreTemplate = "&7다음: {label} {level}";
+	public String tradeEnchantMaxLore = "&6최대 레벨";
 	public String captainMenuItemName = "&e유닛 소환";
 	public String captainMenuItemUseLore = "&7우클릭으로 소환 GUI 열기";
 	public String captainMenuItemFactionLoreTemplate = "&8현재 팩션: &f{faction}";
@@ -186,17 +250,31 @@ public class TextConfigFile {
 	public String commandAdvanceFailedMessage = "&c전직 가능 상태 강제 부여 실패";
 	public String commandAdvanceSuccessMessage = "&a전직 가능 상태 강제 부여: &f{player}";
 	public String commandOpenGuiPlayerOnlyMessage = "&c플레이어만 GUI 오픈 가능";
+	public String commandOpenMainSuccessMessage = "&a메인 GUI 오픈";
 	public String commandOpenWikiSuccessMessage = "&a위키 GUI 오픈";
+	public String commandOpenUnitIndexSuccessMessage = "&a유닛 도감 GUI 오픈";
+	public String commandOpenBiomeIndexSuccessMessage = "&a바이옴 도감 GUI 오픈";
+	public String commandOpenAdminToolsSuccessMessage = "&a관리자 도구 GUI 오픈";
 	public String commandOpenFactionSuccessMessage = "&a팩션 GUI 오픈";
 	public String commandOpenPreparationSuccessMessage = "&a준비 GUI 오픈";
 	public String commandOpenCaptainSpawnSuccessMessage = "&a사령관 소환 GUI 오픈";
 	public String commandOpenTradeSuccessMessage = "&a거래 GUI 오픈";
 	public String commandOpenAdvanceSuccessMessage = "&a전직 GUI 오픈";
 	public String commandUnsupportedGuiMessage = "&c지원하지 않는 GUI";
+	public String commandClearTeamsMessage = "&a팀 배정을 모두 해제했습니다";
+	public String commandTimeAdjustedMessage = "&a경기 시간 조정: &f{ticks}틱 &7(남은 시간 {time}, {remaining_ticks}틱)";
 	public String commandStatPlayerTemplate = "&f플레이어: &e{player}";
 	public String commandStatLadderTemplate = "&f래더: &b{ladder} &8/ &f선호: &d{preference}";
 	public String commandStatCombatTemplate = "&f킬: &a{kills} &8/ &f데스: &c{deaths} &8/ &f점령: &6{captures}";
 	public String commandStatCurrencyTemplate = "&f에메랄드: &a{emeralds} &8/ &f금괴: &6{gold}";
+	public String midMatchJoinAvailableMessage = "&7[&6!&7]&f /중참 명령어를 통해 진행중인 게임에 참여할 수 있습니다.";
+	public String midMatchJoinUnavailableMessage = "&c게임 진행 중에만 중도 참여할 수 있습니다";
+	public String midMatchJoinAlreadyJoinedMessage = "&c이미 진행 중인 게임에 참가 중입니다";
+	public String midMatchJoinSuccessMessage = "&a중도 참여 완료: &f{team}&a 팀 유닛으로 배정되었습니다";
+	public String surrenderVoteUnavailableMessage = "&c게임 진행 중에만 항복할 수 있습니다";
+	public String surrenderVoteNoTeamMessage = "&c팀 배정 후에만 항복할 수 있습니다";
+	public String surrenderVoteDuplicateMessage = "&c이미 항복 투표에 참여했습니다";
+	public String surrenderVoteProgressMessage = "&7[&6!&7]&f 팀원이 항복에 동의했습니다. (&e{current}&7/&f{required}&f)";
 	public String environmentAttackerName = "환경";
 	public String creeperSelfDestructPrimedMessage = "&c자폭 준비";
 	public String runningSidebarLaneTemplate = "{icon} &f({biome})";
@@ -207,16 +285,16 @@ public class TextConfigFile {
 	public String runningSidebarBlueIcon = "&9⬛";
 	public java.util.Map<String, java.util.List<String>> factionSummaries = new java.util.LinkedHashMap<>();
 	public java.util.Map<String, java.util.List<String>> captainSkillDescriptions = new java.util.LinkedHashMap<>();
-	public java.util.Map<String, java.util.List<String>> unitDescriptions = new java.util.LinkedHashMap<>();
+	public transient java.util.Map<String, java.util.List<String>> unitDescriptions = new java.util.LinkedHashMap<>();
 
 	{
-		factionSummaries.put("VILLAGER", java.util.List.of("&7주민과 우민 유닛을 사용합니다.", "&7유닛은 적 처치, 점령을 통해 에메랄드를 얻고", "&7상점을 이용할 수 있습니다."));
+		factionSummaries.put("VILLAGER", java.util.List.of("&7주민과 우민 유닛을 사용합니다.", "&7유닛은 점령을 통해 에메랄드를 얻고", "&7상점을 이용할 수 있습니다."));
 		factionSummaries.put("MONSTER", java.util.List.of("&7몬스터 유닛을 사용합니다.", "&7유닛은 위치한 바이옴에 적응하여 전직할 수 있습니다."));
 		factionSummaries.put("NETHER", java.util.List.of("&7네더 유닛을 사용합니다.", "&7유닛은 적을 처치하여 금괴를 얻고", "&7상점을 이용할 수 있습니다."));
 
-		captainSkillDescriptions.put("VILLAGER", java.util.List.of("&7[마나 4 필요] 다른 라인의 아군 유닛을 사령관이 있는 라인으로 소집합니다.", "&7유닛은 체력을 모두 회복하고, 재생, 신속, 성급함이 부여됩니다."));
-		captainSkillDescriptions.put("MONSTER", java.util.List.of("&7[마나 4 필요] 맑음 / 비 / 폭풍우 선택합니다.", "&7비와 폭풍우는 아군 유닛을 버프하며", "&7폭풍우는 적에게 낮은 확률로 피해를 입힙니다."));
-		captainSkillDescriptions.put("NETHER", java.util.List.of("&7[마나 5 필요] 가장 가까운 라인에 포탈을 생성합니다.", "&7해당 라인에 있는 아군은 힘을 얻고, 유닛 소환시 소모한 마나의 일부를 환급받습니다."));
+		captainSkillDescriptions.put("VILLAGER", java.util.List.of("&7다른 라인의 아군 유닛을 사령관이 있는 라인으로 소집합니다.", "&7유닛은 체력을 모두 회복하고, 재생, 신속, 성급함이 부여됩니다."));
+		captainSkillDescriptions.put("MONSTER", java.util.List.of("&7맑음 / 비 / 폭풍우 선택합니다.", "&7비와 폭풍우는 아군 유닛을 버프하며", "&7폭풍우는 적에게 낮은 확률로 피해를 입힙니다."));
+		captainSkillDescriptions.put("NETHER", java.util.List.of("&7가장 가까운 라인에 포탈을 생성합니다.", "&7해당 라인에 있는 아군은 힘을 얻고, 유닛 소환시 소모한 마나의 일부를 환급받습니다."));
 
 		unitDescriptions.put("villager", java.util.List.of("&7체력 3 회복", "&7기본 유지력 유닛"));
 		unitDescriptions.put("armorer_villager", java.util.List.of("&7방패와 흉갑 보유", "&7전선 유지용"));
@@ -236,6 +314,7 @@ public class TextConfigFile {
 		unitDescriptions.put("piglin", java.util.List.of("&750% 확률로 좀비 피글린 생성"));
 		unitDescriptions.put("zombified_piglin", java.util.List.of("&7주변 아군 강화"));
 		unitDescriptions.put("blaze", java.util.List.of("&7작은 화염구 3연사"));
+		unitDescriptions.put("enderman", java.util.List.of("&7스킬 사용 시 다음 라인 아군 소환 위치로 순간이동", "&7공격력 +8, 공격속도 -7"));
 		unitDescriptions.put("piglin_brute", java.util.List.of("&7자가 강화 폭발력"));
 	}
 
@@ -243,6 +322,9 @@ public class TextConfigFile {
 		var defaults = new TextConfigFile();
 		prefix = value(prefix, defaults.prefix);
 		bossBarTemplate = value(bossBarTemplate, defaults.bossBarTemplate);
+		if (LEGACY_BOSS_BAR_TEMPLATE.equals(bossBarTemplate)) {
+			bossBarTemplate = defaults.bossBarTemplate;
+		}
 		bossBarTitle = value(bossBarTitle, defaults.bossBarTitle);
 		teamChatFormat = value(teamChatFormat, defaults.teamChatFormat);
 		teamChatNoTeamMessage = value(teamChatNoTeamMessage, defaults.teamChatNoTeamMessage);
@@ -256,12 +338,25 @@ public class TextConfigFile {
 		unitHudCooldownTemplate = value(unitHudCooldownTemplate, defaults.unitHudCooldownTemplate);
 		unitHudFallbackSkillName = value(unitHudFallbackSkillName, defaults.unitHudFallbackSkillName);
 		unitHudUnknownUnitName = value(unitHudUnknownUnitName, defaults.unitHudUnknownUnitName);
+		captainHudTemplate = value(captainHudTemplate, defaults.captainHudTemplate);
+		if (LEGACY_CAPTAIN_HUD_TEMPLATE.equals(captainHudTemplate)) {
+			captainHudTemplate = defaults.captainHudTemplate;
+		}
+		captainHudNoTargetPlayerName = value(captainHudNoTargetPlayerName, defaults.captainHudNoTargetPlayerName);
+		spectatorQueueHudTemplate = value(spectatorQueueHudTemplate, defaults.spectatorQueueHudTemplate);
 		captureDefaultBossBarText = value(captureDefaultBossBarText, defaults.captureDefaultBossBarText);
 		captureContestedBossBarText = value(captureContestedBossBarText, defaults.captureContestedBossBarText);
 		captureRedOwnerBossBarText = value(captureRedOwnerBossBarText, defaults.captureRedOwnerBossBarText);
 		captureBlueOwnerBossBarText = value(captureBlueOwnerBossBarText, defaults.captureBlueOwnerBossBarText);
 		captureNeutralOwnerBossBarText = value(captureNeutralOwnerBossBarText, defaults.captureNeutralOwnerBossBarText);
 		captureProgressBossBarTemplate = value(captureProgressBossBarTemplate, defaults.captureProgressBossBarTemplate);
+		captureOwnerChangedBroadcastTemplate = value(captureOwnerChangedBroadcastTemplate, defaults.captureOwnerChangedBroadcastTemplate);
+		captureLane1Name = value(captureLane1Name, defaults.captureLane1Name);
+		captureLane2Name = value(captureLane2Name, defaults.captureLane2Name);
+		captureLane3Name = value(captureLane3Name, defaults.captureLane3Name);
+		captureOwnerRedName = value(captureOwnerRedName, defaults.captureOwnerRedName);
+		captureOwnerBlueName = value(captureOwnerBlueName, defaults.captureOwnerBlueName);
+		captureOwnerNeutralName = value(captureOwnerNeutralName, defaults.captureOwnerNeutralName);
 		lobbyPhaseMessage = value(lobbyPhaseMessage, defaults.lobbyPhaseMessage);
 		teamSelectPhaseMessage = value(teamSelectPhaseMessage, defaults.teamSelectPhaseMessage);
 		factionSelectPhaseMessage = value(factionSelectPhaseMessage, defaults.factionSelectPhaseMessage);
@@ -286,22 +381,50 @@ public class TextConfigFile {
 		customDeathMessageWithAttacker = value(customDeathMessageWithAttacker, defaults.customDeathMessageWithAttacker);
 		autoStartEnabledMessage = value(autoStartEnabledMessage, defaults.autoStartEnabledMessage);
 		autoStartDisabledMessage = value(autoStartDisabledMessage, defaults.autoStartDisabledMessage);
+		mainLobbyTitle = value(mainLobbyTitle, defaults.mainLobbyTitle);
+		mainLobbyCaptainPreferenceName = value(mainLobbyCaptainPreferenceName, defaults.mainLobbyCaptainPreferenceName);
+		mainLobbyCaptainPreferenceLore = listValue(mainLobbyCaptainPreferenceLore, defaults.mainLobbyCaptainPreferenceLore);
+		mainLobbyCaptainPreferenceEnabledLore = value(mainLobbyCaptainPreferenceEnabledLore, defaults.mainLobbyCaptainPreferenceEnabledLore);
+		mainLobbyCaptainPreferenceDisabledLore = value(mainLobbyCaptainPreferenceDisabledLore, defaults.mainLobbyCaptainPreferenceDisabledLore);
+		mainLobbyStatsName = value(mainLobbyStatsName, defaults.mainLobbyStatsName);
+		mainLobbyStatsLore = listValue(mainLobbyStatsLore, defaults.mainLobbyStatsLore);
+		mainLobbyRulesName = value(mainLobbyRulesName, defaults.mainLobbyRulesName);
+		mainLobbyRulesLore = listValue(mainLobbyRulesLore, defaults.mainLobbyRulesLore);
+		mainLobbyUnitGuideName = value(mainLobbyUnitGuideName, defaults.mainLobbyUnitGuideName);
+		mainLobbyUnitGuideLore = listValue(mainLobbyUnitGuideLore, defaults.mainLobbyUnitGuideLore);
+		mainLobbyBiomeGuideName = value(mainLobbyBiomeGuideName, defaults.mainLobbyBiomeGuideName);
+		mainLobbyBiomeGuideLore = listValue(mainLobbyBiomeGuideLore, defaults.mainLobbyBiomeGuideLore);
+		mainLobbyAdminToolsName = value(mainLobbyAdminToolsName, defaults.mainLobbyAdminToolsName);
+		mainLobbyCloseName = value(mainLobbyCloseName, defaults.mainLobbyCloseName);
+		adminToolsGuiTitle = value(adminToolsGuiTitle, defaults.adminToolsGuiTitle);
+		adminToolsAssignTeamsName = value(adminToolsAssignTeamsName, defaults.adminToolsAssignTeamsName);
+		adminToolsClearTeamsName = value(adminToolsClearTeamsName, defaults.adminToolsClearTeamsName);
+		adminToolsFactionSelectName = value(adminToolsFactionSelectName, defaults.adminToolsFactionSelectName);
+		adminToolsGameEndName = value(adminToolsGameEndName, defaults.adminToolsGameEndName);
+		adminToolsCloseName = value(adminToolsCloseName, defaults.adminToolsCloseName);
+		adminToolsFactionSelectBlockedMessage = value(adminToolsFactionSelectBlockedMessage, defaults.adminToolsFactionSelectBlockedMessage);
 		lobbyScoreboardTitle = value(lobbyScoreboardTitle, defaults.lobbyScoreboardTitle);
 		lobbyScoreboardPhaseTemplate = value(lobbyScoreboardPhaseTemplate, defaults.lobbyScoreboardPhaseTemplate);
 		lobbyScoreboardPlayerTemplate = value(lobbyScoreboardPlayerTemplate, defaults.lobbyScoreboardPlayerTemplate);
 		lobbyScoreboardWikiHint = value(lobbyScoreboardWikiHint, defaults.lobbyScoreboardWikiHint);
 		wikiMainTitle = value(wikiMainTitle, defaults.wikiMainTitle);
 		wikiOverviewName = value(wikiOverviewName, defaults.wikiOverviewName);
+		wikiOverviewLore = listValue(wikiOverviewLore, defaults.wikiOverviewLore);
+		wikiCommanderName = value(wikiCommanderName, defaults.wikiCommanderName);
+		wikiCommanderLore = listValue(wikiCommanderLore, defaults.wikiCommanderLore);
 		wikiOverviewPhaseLoreTemplate = value(wikiOverviewPhaseLoreTemplate, defaults.wikiOverviewPhaseLoreTemplate);
 		wikiOverviewRuleLore = value(wikiOverviewRuleLore, defaults.wikiOverviewRuleLore);
 		wikiOverviewHintLore = value(wikiOverviewHintLore, defaults.wikiOverviewHintLore);
 		wikiFactionButtonName = value(wikiFactionButtonName, defaults.wikiFactionButtonName);
+		wikiFactionButtonLore = listValue(wikiFactionButtonLore, defaults.wikiFactionButtonLore);
 		wikiFactionButtonLore1 = value(wikiFactionButtonLore1, defaults.wikiFactionButtonLore1);
 		wikiFactionButtonLore2 = value(wikiFactionButtonLore2, defaults.wikiFactionButtonLore2);
 		wikiUnitButtonName = value(wikiUnitButtonName, defaults.wikiUnitButtonName);
+		wikiUnitButtonLore = listValue(wikiUnitButtonLore, defaults.wikiUnitButtonLore);
 		wikiUnitButtonLore1 = value(wikiUnitButtonLore1, defaults.wikiUnitButtonLore1);
 		wikiUnitButtonLore2 = value(wikiUnitButtonLore2, defaults.wikiUnitButtonLore2);
 		wikiBiomeButtonName = value(wikiBiomeButtonName, defaults.wikiBiomeButtonName);
+		wikiBiomeButtonLore = listValue(wikiBiomeButtonLore, defaults.wikiBiomeButtonLore);
 		wikiBiomeButtonLore1 = value(wikiBiomeButtonLore1, defaults.wikiBiomeButtonLore1);
 		wikiBiomeButtonLore2 = value(wikiBiomeButtonLore2, defaults.wikiBiomeButtonLore2);
 		wikiFactionIndexTitle = value(wikiFactionIndexTitle, defaults.wikiFactionIndexTitle);
@@ -368,9 +491,16 @@ public class TextConfigFile {
 		tradeInvalidEntryMessage = value(tradeInvalidEntryMessage, defaults.tradeInvalidEntryMessage);
 		tradeUnsupportedFactionMessage = value(tradeUnsupportedFactionMessage, defaults.tradeUnsupportedFactionMessage);
 		tradeVillagerTitle = value(tradeVillagerTitle, defaults.tradeVillagerTitle);
+		tradeVillagerEnchantTitle = value(tradeVillagerEnchantTitle, defaults.tradeVillagerEnchantTitle);
 		tradeNetherTitle = value(tradeNetherTitle, defaults.tradeNetherTitle);
 		tradePriceLoreTemplate = value(tradePriceLoreTemplate, defaults.tradePriceLoreTemplate);
 		tradeClickLore = value(tradeClickLore, defaults.tradeClickLore);
+		tradeMaxLevelMessage = value(tradeMaxLevelMessage, defaults.tradeMaxLevelMessage);
+		tradeNoEligibleEquipmentMessage = value(tradeNoEligibleEquipmentMessage, defaults.tradeNoEligibleEquipmentMessage);
+		tradeEnchantTargetLoreTemplate = value(tradeEnchantTargetLoreTemplate, defaults.tradeEnchantTargetLoreTemplate);
+		tradeEnchantCurrentLoreTemplate = value(tradeEnchantCurrentLoreTemplate, defaults.tradeEnchantCurrentLoreTemplate);
+		tradeEnchantNextLoreTemplate = value(tradeEnchantNextLoreTemplate, defaults.tradeEnchantNextLoreTemplate);
+		tradeEnchantMaxLore = value(tradeEnchantMaxLore, defaults.tradeEnchantMaxLore);
 		captainMenuItemName = value(captainMenuItemName, defaults.captainMenuItemName);
 		captainMenuItemUseLore = value(captainMenuItemUseLore, defaults.captainMenuItemUseLore);
 		captainMenuItemFactionLoreTemplate = value(captainMenuItemFactionLoreTemplate, defaults.captainMenuItemFactionLoreTemplate);
@@ -426,17 +556,31 @@ public class TextConfigFile {
 		commandAdvanceFailedMessage = value(commandAdvanceFailedMessage, defaults.commandAdvanceFailedMessage);
 		commandAdvanceSuccessMessage = value(commandAdvanceSuccessMessage, defaults.commandAdvanceSuccessMessage);
 		commandOpenGuiPlayerOnlyMessage = value(commandOpenGuiPlayerOnlyMessage, defaults.commandOpenGuiPlayerOnlyMessage);
+		commandOpenMainSuccessMessage = value(commandOpenMainSuccessMessage, defaults.commandOpenMainSuccessMessage);
 		commandOpenWikiSuccessMessage = value(commandOpenWikiSuccessMessage, defaults.commandOpenWikiSuccessMessage);
+		commandOpenUnitIndexSuccessMessage = value(commandOpenUnitIndexSuccessMessage, defaults.commandOpenUnitIndexSuccessMessage);
+		commandOpenBiomeIndexSuccessMessage = value(commandOpenBiomeIndexSuccessMessage, defaults.commandOpenBiomeIndexSuccessMessage);
+		commandOpenAdminToolsSuccessMessage = value(commandOpenAdminToolsSuccessMessage, defaults.commandOpenAdminToolsSuccessMessage);
 		commandOpenFactionSuccessMessage = value(commandOpenFactionSuccessMessage, defaults.commandOpenFactionSuccessMessage);
 		commandOpenPreparationSuccessMessage = value(commandOpenPreparationSuccessMessage, defaults.commandOpenPreparationSuccessMessage);
 		commandOpenCaptainSpawnSuccessMessage = value(commandOpenCaptainSpawnSuccessMessage, defaults.commandOpenCaptainSpawnSuccessMessage);
 		commandOpenTradeSuccessMessage = value(commandOpenTradeSuccessMessage, defaults.commandOpenTradeSuccessMessage);
 		commandOpenAdvanceSuccessMessage = value(commandOpenAdvanceSuccessMessage, defaults.commandOpenAdvanceSuccessMessage);
 		commandUnsupportedGuiMessage = value(commandUnsupportedGuiMessage, defaults.commandUnsupportedGuiMessage);
+		commandClearTeamsMessage = value(commandClearTeamsMessage, defaults.commandClearTeamsMessage);
+		commandTimeAdjustedMessage = value(commandTimeAdjustedMessage, defaults.commandTimeAdjustedMessage);
 		commandStatPlayerTemplate = value(commandStatPlayerTemplate, defaults.commandStatPlayerTemplate);
 		commandStatLadderTemplate = value(commandStatLadderTemplate, defaults.commandStatLadderTemplate);
 		commandStatCombatTemplate = value(commandStatCombatTemplate, defaults.commandStatCombatTemplate);
 		commandStatCurrencyTemplate = value(commandStatCurrencyTemplate, defaults.commandStatCurrencyTemplate);
+		midMatchJoinAvailableMessage = value(midMatchJoinAvailableMessage, defaults.midMatchJoinAvailableMessage);
+		midMatchJoinUnavailableMessage = value(midMatchJoinUnavailableMessage, defaults.midMatchJoinUnavailableMessage);
+		midMatchJoinAlreadyJoinedMessage = value(midMatchJoinAlreadyJoinedMessage, defaults.midMatchJoinAlreadyJoinedMessage);
+		midMatchJoinSuccessMessage = value(midMatchJoinSuccessMessage, defaults.midMatchJoinSuccessMessage);
+		surrenderVoteUnavailableMessage = value(surrenderVoteUnavailableMessage, defaults.surrenderVoteUnavailableMessage);
+		surrenderVoteNoTeamMessage = value(surrenderVoteNoTeamMessage, defaults.surrenderVoteNoTeamMessage);
+		surrenderVoteDuplicateMessage = value(surrenderVoteDuplicateMessage, defaults.surrenderVoteDuplicateMessage);
+		surrenderVoteProgressMessage = value(surrenderVoteProgressMessage, defaults.surrenderVoteProgressMessage);
 		environmentAttackerName = value(environmentAttackerName, defaults.environmentAttackerName);
 		creeperSelfDestructPrimedMessage = value(creeperSelfDestructPrimedMessage, defaults.creeperSelfDestructPrimedMessage);
 		runningSidebarLaneTemplate = value(runningSidebarLaneTemplate, defaults.runningSidebarLaneTemplate);
@@ -467,6 +611,9 @@ public class TextConfigFile {
 		systemConfig.display.unitHudReadyMessage = unitHudReadyMessage;
 		systemConfig.display.unitHudFallbackSkillName = unitHudFallbackSkillName;
 		systemConfig.display.unitHudUnknownUnitName = unitHudUnknownUnitName;
+		systemConfig.display.captainHudTemplate = captainHudTemplate;
+		systemConfig.display.captainHudNoTargetPlayerName = captainHudNoTargetPlayerName;
+		systemConfig.display.spectatorQueueHudTemplate = spectatorQueueHudTemplate;
 		systemConfig.capture.defaultBossBarText = captureDefaultBossBarText;
 		systemConfig.capture.contestedBossBarText = captureContestedBossBarText;
 		systemConfig.capture.redOwnerBossBarText = captureRedOwnerBossBarText;
@@ -501,5 +648,9 @@ public class TextConfigFile {
 
 	private String value(String current, String fallback) {
 		return current == null || current.isBlank() ? fallback : current;
+	}
+
+	private List<String> listValue(List<String> current, List<String> fallback) {
+		return current == null || current.isEmpty() ? fallback : current;
 	}
 }

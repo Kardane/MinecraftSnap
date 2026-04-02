@@ -16,6 +16,7 @@ public class GameEndService {
 	private final TextTemplateResolver textTemplateResolver;
 	private final Consumer<String> titleSender;
 	private final BiConsumer<TeamId, Integer> winnerGlowApplier;
+	private final Runnable playerAttributeResetter;
 	private final Runnable glowClearer;
 	private final IntConsumer tickRateController;
 	private final Runnable rewardAction;
@@ -28,6 +29,7 @@ public class GameEndService {
 		TextTemplateResolver textTemplateResolver,
 		Consumer<String> titleSender,
 		BiConsumer<TeamId, Integer> winnerGlowApplier,
+		Runnable playerAttributeResetter,
 		Runnable glowClearer,
 		IntConsumer tickRateController,
 		Runnable rewardAction,
@@ -38,6 +40,7 @@ public class GameEndService {
 		this.textTemplateResolver = textTemplateResolver;
 		this.titleSender = titleSender;
 		this.winnerGlowApplier = winnerGlowApplier;
+		this.playerAttributeResetter = playerAttributeResetter;
 		this.glowClearer = glowClearer;
 		this.tickRateController = tickRateController;
 		this.rewardAction = rewardAction;
@@ -58,6 +61,7 @@ public class GameEndService {
 			if (matchManager.getWinnerTeam() != null) {
 				winnerGlowApplier.accept(matchManager.getWinnerTeam(), systemConfig.gameEnd.winnerGlowSeconds);
 			}
+			playerAttributeResetter.run();
 			tickRateController.accept(systemConfig.gameEnd.finalTickRate);
 		}
 

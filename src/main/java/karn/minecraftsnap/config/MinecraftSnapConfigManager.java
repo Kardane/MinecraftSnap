@@ -2,10 +2,10 @@ package karn.minecraftsnap.config;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
-import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import karn.minecraftsnap.game.FactionId;
+import karn.minecraftsnap.game.UnitRegistry;
 import org.slf4j.Logger;
 
 import java.io.IOException;
@@ -15,6 +15,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.EnumMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -25,8 +26,8 @@ public class MinecraftSnapConfigManager {
 	private SystemConfig systemConfig = new SystemConfig();
 	private TextConfigFile textConfig = new TextConfigFile();
 	private BiomeCatalog biomeCatalog = new BiomeCatalog();
-	private final EnumMap<FactionId, FactionConfigFile> factionConfigs = new EnumMap<>(FactionId.class);
 	private final EnumMap<FactionId, ShopConfigFile> shopConfigs = new EnumMap<>(FactionId.class);
+	private final Map<String, UnitConfigEntry> unitConfigs = new LinkedHashMap<>();
 	private StatsRepository statsRepository;
 
 	public MinecraftSnapConfigManager(Path configDirectory, Logger logger) {
@@ -38,19 +39,17 @@ public class MinecraftSnapConfigManager {
 		try {
 			Files.createDirectories(configDirectory);
 			systemConfig = loadSystemConfig(configDirectory.resolve("system.json"));
-			textConfig = loadOrCreate(configDirectory.resolve("texts.json"), TextConfigFile.class, new TextConfigFile());
+			textConfig = loadTextConfig();
 			textConfig.normalize();
-			writeJson(configDirectory.resolve("texts.json"), textConfig);
 			textConfig.applyTo(systemConfig);
 			biomeCatalog = loadOrCreate(configDirectory.resolve("biomes.json"), BiomeCatalog.class, createDefaultBiomeCatalog());
 			biomeCatalog = mergeDefaultBiomes(biomeCatalog);
 			biomeCatalog.normalize();
 			writeJson(configDirectory.resolve("biomes.json"), biomeCatalog);
-			factionConfigs.clear();
 			shopConfigs.clear();
-			shopConfigs.put(FactionId.VILLAGER, loadOrCreate(configDirectory.resolve("villager_shop.json"), ShopConfigFile.class, createDefaultShopConfig(FactionId.VILLAGER)));
-			shopConfigs.put(FactionId.NETHER, loadOrCreate(configDirectory.resolve("nether_shop.json"), ShopConfigFile.class, createDefaultShopConfig(FactionId.NETHER)));
-			shopConfigs.values().forEach(ShopConfigFile::normalize);
+			shopConfigs.put(FactionId.VILLAGER, loadShopConfig(configDirectory.resolve("villager_shop.json"), FactionId.VILLAGER));
+			shopConfigs.put(FactionId.NETHER, loadShopConfig(configDirectory.resolve("nether_shop.json"), FactionId.NETHER));
+			loadUnitConfigs();
 
 			statsRepository = new StatsRepository(configDirectory.resolve("stats.json"), logger);
 			statsRepository.load();
@@ -61,10 +60,14 @@ public class MinecraftSnapConfigManager {
 			textConfig.normalize();
 			textConfig.applyTo(systemConfig);
 			biomeCatalog = mergeDefaultBiomes(createDefaultBiomeCatalog());
-			factionConfigs.clear();
 			shopConfigs.clear();
 			shopConfigs.put(FactionId.VILLAGER, createDefaultShopConfig(FactionId.VILLAGER));
 			shopConfigs.put(FactionId.NETHER, createDefaultShopConfig(FactionId.NETHER));
+			unitConfigs.clear();
+			var defaultRegistry = new UnitRegistry();
+			for (var definition : defaultRegistry.all()) {
+				unitConfigs.put(definition.id(), UnitConfigEntry.from(definition));
+			}
 			statsRepository = new StatsRepository(configDirectory.resolve("stats.json"), logger);
 			statsRepository.load();
 		}
@@ -88,6 +91,10 @@ public class MinecraftSnapConfigManager {
 
 	public BiomeCatalog getBiomeCatalog() {
 		return biomeCatalog;
+	}
+
+	public Map<String, UnitConfigEntry> getUnitConfigs() {
+		return new LinkedHashMap<>(unitConfigs);
 	}
 
 	public ShopConfigFile getShopConfig(FactionId factionId) {
@@ -118,6 +125,7 @@ public class MinecraftSnapConfigManager {
 			loaded = new SystemConfig();
 		}
 		migrateLegacySystemConfig(rawJson, loaded);
+		migrateCaptainSpawnDefaults(loaded);
 		loaded.normalize();
 		validateCaptureRegions(loaded);
 		writeJson(path, loaded);
@@ -136,28 +144,166 @@ public class MinecraftSnapConfigManager {
 		}
 	}
 
-	private FactionConfigFile loadFactionConfig(Path path, FactionId factionId) throws IOException {
-		var defaultValue = createDefaultFactionConfig(factionId);
-		if (Files.notExists(path)) {
-			writeJson(path, defaultValue);
-			return defaultValue;
+	private TextConfigFile loadTextConfig() throws IOException {
+		var textDir = configDirectory.resolve("text");
+		Files.createDirectories(textDir);
+		var merged = new JsonObject();
+		var loadedAny = false;
+		var hasSplitFiles = false;
+		for (var section : TextSection.values()) {
+			var path = textDir.resolve(section.fileName);
+			if (!Files.exists(path)) {
+				continue;
+			}
+			hasSplitFiles = true;
+			mergeJsonObjects(merged, readJsonObject(path));
+			loadedAny = true;
 		}
-
-		JsonObject rawJson;
-		try (Reader reader = Files.newBufferedReader(path, StandardCharsets.UTF_8)) {
-			rawJson = JsonParser.parseReader(reader).getAsJsonObject();
+		var legacyTexts = configDirectory.resolve("texts.json");
+		if (!hasSplitFiles && Files.exists(legacyTexts)) {
+			mergeJsonObjects(merged, readJsonObject(legacyTexts));
+			loadedAny = true;
 		}
-
-		var loaded = gson.fromJson(rawJson, FactionConfigFile.class);
+		var loaded = loadedAny ? gson.fromJson(merged, TextConfigFile.class) : new TextConfigFile();
 		if (loaded == null) {
-			loaded = new FactionConfigFile();
+			loaded = new TextConfigFile();
 		}
-		var migrated = migrateLegacyFactionConfig(rawJson, loaded);
 		loaded.normalize();
-		if (migrated) {
-			writeJson(path, loaded);
-		}
+		writeTextConfigSections(textDir, loaded);
 		return loaded;
+	}
+
+	private JsonObject readJsonObject(Path path) throws IOException {
+		try (Reader reader = Files.newBufferedReader(path, StandardCharsets.UTF_8)) {
+			return JsonParser.parseReader(reader).getAsJsonObject();
+		}
+	}
+
+	private void writeTextConfigSections(Path textDir, TextConfigFile config) throws IOException {
+		var raw = gson.toJsonTree(config).getAsJsonObject();
+		var sections = new EnumMap<TextSection, JsonObject>(TextSection.class);
+		for (var section : TextSection.values()) {
+			sections.put(section, new JsonObject());
+		}
+		for (var entry : raw.entrySet()) {
+			sections.get(classifyTextSection(entry.getKey())).add(entry.getKey(), entry.getValue());
+		}
+		for (var section : TextSection.values()) {
+			writeJson(textDir.resolve(section.fileName), sections.get(section));
+		}
+	}
+
+	private TextSection classifyTextSection(String key) {
+		var normalized = key == null ? "" : key.toLowerCase(java.util.Locale.ROOT);
+		if (normalized.contains("subtitle")) {
+			return TextSection.SUBTITLE;
+		}
+		if ("gamestartcountdowntitle".equals(normalized)
+			|| "gameendtitletemplate".equals(normalized)
+			|| "gameenddrawtitletemplate".equals(normalized)) {
+			return TextSection.TITLE;
+		}
+		if (normalized.contains("actionbar") || normalized.contains("hud")) {
+			return TextSection.ACTIONBAR;
+		}
+		if (normalized.contains("bossbar")) {
+			return TextSection.BOSSBAR;
+		}
+		if (normalized.contains("scoreboard") || normalized.contains("sidebar")) {
+			return TextSection.SIDEBAR;
+		}
+		if (normalized.contains("chat")
+			|| normalized.contains("message")
+			|| normalized.contains("broadcast")
+			|| normalized.contains("vote")
+			|| normalized.contains("death")
+			|| normalized.contains("progress")
+			|| normalized.contains("phase")
+			|| normalized.contains("queue")
+			|| normalized.contains("ownerchanged")
+			|| normalized.contains("preferenceupdated")
+			|| normalized.startsWith("command")) {
+			return TextSection.CHAT;
+		}
+		return TextSection.GUI;
+	}
+
+	private void mergeJsonObjects(JsonObject target, JsonObject source) {
+		for (var entry : source.entrySet()) {
+			var key = entry.getKey();
+			var sourceValue = entry.getValue();
+			if (target.has(key) && target.get(key).isJsonObject() && sourceValue.isJsonObject()) {
+				mergeJsonObjects(target.getAsJsonObject(key), sourceValue.getAsJsonObject());
+				continue;
+			}
+			target.add(key, sourceValue.deepCopy());
+		}
+	}
+
+	private void loadUnitConfigs() throws IOException {
+		unitConfigs.clear();
+		var unitDir = configDirectory.resolve("unit");
+		Files.createDirectories(unitDir);
+		var defaultRegistry = new UnitRegistry();
+		for (var definition : defaultRegistry.all()) {
+			var path = unitConfigPath(unitDir, definition);
+			var defaults = UnitConfigEntry.from(definition);
+			UnitConfigEntry loaded;
+			if (Files.notExists(path)) {
+				var legacyPath = legacyUnitConfigPath(unitDir, definition);
+				if (Files.exists(legacyPath)) {
+					var mergedJson = gson.toJsonTree(defaults).getAsJsonObject();
+					mergeJsonObjects(mergedJson, readJsonObject(legacyPath));
+					loaded = gson.fromJson(mergedJson, UnitConfigEntry.class);
+				} else {
+					loaded = defaults;
+				}
+			} else {
+				var mergedJson = gson.toJsonTree(defaults).getAsJsonObject();
+				mergeJsonObjects(mergedJson, readJsonObject(path));
+				loaded = gson.fromJson(mergedJson, UnitConfigEntry.class);
+			}
+			if (loaded == null) {
+				loaded = defaults;
+			}
+			loaded.normalize();
+			var merged = loaded.mergeOnto(definition);
+			var stored = UnitConfigEntry.from(merged);
+			writeJson(path, stored);
+			unitConfigs.put(definition.id(), stored);
+		}
+	}
+
+	private Path unitConfigPath(Path unitDir, karn.minecraftsnap.game.UnitDefinition definition) throws IOException {
+		var factionDir = unitDir.resolve(definition.factionId().name().toLowerCase(java.util.Locale.ROOT));
+		Files.createDirectories(factionDir);
+		return factionDir.resolve(definition.id() + ".json");
+	}
+
+	private Path legacyUnitConfigPath(Path unitDir, karn.minecraftsnap.game.UnitDefinition definition) {
+		return unitDir.resolve(definition.id() + ".json");
+	}
+
+	private ShopConfigFile loadShopConfig(Path path, FactionId factionId) throws IOException {
+		var defaults = createDefaultShopConfig(factionId);
+		var loaded = loadOrCreate(path, ShopConfigFile.class, defaults);
+		if (loaded == null) {
+			loaded = defaults;
+		}
+		loaded.normalize();
+		if (factionId == FactionId.VILLAGER && shouldMigrateLegacyVillagerShop(loaded)) {
+			loaded = defaults;
+		}
+		loaded.normalize();
+		writeJson(path, loaded);
+		return loaded;
+	}
+
+	private boolean shouldMigrateLegacyVillagerShop(ShopConfigFile config) {
+		return config != null
+			&& config.entries != null
+			&& !config.entries.isEmpty()
+			&& config.entries.stream().noneMatch(entry -> "enchant".equals(entry.type));
 	}
 
 	private void writeJson(Path path, Object value) throws IOException {
@@ -198,6 +344,18 @@ public class MinecraftSnapConfigManager {
 		migrateLegacyCaptureRegion(rawJson, loaded.capture, "lane1");
 		migrateLegacyCaptureRegion(rawJson, loaded.capture, "lane2");
 		migrateLegacyCaptureRegion(rawJson, loaded.capture, "lane3");
+	}
+
+	private void migrateCaptainSpawnDefaults(SystemConfig loaded) {
+		if (loaded == null || loaded.gameStart == null) {
+			return;
+		}
+		if (isLegacyCentralCaptainSpawn(loaded.gameStart.redCaptainSpawn, -10.0)) {
+			loaded.gameStart.redCaptainSpawn = SystemConfig.PositionConfig.create(-10.0, 64.0, -10.0);
+		}
+		if (isLegacyCentralCaptainSpawn(loaded.gameStart.blueCaptainSpawn, 10.0)) {
+			loaded.gameStart.blueCaptainSpawn = SystemConfig.PositionConfig.create(10.0, 64.0, -10.0);
+		}
 	}
 
 	private void migrateLegacyLaneUnitSpawns(JsonObject rawJson, SystemConfig loaded, SystemConfig.PositionConfig legacyUnitSpawn) {
@@ -285,94 +443,6 @@ public class MinecraftSnapConfigManager {
 		captureRegion.enabled = false;
 	}
 
-	private boolean migrateLegacyFactionConfig(JsonObject rawJson, FactionConfigFile loaded) {
-		if (rawJson == null || loaded == null || !rawJson.has("units") || !rawJson.get("units").isJsonArray()) {
-			return false;
-		}
-		boolean migrated = false;
-		var rawUnits = rawJson.getAsJsonArray("units");
-		for (var unit : loaded.units) {
-			var rawUnit = findUnitJson(rawUnits, unit.id);
-			if (rawUnit == null) {
-				continue;
-			}
-			migrated |= migrateLegacyUnitEntry(rawUnit, unit);
-		}
-		return migrated;
-	}
-
-	private JsonObject findUnitJson(JsonArray rawUnits, String unitId) {
-		for (var element : rawUnits) {
-			if (!element.isJsonObject()) {
-				continue;
-			}
-			var unit = element.getAsJsonObject();
-			if (unit.has("id") && unitId.equals(unit.get("id").getAsString())) {
-				return unit;
-			}
-		}
-		return null;
-	}
-
-	private boolean migrateLegacyUnitEntry(JsonObject rawUnit, FactionUnitEntry unit) {
-		boolean migrated = false;
-		migrated |= migrateLegacyItem(rawUnit, "mainHandItemId", unit.mainHand);
-		migrated |= migrateLegacyItem(rawUnit, "offHandItemId", unit.offHand);
-		migrated |= migrateLegacyItem(rawUnit, "helmetItemId", unit.helmet);
-		migrated |= migrateLegacyItem(rawUnit, "chestItemId", unit.chest);
-		migrated |= migrateLegacyItem(rawUnit, "legsItemId", unit.legs);
-		migrated |= migrateLegacyItem(rawUnit, "bootsItemId", unit.boots);
-		migrated |= migrateLegacyItem(rawUnit, "abilityItemId", unit.abilityItem);
-		if (rawUnit.has("disguiseId") && !rawUnit.get("disguiseId").isJsonNull()) {
-			if (unit.disguise == null) {
-				unit.disguise = new EntitySpecEntry();
-			}
-			if (unit.disguise.entityId == null || unit.disguise.entityId.isBlank()) {
-				unit.disguise.entityId = normalizeMinecraftId(rawUnit.get("disguiseId").getAsString());
-				migrated = true;
-			}
-		}
-		if (rawUnit.has("abilityName") && !rawUnit.get("abilityName").isJsonNull() && (unit.abilityName == null || unit.abilityName.isBlank())) {
-			unit.abilityName = rawUnit.get("abilityName").getAsString();
-			migrated = true;
-		}
-		if (rawUnit.has("abilityCooldownSeconds") && !rawUnit.get("abilityCooldownSeconds").isJsonNull() && unit.abilityCooldownSeconds <= 0) {
-			unit.abilityCooldownSeconds = rawUnit.get("abilityCooldownSeconds").getAsInt();
-			migrated = true;
-		}
-		if (!unit.abilityItem.isEmpty()
-			&& (unit.abilityItem.displayName == null || unit.abilityItem.displayName.isBlank())
-			&& unit.abilityName != null
-			&& !unit.abilityName.isBlank()) {
-			unit.abilityItem.displayName = "&b" + unit.abilityName;
-			unit.abilityItem.loreLines = List.of("&7유닛 스킬 발동", "&8쿨다운: &f" + unit.abilityCooldownSeconds + "초");
-			migrated = true;
-		}
-		return migrated;
-	}
-
-	private boolean migrateLegacyItem(JsonObject rawUnit, String legacyKey, UnitItemEntry itemEntry) {
-		if (itemEntry == null || !rawUnit.has(legacyKey) || rawUnit.get(legacyKey).isJsonNull()) {
-			return false;
-		}
-		var legacyId = rawUnit.get(legacyKey).getAsString();
-		if (legacyId == null || legacyId.isBlank()) {
-			return false;
-		}
-		itemEntry.itemId = normalizeMinecraftId(legacyId);
-		if (itemEntry.count <= 0) {
-			itemEntry.count = 1;
-		}
-		return true;
-	}
-
-	private String normalizeMinecraftId(String value) {
-		if (value == null || value.isBlank()) {
-			return "";
-		}
-		return value.contains(":") ? value : "minecraft:" + value;
-	}
-
 	private SystemConfig.PositionConfig legacyPosition(JsonObject rawJson, String... path) {
 		var object = nestedObject(rawJson, path);
 		if (object == null || !object.has("x") || !object.has("y") || !object.has("z")) {
@@ -393,6 +463,17 @@ public class MinecraftSnapConfigManager {
 		copy.yaw = source.yaw;
 		copy.pitch = source.pitch;
 		return copy;
+	}
+
+	private boolean isLegacyCentralCaptainSpawn(SystemConfig.PositionConfig position, double expectedX) {
+		if (position == null) {
+			return false;
+		}
+		return position.x == expectedX
+			&& position.y == 64.0
+			&& position.z == 10.0
+			&& position.yaw == 0.0f
+			&& position.pitch == 0.0f;
 	}
 
 	private JsonObject nestedObject(JsonObject root, String... path) {
@@ -432,7 +513,7 @@ public class MinecraftSnapConfigManager {
 
 	private BiomeCatalog createDefaultBiomeCatalog() {
 		var catalog = new BiomeCatalog();
-		catalog.biomes = defaultBiomeEntries();
+		catalog.biomes = defaultBiomeEntriesWithVoid();
 		catalog.normalize();
 		return catalog;
 	}
@@ -440,11 +521,11 @@ public class MinecraftSnapConfigManager {
 	private BiomeCatalog mergeDefaultBiomes(BiomeCatalog loaded) {
 		var merged = new BiomeCatalog();
 		if (loaded == null || loaded.biomes == null) {
-			merged.biomes = defaultBiomeEntries();
+			merged.biomes = defaultBiomeEntriesWithVoid();
 			return merged;
 		}
 		var defaultsById = new java.util.LinkedHashMap<String, BiomeEntry>();
-		for (var defaultEntry : defaultBiomeEntries()) {
+		for (var defaultEntry : defaultBiomeEntriesWithVoid()) {
 			defaultsById.put(defaultEntry.id, defaultEntry);
 		}
 		var seen = new java.util.LinkedHashSet<String>();
@@ -453,12 +534,23 @@ public class MinecraftSnapConfigManager {
 			merged.biomes.add(mergeBiomeEntry(entry, defaults));
 			seen.add(entry.id);
 		}
-		for (var defaultEntry : defaultBiomeEntries()) {
+		for (var defaultEntry : defaultBiomeEntriesWithVoid()) {
 			if (!seen.contains(defaultEntry.id)) {
 				merged.biomes.add(defaultEntry);
 			}
 		}
 		return merged;
+	}
+
+	private List<BiomeEntry> defaultBiomeEntriesWithVoid() {
+		var entries = new java.util.ArrayList<>(defaultBiomeEntries());
+		entries.add(createNoOpBiome("basalt_deltas", "현무암 지대", "minecraft:basalt_deltas", "minecraft:basalt", List.of("&8====================", "&8 바이옴 공개 - 현무암 지대", "&8  별도 효과가 없습니다.", "&8====================")));
+		entries.add(createBiome("lush_cave", "무성한 동굴", "minecraft:lush_caves", "", List.of("&2====================", "&2 바이옴 공개 - 무성한 동굴", "&2  30초마다 해당 라인 모든 유닛에게 재생 II를 10초 부여합니다.", "&2====================")));
+		entries.add(createBiome("mushroom_island", "버섯섬", "minecraft:mushroom_fields", "", List.of("&d====================", "&d 바이옴 공개 - 버섯섬", "&d  해당 라인 모든 유닛이 3초마다 체력을 1 회복합니다.", "&d====================")));
+		entries.add(createBiome("cold_ocean", "차가운 바다", "minecraft:cold_ocean", "", List.of("&b====================", "&b 바이옴 공개 - 차가운 바다", "&b  물에 닿은 유닛은 1초마다 빙결 수치가 30 증가합니다.", "&b====================")));
+		entries.add(createBiome("reverse_icicle", "역고드름", "minecraft:frozen_peaks", "", List.of("&7====================", "&7 바이옴 공개 - 역고드름", "&7  점령지를 점령해도 점수를 얻을 수 없습니다.", "&7====================")));
+		entries.add(createNoOpBiome("void", "공허", "minecraft:the_void", "minecraft:obsidian", List.of("&8====================", "&8 바이옴 공개 - 공허", "&8  별도 효과가 없는 빈 공간입니다.", "&8====================")));
+		return entries;
 	}
 
 	private BiomeEntry mergeBiomeEntry(BiomeEntry current, BiomeEntry defaults) {
@@ -489,32 +581,23 @@ public class MinecraftSnapConfigManager {
 		if (current.revealSoundId == null || current.revealSoundId.isBlank()) {
 			current.revealSoundId = defaults.revealSoundId;
 		}
-		if (current.pulseIntervalSeconds <= 0) {
-			current.pulseIntervalSeconds = defaults.pulseIntervalSeconds;
-		}
-		if (current.pulseMessages == null || current.pulseMessages.isEmpty()) {
-			current.pulseMessages = defaults.pulseMessages;
-		}
-		if (current.pulseSoundId == null || current.pulseSoundId.isBlank()) {
-			current.pulseSoundId = defaults.pulseSoundId;
-		}
 		return current;
 	}
 
 	private List<BiomeEntry> defaultBiomeEntries() {
 		return List.of(
-			createBiome("plain", "평원", "minecraft:plains", "minecraft:plain", List.of("&a====================", "&a 바이옴 공개 - 평원", "&a  기본적인 필드다.", "&a===================="), 0, List.of()),
-			createBiome("desert", "사막", "minecraft:desert", "minecraft:desert", List.of("&a====================", "&a 바이옴 공개 - 사막", "&a  해당 라인의 모든 유닛이 신속 2를 얻습니다.", "&a===================="), 0, List.of()),
-			createBiome("swamp", "늪", "minecraft:swamp", "minecraft:swamp", List.of("&a====================", "&a 바이옴 공개 - 늪", "&a  30초마다 해당 라인의 유닛이 독 효과를 얻습니다.", "&a===================="), 0, List.of()),
-			createBiome("badlands", "악지", "minecraft:badlands", "minecraft:badlands", List.of("&c악지 라인 공개", "&7붉은 절벽이 전장을 감쌈"), 120, List.of("&a====================", "&a 바이옴 공개 - 악지", "&a  점령 유지시 점령 포인트를 추가로 1 얻습니다.", "&a====================")),
-			createBiome("end", "엔드", "minecraft:the_end", "minecraft:end", List.of("&5====================", "&5 바이옴 공개 - 엔드", "&5  남은 시간이 60초 감소합니다.", "&5===================="), 0, List.of()),
-			createBiome("deep_dark", "딥다크", "minecraft:deep_dark", "minecraft:deep_dark", List.of("&1====================", "&1 바이옴 공개 - 딥다크", "&1  고요한 어둠이 내려앉는다.", "&1===================="), 0, List.of()),
-			createBiome("nether", "네더", "minecraft:nether_wastes", "minecraft:nether", List.of("&4====================", "&4 바이옴 공개 - 네더", "&4  뜨거운 열기가 라인을 감싼다.", "&4===================="), 0, List.of()),
-			createBiome("taiga", "타이가", "minecraft:taiga", "minecraft:taiga", List.of("&b====================", "&b 바이옴 공개 - 타이가", "&b  해당 라인의 모든 유닛이 구속 1을 얻습니다.", "&b===================="), 0, List.of())
+			createBiome("plain", "평원", "minecraft:plains", "minecraft:plain", List.of("&a====================", "&a 바이옴 공개 - 평원", "&a  기본적인 필드다.", "&a====================")),
+			createBiome("desert", "사막", "minecraft:desert", "minecraft:desert", List.of("&a====================", "&a 바이옴 공개 - 사막", "&a  해당 라인의 모든 유닛이 신속 2를 얻습니다.", "&a====================")),
+			createBiome("swamp", "늪", "minecraft:swamp", "minecraft:swamp", List.of("&a====================", "&a 바이옴 공개 - 늪", "&a  30초마다 점령 지역의 유닛이 상태 이상 효과를 얻습니다.", "&a====================")),
+			createBiome("badlands", "악지", "minecraft:badlands", "minecraft:badlands", List.of("&c악지 라인 공개", "&7붉은 절벽이 전장을 감쌈")),
+			createBiome("end", "엔드", "minecraft:the_end", "minecraft:end", List.of("&5====================", "&5 바이옴 공개 - 엔드", "&5  남은 시간이 60초 감소합니다.", "&5====================")),
+			createBiome("deep_dark", "딥다크", "minecraft:deep_dark", "minecraft:deep_dark", List.of("&1====================", "&1 바이옴 공개 - 딥다크", "&1  고요한 어둠이 내려앉는다.", "&1====================")),
+			createBiome("nether", "네더", "minecraft:nether_wastes", "minecraft:nether", List.of("&4====================", "&4 바이옴 공개 - 네더", "&4  뜨거운 열기가 라인을 감싼다.", "&4====================")),
+			createBiome("taiga", "타이가", "minecraft:taiga", "minecraft:taiga", List.of("&b====================", "&b 바이옴 공개 - 타이가", "&b  해당 라인의 모든 유닛이 구속 1을 얻습니다.", "&b===================="))
 		);
 	}
 
-	private BiomeEntry createBiome(String id, String name, String minecraftBiomeId, String structureId, List<String> revealMessages, int pulseIntervalSeconds, List<String> pulseMessages) {
+	private BiomeEntry createBiome(String id, String name, String minecraftBiomeId, String structureId, List<String> revealMessages) {
 		var entry = new BiomeEntry();
 		entry.id = id;
 		entry.displayName = name;
@@ -523,29 +606,25 @@ public class MinecraftSnapConfigManager {
 		entry.structureId = structureId;
 		entry.descriptionLines = List.of("&7대표 바이옴: &f" + minecraftBiomeId, "&7공개 후 분위기 설명 표시");
 		entry.revealMessages = revealMessages;
-		entry.pulseIntervalSeconds = pulseIntervalSeconds;
-		entry.pulseMessages = pulseMessages;
 		entry.revealSoundId = "minecraft:block.note_block.pling";
-		entry.pulseSoundId = "minecraft:block.note_block.chime";
 		entry.normalize();
 		return entry;
 	}
 
-	private FactionConfigFile createDefaultFactionConfig(FactionId factionId) {
-		return switch (factionId) {
-			case VILLAGER -> createVillagerFactionConfig();
-			case MONSTER -> createMonsterFactionConfig();
-			case NETHER -> createNetherFactionConfig();
-		};
+	private BiomeEntry createNoOpBiome(String id, String name, String minecraftBiomeId, String displayItemId, List<String> revealMessages) {
+		var entry = createBiome(id, name, minecraftBiomeId, "", revealMessages);
+		entry.effectType = "noop";
+		entry.displayItemId = displayItemId;
+		entry.normalize();
+		return entry;
 	}
 
 	private ShopConfigFile createDefaultShopConfig(FactionId factionId) {
 		var config = new ShopConfigFile();
 		config.entries = switch (factionId) {
 			case VILLAGER -> List.of(
-				shop("bread_bundle", 1, "minecraft:bread", 4),
-				shop("cooked_beef", 2, "minecraft:cooked_beef", 3),
-				shop("arrow_pack", 2, "minecraft:arrow", 8)
+				enchantShop("sharpness_upgrade", "?좎뭅濡쒖? 媛뺥솕", "minecraft:iron_sword", "minecraft:sharpness", "weapon", 5, 10, 15),
+				enchantShop("protection_upgrade", "蹂댄샇 媛뺥솕", "minecraft:iron_chestplate", "minecraft:protection", "armor", 5, 10, 15)
 			);
 			case NETHER -> List.of(
 				shop("fire_charge", 1, "minecraft:fire_charge", 2),
@@ -558,126 +637,10 @@ public class MinecraftSnapConfigManager {
 		return config;
 	}
 
-	private FactionConfigFile createVillagerFactionConfig() {
-		var config = new FactionConfigFile();
-		config.displayName = "주민&우민";
-		config.summaryLines = List.of("&7균형형 팩션", "&7거래와 유지력이 강점");
-		config.captainSkill.name = "습격 소집";
-		config.captainSkill.descriptionLines = List.of("&7실제 스킬 로직은 기존 구현 유지", "&7위키와 GUI 설명은 JSON 기준");
-		config.units = List.of(
-			unit("villager", "주민", true, 1, 20.0, 0.8, "minecraft:wooden_sword", "", "", "", "", "", "minecraft:bread", "밥먹기", 10, "NONE", "minecraft:villager", List.of("&7체력 3 회복", "&7기본 유지력 유닛")),
-			unit("armorer_villager", "대장장이 주민", true, 2, 30.0, 0.9, "minecraft:wooden_sword", "minecraft:shield", "", "minecraft:iron_chestplate", "", "", "", "", 0, "NONE", "minecraft:villager", List.of("&7방패와 흉갑 보유", "&7전선 유지용")),
-			unit("vindicator", "변명자", true, 4, 30.0, 1.0, "minecraft:iron_axe", "", "", "", "", "", "minecraft:iron_axe", "도약", 10, "NONE", "minecraft:vindicator", List.of("&7짧은 돌진 스킬", "&7근접 압박용")),
-			unit("pillager", "약탈자", true, 3, 16.0, 1.1, "minecraft:crossbow", "", "", "", "", "", "minecraft:firework_rocket", "폭죽 화살 지급", 15, "FIREWORK", "minecraft:pillager", List.of("&73발 폭죽 지급", "&7원거리 견제용"))
-		);
-		config.normalize();
-		return config;
-	}
-
-	private FactionConfigFile createMonsterFactionConfig() {
-		var config = new FactionConfigFile();
-		config.displayName = "몬스터";
-		config.summaryLines = List.of("&7전직과 기습 중심", "&7환경 적응이 핵심");
-		config.captainSkill.name = "날씨 변화";
-		config.captainSkill.descriptionLines = List.of("&7실제 스킬 로직은 기존 구현 유지", "&7위키와 GUI 설명은 JSON 기준");
-		var zombie = unit("zombie", "좀비", true, 1, 20.0, 0.8, "minecraft:iron_shovel", "", "minecraft:leather_helmet", "", "", "", "", "", 0, "NONE", "minecraft:zombie", List.of("&7사망 시 아군 사령관 소환 쿨 2초 감소"));
-		zombie.advanceOptions = List.of(
-			advanceOption("husk", "허스크", List.of("&7사막/악지에서 20초 버티면 적응"), List.of("minecraft:desert", "minecraft:badlands", "minecraft:eroded_badlands", "minecraft:wooded_badlands"), List.of(), 400),
-			advanceOption("drowned", "드라운드", List.of("&7바다에서 20초 버티면 적응"), List.of("minecraft:ocean", "minecraft:deep_ocean", "minecraft:cold_ocean", "minecraft:deep_cold_ocean", "minecraft:lukewarm_ocean", "minecraft:deep_lukewarm_ocean", "minecraft:warm_ocean", "minecraft:frozen_ocean", "minecraft:deep_frozen_ocean"), List.of(), 400)
-		);
-		var skeleton = unit("skeleton", "스켈레톤", true, 3, 16.0, 0.9, "minecraft:bow", "", "", "", "", "", "minecraft:bone", "뼈 폭발", 12, "ARROW", "minecraft:skeleton", List.of("&74칸 내 적에게 피해 5와 넉백"));
-		skeleton.advanceOptions = List.of(
-			advanceOption("stray", "스트레이", List.of("&7타이가에서 20초 버티면 적응"), List.of("minecraft:taiga", "minecraft:snowy_taiga", "minecraft:old_growth_pine_taiga", "minecraft:old_growth_spruce_taiga"), List.of(), 400),
-			advanceOption("bogged", "보그드", List.of("&7늪에서 20초 버티면 적응"), List.of("minecraft:swamp", "minecraft:mangrove_swamp"), List.of(), 400),
-			advanceOption("wither_skeleton", "위더 스켈레톤", List.of("&7네더에서 30초 버티면 적응"), List.of("minecraft:nether_wastes", "minecraft:soul_sand_valley", "minecraft:crimson_forest", "minecraft:warped_forest", "minecraft:basalt_deltas"), List.of(), 600)
-		);
-		var slime = unit("slime", "슬라임", true, 2, 14.0, 1.0, "minecraft:slime_ball", "", "", "", "", "", "", "", 0, "NONE", "minecraft:slime", List.of("&7사망 시 사이즈 2 슬라임 3마리"));
-		slime.advanceOptions = List.of(advanceOption("giant_slime", "거대 슬라임", List.of("&7늪에서 15초 버티면 적응"), List.of("minecraft:swamp", "minecraft:mangrove_swamp"), List.of(), 300));
-		var creeper = unit("creeper", "크리퍼", true, 5, 20.0, 1.0, "minecraft:tnt", "", "", "", "", "", "minecraft:tnt", "자폭", 20, "NONE", "minecraft:creeper", List.of("&71초 뒤 자폭", "&7근접 폭발 특화"));
-		creeper.advanceOptions = List.of(advanceOption("charged_creeper", "대전된 크리퍼", List.of("&7천둥 아래에서 대전됨"), List.of("minecraft:plains", "minecraft:forest", "minecraft:dark_forest"), List.of("thunder"), 10));
-		config.units = List.of(
-			zombie,
-			skeleton,
-			slime,
-			creeper,
-			unit("husk", "허스크", false, 0, 20.0, 0.9, "minecraft:iron_sword", "", "", "", "", "", "", "", 0, "NONE", "minecraft:husk", List.of("&7공격 시 구속 I, 나약함 I 3초")),
-			unit("drowned", "드라운드", false, 0, 18.0, 1.0, "minecraft:trident", "", "", "", "", "", "", "", 0, "NONE", "minecraft:drowned", List.of("&7수중 호흡 무한, 물속 이동 강화")),
-			unit("stray", "스트레이", false, 0, 16.0, 0.8, "minecraft:bow", "", "", "", "", "", "", "", 0, "ARROW", "minecraft:stray", List.of("&7공격 시 구속 II 3초")),
-			unit("bogged", "보그드", false, 0, 16.0, 0.8, "minecraft:bow", "", "", "", "", "", "", "", 0, "ARROW", "minecraft:bogged", List.of("&7공격 시 독 III 5초")),
-			unit("wither_skeleton", "위더 스켈레톤", false, 0, 24.0, 1.1, "minecraft:stone_sword", "", "", "", "", "", "minecraft:stone_sword", "위더 해골", 8, "NONE", "minecraft:wither_skeleton", List.of("&7공격 시 시듦 II 4초")),
-			unit("giant_slime", "거대 슬라임", false, 0, 30.0, 1.0, "minecraft:slime_ball", "", "", "", "", "", "", "", 0, "NONE", "minecraft:slime", List.of("&7사망 시 사이즈 4 슬라임 2마리")),
-			unit("charged_creeper", "대전된 크리퍼", false, 0, 24.0, 1.05, "minecraft:tnt", "", "", "", "", "", "minecraft:tnt", "자폭", 15, "NONE", "minecraft:creeper", List.of("&7천둥 조건 전직 결과"))
-		);
-		config.normalize();
-		return config;
-	}
-
-	private FactionConfigFile createNetherFactionConfig() {
-		var config = new FactionConfigFile();
-		config.displayName = "네더";
-		config.summaryLines = List.of("&7교전 강화형 팩션", "&7금괴 경제와 돌파력");
-		config.captainSkill.name = "포탈 생성";
-		config.captainSkill.descriptionLines = List.of("&7실제 스킬 로직은 기존 구현 유지", "&7위키와 GUI 설명은 JSON 기준");
-		config.units = List.of(
-			unit("piglin", "피글린", true, 2, 20.0, 1.0, "minecraft:golden_sword", "", "", "", "", "", "", "", 0, "NONE", "minecraft:piglin", List.of("&750% 확률로 좀비 피글린 생성")),
-			unit("zombified_piglin", "좀비 피글린", true, 2, 20.0, 0.8, "minecraft:golden_sword", "", "", "", "", "", "minecraft:golden_sword", "분노", 15, "NONE", "minecraft:zombified_piglin", List.of("&7주변 아군 강화")),
-			unit("blaze", "블레이즈", true, 3, 16.0, 1.2, "minecraft:blaze_rod", "", "", "", "", "", "minecraft:blaze_rod", "화염구", 5, "NONE", "minecraft:blaze", List.of("&7작은 화염구 3연사")),
-			unit("piglin_brute", "피글린 브루트", true, 6, 40.0, 1.0, "minecraft:golden_axe", "", "", "", "", "", "minecraft:golden_axe", "광란", 30, "NONE", "minecraft:piglin_brute", List.of("&7자가 강화 폭발력"))
-		);
-		config.normalize();
-		return config;
-	}
-
-	private FactionUnitEntry unit(
-		String id,
-		String displayName,
-		boolean captainSpawnable,
-		int cost,
-		double maxHealth,
-		double moveSpeedScale,
-		String mainHandItemId,
-		String offHandItemId,
-		String helmetItemId,
-		String chestItemId,
-		String legsItemId,
-		String bootsItemId,
-		String abilityItemId,
-		String abilityName,
-		int abilityCooldownSeconds,
-		String ammoType,
-		String disguiseId,
-		List<String> descriptionLines
-	) {
-		var entry = new FactionUnitEntry();
-		entry.id = id;
-		entry.displayName = displayName;
-		entry.captainSpawnable = captainSpawnable;
-		entry.cost = cost;
-		entry.maxHealth = maxHealth;
-		entry.moveSpeedScale = moveSpeedScale;
-		entry.mainHand = UnitItemEntry.create(mainHandItemId);
-		entry.offHand = UnitItemEntry.create(offHandItemId);
-		entry.helmet = UnitItemEntry.create(helmetItemId);
-		entry.chest = UnitItemEntry.create(chestItemId);
-		entry.legs = UnitItemEntry.create(legsItemId);
-		entry.boots = UnitItemEntry.create(bootsItemId);
-		entry.abilityItem = UnitItemEntry.create(abilityItemId);
-		entry.abilityName = abilityName;
-		entry.abilityCooldownSeconds = abilityCooldownSeconds;
-		if (abilityItemId != null && !abilityItemId.isBlank() && abilityName != null && !abilityName.isBlank()) {
-			entry.abilityItem.displayName = "&b" + abilityName;
-			entry.abilityItem.loreLines = List.of("&7유닛 스킬 발동", "&8쿨다운: &f" + abilityCooldownSeconds + "초");
-		}
-		entry.ammoType = ammoType;
-		entry.disguise = EntitySpecEntry.create(disguiseId);
-		entry.descriptionLines = descriptionLines;
-		entry.normalize();
-		return entry;
-	}
-
 	private ShopEntry shop(String id, int price, String itemId, int count) {
 		var entry = new ShopEntry();
 		entry.id = id;
+		entry.type = "item";
 		entry.price = price;
 		entry.item = UnitItemEntry.create(itemId);
 		entry.item.count = count;
@@ -685,65 +648,37 @@ public class MinecraftSnapConfigManager {
 		return entry;
 	}
 
-	private AdvanceOptionEntry advanceOption(
-		String resultUnitId,
-		String displayName,
-		List<String> descriptionLines,
-		List<String> biomes,
-		List<String> weathers,
-		int requiredTicks
-	) {
-		var option = new AdvanceOptionEntry();
-		option.resultUnitId = resultUnitId;
-		option.displayName = displayName;
-		option.descriptionLines = descriptionLines;
-		option.biomes = biomes;
-		option.weathers = weathers;
-		option.requiredTicks = requiredTicks;
-		option.normalize();
-		return option;
+	private ShopEntry enchantShop(String id, String displayName, String iconItemId, String enchantmentId, String target, int... prices) {
+		var entry = new ShopEntry();
+		entry.id = id;
+		entry.type = "enchant";
+		entry.enchantmentId = enchantmentId;
+		entry.target = target;
+		entry.maxLevel = prices == null ? 1 : prices.length;
+		entry.prices = prices == null
+			? List.of(1)
+			: java.util.Arrays.stream(prices).boxed().toList();
+		entry.price = entry.prices.isEmpty() ? 1 : entry.prices.getFirst();
+		entry.item = UnitItemEntry.create(iconItemId);
+		entry.item.displayName = "&b" + displayName;
+		entry.normalize();
+		return entry;
 	}
 
-	private boolean migrateLegacyAdvanceOptions() {
-		var monsterConfig = factionConfigs.get(FactionId.MONSTER);
-		if (monsterConfig == null || systemConfig == null || systemConfig.advance == null || systemConfig.advance.conditions == null) {
-			return false;
+	private enum TextSection {
+		GUI("gui.json"),
+		BOSSBAR("bossbar.json"),
+		SIDEBAR("sidebar.json"),
+		ACTIONBAR("actionbar.json"),
+		TITLE("title.json"),
+		SUBTITLE("subtitle.json"),
+		CHAT("chat.json");
+
+		private final String fileName;
+
+		TextSection(String fileName) {
+			this.fileName = fileName;
 		}
-		boolean migrated = false;
-		for (var unit : monsterConfig.units) {
-			if (unit == null || !unit.advanceOptions.isEmpty()) {
-				continue;
-			}
-			for (var condition : systemConfig.advance.conditions) {
-				if (condition == null || !unit.id.equals(condition.unitId)) {
-					continue;
-				}
-				unit.advanceOptions.add(advanceOption(
-					condition.resultUnitId,
-					resolveUnitName(condition.resultUnitId),
-					List.of("&7레거시 system.json 전직 조건 마이그레이션"),
-					List.copyOf(condition.biomes),
-					List.copyOf(condition.weathers),
-					condition.requiredExp > 0 ? condition.requiredExp : 1
-				));
-				migrated = true;
-			}
-			unit.normalize();
-		}
-		return migrated;
 	}
 
-	private String resolveUnitName(String unitId) {
-		for (var config : factionConfigs.values()) {
-			if (config == null || config.units == null) {
-				continue;
-			}
-			for (var unit : config.units) {
-				if (unit != null && unitId.equals(unit.id) && unit.displayName != null && !unit.displayName.isBlank()) {
-					return unit.displayName;
-				}
-			}
-		}
-		return unitId;
-	}
 }

@@ -4,8 +4,12 @@
 	"package": "karn.minecraftsnap.mixin",
 	"compatibilityLevel": "JAVA_21",
 	"mixins": [
+		"ArrowEntityMixin",
+		"FireballEntityMixin",
 		"LivingEntityMixin",
 		"PlayerEntityMixin",
+		"SmallFireballEntityMixin",
+		"SnowballEntityMixin",
 		"ServerPlayNetworkHandlerMixin",
 		"ServerPlayerEntityMixin"
 	],

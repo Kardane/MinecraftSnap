@@ -25,17 +25,17 @@ public class PiglinUnit extends AbstractNetherUnit implements ConfiguredUnitClas
 		20.0,
 		1.0,
 		item("minecraft:golden_sword"),
-		none(),
-			item("minecraft:golden_helmet"),
+			none(),
+			none(),
 		none(),
 		none(),
 		none(),
 		none(),
 		"",
 		0,
-		UnitDefinition.AmmoType.NONE,
+		UnitDefinition.AmmoType.ARROW,
 		disguise("minecraft:piglin"),
-			List.of("&f패시브 &7- 적 처치시 금괴 1개 추가 획득","&f무기 &7- 금 검"),
+			List.of("&f패시브 &7- 적 처치시 금괴 1개 추가 획득","&f무기 &7- 금 검, 쇠뇌"),
 		List.of()
 	);
 
@@ -47,7 +47,7 @@ public class PiglinUnit extends AbstractNetherUnit implements ConfiguredUnitClas
 	@Override
 	public void buildLoadout(UnitContext context) {
 		context.baseBuildLoadout();
-		context.player().getInventory().insertStack(new ItemStack(Items.GOLD_INGOT, supportGoldCount()));
+		context.player().getInventory().insertStack(new ItemStack(Items.CROSSBOW, 1));
 	}
 
 	@Override

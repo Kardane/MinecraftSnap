@@ -9,6 +9,7 @@ import net.minecraft.entity.attribute.EntityAttributes;
 import net.minecraft.entity.damage.DamageSource;
 import net.minecraft.entity.EntityType;
 import net.minecraft.entity.SpawnReason;
+import net.minecraft.entity.effect.StatusEffects;
 
 import java.util.List;
 
@@ -25,7 +26,7 @@ public class SlimeUnit extends AbstractMonsterUnit implements ConfiguredUnitClas
 		"슬라임",
 		FactionId.MONSTER,
 		true,
-		2,
+		1,
 		18.0,
 		1.0,
 		item("minecraft:slime_ball"),
@@ -83,6 +84,13 @@ public class SlimeUnit extends AbstractMonsterUnit implements ConfiguredUnitClas
 	public void onTick(UnitContext context) {
 		super.onTick(context);
 		applyJumpStrength(context);
+		if (isPoisonImmune()) {
+			context.player().removeStatusEffect(StatusEffects.POISON);
+		}
+	}
+
+	boolean isPoisonImmune() {
+		return true;
 	}
 
 	@Override
@@ -105,7 +113,7 @@ public class SlimeUnit extends AbstractMonsterUnit implements ConfiguredUnitClas
 	private void applyJumpStrength(UnitContext context) {
 		var jumpStrength = context.player().getAttributeInstance(EntityAttributes.JUMP_STRENGTH);
 		if (jumpStrength != null) {
-			jumpStrength.setBaseValue(jumpStrengthValue());
+			jumpStrength.setBaseValue(context.unitDefinition().extraAttributes().jumpStrengthOrDefault(jumpStrengthValue()));
 		}
 	}
 

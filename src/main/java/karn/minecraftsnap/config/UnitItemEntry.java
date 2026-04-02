@@ -62,14 +62,7 @@ public class UnitItemEntry {
 	}
 
 	public Item resolve() {
-		var resolvedItemId = itemId;
-		if ((resolvedItemId == null || resolvedItemId.isBlank()) && stackNbt != null && !stackNbt.isBlank()) {
-			try {
-				resolvedItemId = StringNbtReader.readCompound(stackNbt).getString("id").orElse("");
-			} catch (Exception ignored) {
-				resolvedItemId = itemId;
-			}
-		}
+		var resolvedItemId = resolvedItemId();
 		if (resolvedItemId == null || resolvedItemId.isBlank()) {
 			return null;
 		}
@@ -83,16 +76,20 @@ public class UnitItemEntry {
 
 	public Item resolve(Function<String, Item> itemResolver) {
 		if (itemResolver != null) {
-			var resolvedItemId = itemId;
-			if ((resolvedItemId == null || resolvedItemId.isBlank()) && stackNbt != null && !stackNbt.isBlank()) {
-				try {
-					resolvedItemId = StringNbtReader.readCompound(stackNbt).getString("id").orElse("");
-				} catch (Exception ignored) {
-					resolvedItemId = itemId;
-				}
-			}
-			return itemResolver.apply(resolvedItemId);
+			return itemResolver.apply(resolvedItemId());
 		}
 		return resolve();
+	}
+
+	public String resolvedItemId() {
+		var resolvedItemId = itemId;
+		if ((resolvedItemId == null || resolvedItemId.isBlank()) && stackNbt != null && !stackNbt.isBlank()) {
+			try {
+				resolvedItemId = StringNbtReader.readCompound(stackNbt).getString("id").orElse("");
+			} catch (Exception ignored) {
+				resolvedItemId = itemId;
+			}
+		}
+		return resolvedItemId;
 	}
 }

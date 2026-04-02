@@ -144,7 +144,11 @@ public class AdminCommandService {
 		String guiId,
 		MatchManager matchManager,
 		TextConfigFile textConfig,
+		Consumer<ServerPlayerEntity> mainOpener,
 		Consumer<ServerPlayerEntity> wikiOpener,
+		Consumer<ServerPlayerEntity> unitIndexOpener,
+		Consumer<ServerPlayerEntity> biomeIndexOpener,
+		Consumer<ServerPlayerEntity> adminToolsOpener,
 		BiConsumer<ServerPlayerEntity, Consumer<FactionId>> factionSelectionOpener,
 		Consumer<ServerPlayerEntity> preparationOpener,
 		Consumer<ServerPlayerEntity> captainSpawnOpener,
@@ -155,8 +159,24 @@ public class AdminCommandService {
 		var state = matchManager.getPlayerState(player.getUuid());
 		return switch (guiId) {
 			case "wiki" -> {
+				mainOpener.accept(player);
+				yield textConfig.commandOpenMainSuccessMessage;
+			}
+			case "rules" -> {
 				wikiOpener.accept(player);
 				yield textConfig.commandOpenWikiSuccessMessage;
+			}
+			case "unit_index" -> {
+				unitIndexOpener.accept(player);
+				yield textConfig.commandOpenUnitIndexSuccessMessage;
+			}
+			case "biome_index" -> {
+				biomeIndexOpener.accept(player);
+				yield textConfig.commandOpenBiomeIndexSuccessMessage;
+			}
+			case "admin_tools" -> {
+				adminToolsOpener.accept(player);
+				yield textConfig.commandOpenAdminToolsSuccessMessage;
 			}
 			case "faction" -> {
 				factionSelectionOpener.accept(player, factionId -> {

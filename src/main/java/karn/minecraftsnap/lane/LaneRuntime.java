@@ -25,6 +25,7 @@ public class LaneRuntime {
 	private int redCaptureScore;
 	private int blueCaptureScore;
 	private int revealElapsedSeconds = -1;
+	private boolean revealEffectApplied;
 
 	public LaneRuntime(LaneId laneId) {
 		this.laneId = laneId;
@@ -78,6 +79,10 @@ public class LaneRuntime {
 		return revealElapsedSeconds;
 	}
 
+	public boolean revealEffectApplied() {
+		return revealEffectApplied;
+	}
+
 	public List<ServerPlayerEntity> resolveAliveUnitPlayers(MinecraftServer server) {
 		return resolvePlayers(server, aliveUnitPlayerIds);
 	}
@@ -113,12 +118,18 @@ public class LaneRuntime {
 		this.biomeEntry = biomeEntry;
 		this.biomeEffect = biomeEffect;
 		this.revealElapsedSeconds = revealElapsedSeconds;
+		this.revealEffectApplied = false;
+	}
+
+	public void markRevealEffectApplied() {
+		revealEffectApplied = true;
 	}
 
 	public void clearBiome() {
 		biomeEntry = null;
 		biomeEffect = null;
 		revealElapsedSeconds = -1;
+		revealEffectApplied = false;
 	}
 
 	private List<ServerPlayerEntity> resolvePlayers(MinecraftServer server, List<UUID> playerIds) {

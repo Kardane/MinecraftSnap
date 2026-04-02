@@ -18,6 +18,8 @@ import karn.minecraftsnap.util.TextTemplateResolver;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.damage.DamageSource;
 import net.minecraft.entity.effect.StatusEffectInstance;
+import net.minecraft.item.ItemStack;
+import net.minecraft.item.Items;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.text.Text;
@@ -125,15 +127,23 @@ public class UnitContext {
 	}
 
 	public boolean activateSkill(java.util.function.BooleanSupplier action) {
+		return activateSkill(null, action);
+	}
+
+	public boolean activateSkill(Long cooldownTicksOverride, java.util.function.BooleanSupplier action) {
 		return player != null
 			&& unitAbilityService != null
 			&& matchManager != null
 			&& unitDefinition != null
-			&& unitAbilityService.activateUnitSkill(player, matchManager, unitDefinition, action);
+			&& unitAbilityService.activateUnitSkill(player, matchManager, unitDefinition, cooldownTicksOverride, action);
 	}
 
 	public void rewardEmerald(int amount) {
-		if (state == null || player == null || statsRepository == null) {
+		if (amount <= 0 || player == null) {
+			return;
+		}
+		player.getInventory().insertStack(new ItemStack(Items.EMERALD, amount));
+		if (state == null || statsRepository == null) {
 			return;
 		}
 		state.addEmeralds(amount);
@@ -141,7 +151,11 @@ public class UnitContext {
 	}
 
 	public void rewardGold(int amount) {
-		if (state == null || player == null || statsRepository == null) {
+		if (amount <= 0 || player == null) {
+			return;
+		}
+		player.getInventory().insertStack(new ItemStack(Items.GOLD_INGOT, amount));
+		if (state == null || statsRepository == null) {
 			return;
 		}
 		state.addGoldIngots(amount);

@@ -16,10 +16,15 @@ class McSnapCommandRegistrarTest {
 
 		var openGui = dispatcher.getRoot().getChild("mcsnap").getChild("admin").getChild("opengui");
 		assertNotNull(openGui.getChild("wiki"));
+		assertNotNull(openGui.getChild("rules"));
+		assertNotNull(openGui.getChild("unit_index"));
+		assertNotNull(openGui.getChild("biome_index"));
+		assertNotNull(openGui.getChild("admin_tools"));
 		assertNotNull(openGui.getChild("captain_spawn"));
 		assertNotNull(openGui.getChild("advance"));
 		assertNull(openGui.getChild("gui"));
-		assertEquals(6, McSnapCommandRegistrar.ADMIN_GUI_IDS.size());
+		assertNull(openGui.getChild("stats"));
+		assertEquals(10, McSnapCommandRegistrar.ADMIN_GUI_IDS.size());
 	}
 
 	@Test
@@ -64,5 +69,43 @@ class McSnapCommandRegistrarTest {
 		var bots = dispatcher.getRoot().getChild("mcsnap").getChild("admin").getChild("bots");
 		assertNotNull(bots);
 		assertNotNull(bots.getChild("count"));
+	}
+
+	@Test
+	void adminRegistersClearTeamsCommandTree() {
+		var dispatcher = new CommandDispatcher<ServerCommandSource>();
+		new McSnapCommandRegistrar(null).register(dispatcher, null, null);
+
+		var admin = dispatcher.getRoot().getChild("mcsnap").getChild("admin");
+		assertNotNull(admin.getChild("clearteams"));
+	}
+
+	@Test
+	void adminRegistersTimeCommandTree() {
+		var dispatcher = new CommandDispatcher<ServerCommandSource>();
+		new McSnapCommandRegistrar(null).register(dispatcher, null, null);
+
+		var time = dispatcher.getRoot().getChild("mcsnap").getChild("admin").getChild("time");
+		assertNotNull(time);
+		assertEquals("ticks", time.getChildren().iterator().next().getName());
+	}
+
+	@Test
+	void registersSurrenderAliases() {
+		var dispatcher = new CommandDispatcher<ServerCommandSource>();
+		new McSnapCommandRegistrar(null).register(dispatcher, null, null);
+
+		assertNotNull(dispatcher.getRoot().getChild("항복"));
+		assertNotNull(dispatcher.getRoot().getChild("gg"));
+		assertNotNull(dispatcher.getRoot().getChild("ㅈㅈ"));
+		assertNotNull(dispatcher.getRoot().getChild("ww"));
+	}
+
+	@Test
+	void registersMidMatchJoinCommand() {
+		var dispatcher = new CommandDispatcher<ServerCommandSource>();
+		new McSnapCommandRegistrar(null).register(dispatcher, null, null);
+
+		assertNotNull(dispatcher.getRoot().getChild("중참"));
 	}
 }

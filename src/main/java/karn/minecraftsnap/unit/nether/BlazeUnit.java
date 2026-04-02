@@ -22,13 +22,14 @@ import static net.minecraft.enchantment.Enchantments.FIRE_ASPECT;
 public class BlazeUnit extends AbstractNetherUnit implements ConfiguredUnitClass {
 	private static final String SHOTS_REMAINING_KEY = "blaze_shots_remaining";
 	private static final String NEXT_SHOT_TICK_KEY = "blaze_next_shot_tick";
+	public static final String ZERO_DAMAGE_FIREBALL_TAG = "minecraftsnap_blaze_zero_damage";
 
 	public static final UnitDefinition DEFINITION = unit(
 		"blaze",
 		"블레이즈",
 		FactionId.NETHER,
 		true,
-		3,
+		2,
 		14.0,
 		1.2,
 		item("minecraft:blaze_rod"),
@@ -39,7 +40,7 @@ public class BlazeUnit extends AbstractNetherUnit implements ConfiguredUnitClass
 		karn.minecraftsnap.unit.UnitSpecSupport.none(),
 		item("minecraft:blaze_rod"),
 		"화염구 3연사",
-		9,
+		7,
 		UnitDefinition.AmmoType.NONE,
 		disguise("minecraft:blaze"),
 			List.of("&f화염구 발사&7- 화염구를 3개 연속으로 발사합니다","&f무기 &7- 블레이즈 막대"),
@@ -63,6 +64,9 @@ public class BlazeUnit extends AbstractNetherUnit implements ConfiguredUnitClass
 	@Override
 	public void onTick(UnitContext context) {
 		context.player().addStatusEffect(new StatusEffectInstance(StatusEffects.FIRE_RESISTANCE, fireResistanceDurationTicks(), 0, true, false, false));
+		if (shouldTakeWaterDamage(context.player().isTouchingWater(), context.serverTicks())) {
+			context.player().damage(context.world(), context.player().getDamageSources().generic(), waterDamageAmount());
+		}
 		var remaining = context.getUnitRuntimeLong(SHOTS_REMAINING_KEY);
 		var nextShotTick = context.getUnitRuntimeLong(NEXT_SHOT_TICK_KEY);
 		if (remaining == null || remaining <= 0 || nextShotTick == null || context.serverTicks() < nextShotTick) {
@@ -94,6 +98,7 @@ public class BlazeUnit extends AbstractNetherUnit implements ConfiguredUnitClass
 		var fireball = new SmallFireballEntity(world, player, direction);
 		fireball.refreshPositionAndAngles(player.getX() + direction.x * 0.5D, player.getEyeY() - 0.1D, player.getZ() + direction.z * 0.5D, player.getYaw(), player.getPitch());
 		fireball.setVelocity(direction.multiply(1.1D));
+		fireball.addCommandTag(ZERO_DAMAGE_FIREBALL_TAG);
 		world.spawnEntity(fireball);
 		world.playSound(null, player.getBlockPos(), SoundEvents.ENTITY_BLAZE_SHOOT, SoundCategory.PLAYERS, 0.9f, 1.0f);
 	}
@@ -120,5 +125,17 @@ public class BlazeUnit extends AbstractNetherUnit implements ConfiguredUnitClass
 
 	int fireResistanceDurationTicks() {
 		return 40;
+	}
+
+	boolean shouldTakeWaterDamage(boolean touchingWater, long serverTicks) {
+		return touchingWater && serverTicks > 0L && serverTicks % 20L == 0L;
+	}
+
+	float waterDamageAmount() {
+		return 2.0F;
+	}
+
+	float fireballDirectDamageAmount() {
+		return 0.0F;
 	}
 }

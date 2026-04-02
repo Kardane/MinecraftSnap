@@ -62,7 +62,8 @@ public class BossBarService {
 			bossBarConfig.template,
 			matchManager.getRemainingSeconds(),
 			matchManager.getRedScore(),
-			matchManager.getBlueScore()
+			matchManager.getBlueScore(),
+			resolveNextRevealTime(systemConfig)
 		);
 
 		if (!rendered.equals(lastRenderedText) || lastRenderedPhase != MatchPhase.GAME_RUNNING) {
@@ -70,7 +71,7 @@ public class BossBarService {
 			lastRenderedText = rendered;
 		}
 
-		bossBar.setPercent(BossBarFormatter.percent(matchManager.getRemainingSeconds(), matchManager.getTotalSeconds()));
+		bossBar.setPercent(BossBarFormatter.percentTicks(matchManager.getRemainingTicks(), matchManager.getTotalTicks()));
 		bossBar.setColor(gameRunningColor(matchManager.getRedScore(), matchManager.getBlueScore()));
 		bossBar.setStyle(parseStyle(bossBarConfig.style));
 		bossBar.setVisible(true);
@@ -82,6 +83,14 @@ public class BossBarService {
 		}
 
 		lastRenderedPhase = MatchPhase.GAME_RUNNING;
+	}
+
+	private String resolveNextRevealTime(SystemConfig systemConfig) {
+		var mod = MinecraftSnap.getInstance();
+		if (mod == null || mod.getBiomeRevealService() == null) {
+			return "--:--";
+		}
+		return mod.getBiomeRevealService().nextRevealRemainingTime(systemConfig);
 	}
 
 	static String factionSelectText(int remainingSeconds, String template) {

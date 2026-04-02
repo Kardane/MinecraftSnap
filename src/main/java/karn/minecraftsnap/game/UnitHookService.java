@@ -2,6 +2,7 @@ package karn.minecraftsnap.game;
 
 import karn.minecraftsnap.audio.UiSoundService;
 import karn.minecraftsnap.MinecraftSnap;
+import karn.minecraftsnap.config.ShopConfigFile;
 import karn.minecraftsnap.config.StatsRepository;
 import karn.minecraftsnap.config.SystemConfig;
 import karn.minecraftsnap.config.TextConfigFile;
@@ -18,9 +19,12 @@ import karn.minecraftsnap.unit.UnitContext;
 import karn.minecraftsnap.util.TextTemplateResolver;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.damage.DamageSource;
+import net.minecraft.entity.Entity;
+import net.minecraft.entity.projectile.ProjectileEntity;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.network.packet.c2s.play.PlayerMoveC2SPacket;
+import net.minecraft.util.math.Vec3d;
 
 import java.util.function.Supplier;
 
@@ -39,6 +43,8 @@ public class UnitHookService {
 	private final CaptainManaService captainManaService;
 	private final PlayerDisplayNameService playerDisplayNameService;
 	private final UiSoundService uiSoundService;
+	private final VillagerEnchantService villagerEnchantService;
+	private final Supplier<ShopConfigFile> villagerShopConfigSupplier;
 
 	public UnitHookService(
 		MatchManager matchManager,
@@ -54,7 +60,9 @@ public class UnitHookService {
 		AdvanceGuiService advanceGuiService,
 		CaptainManaService captainManaService,
 		PlayerDisplayNameService playerDisplayNameService,
-		UiSoundService uiSoundService
+		UiSoundService uiSoundService,
+		VillagerEnchantService villagerEnchantService,
+		Supplier<ShopConfigFile> villagerShopConfigSupplier
 	) {
 		this.matchManager = matchManager;
 		this.unitRegistry = unitRegistry;
@@ -70,6 +78,8 @@ public class UnitHookService {
 		this.captainManaService = captainManaService;
 		this.playerDisplayNameService = playerDisplayNameService;
 		this.uiSoundService = uiSoundService;
+		this.villagerEnchantService = villagerEnchantService;
+		this.villagerShopConfigSupplier = villagerShopConfigSupplier;
 	}
 
 	public void tick(MinecraftServer server, SystemConfig systemConfig) {
@@ -128,6 +138,20 @@ public class UnitHookService {
 		}
 	}
 
+	public void handleProjectileHit(ServerPlayerEntity owner, ProjectileEntity projectile, Entity target, SystemConfig systemConfig) {
+		var context = createContext(owner, systemConfig, null);
+		if (context != null) {
+			dispatchOnProjectileHit(unitClassOf(context.unitDefinition().id()), context, projectile, target);
+		}
+	}
+
+	public void handleProjectileImpact(ServerPlayerEntity owner, ProjectileEntity projectile, Vec3d impactPos, SystemConfig systemConfig) {
+		var context = createContext(owner, systemConfig, null);
+		if (context != null) {
+			dispatchOnProjectileImpact(unitClassOf(context.unitDefinition().id()), context, projectile, impactPos);
+		}
+	}
+
 	public void handleDeath(ServerPlayerEntity victim, DamageSource source, SystemConfig systemConfig) {
 		var context = createContext(victim, systemConfig, null);
 		if (context != null) {
@@ -165,6 +189,7 @@ public class UnitHookService {
 		var unitClass = unitClassOf(definition.id());
 		unitClass.buildLoadout(context);
 		unitClass.applyAttributes(context);
+		reapplyVillagerEnchants(player, context.state(), definition);
 	}
 
 	public void assignUnit(ServerPlayerEntity player, UnitDefinition definition, SystemConfig systemConfig) {
@@ -283,6 +308,18 @@ public class UnitHookService {
 		}
 	}
 
+	public void dispatchOnProjectileHit(UnitClass unitClass, UnitContext context, ProjectileEntity projectile, Entity target) {
+		if (unitClass != null && context != null) {
+			unitClass.onProjectileHit(context, projectile, target);
+		}
+	}
+
+	public void dispatchOnProjectileImpact(UnitClass unitClass, UnitContext context, ProjectileEntity projectile, Vec3d impactPos) {
+		if (unitClass != null && context != null) {
+			unitClass.onProjectileImpact(context, projectile, impactPos);
+		}
+	}
+
 	public boolean dispatchShouldCancelMove(UnitClass unitClass, UnitContext context, PlayerMoveC2SPacket packet) {
 		if (unitClass != null && context != null) {
 			return unitClass.shouldCancelMove(context, packet);
@@ -327,6 +364,22 @@ public class UnitHookService {
 	private TextConfigFile textConfig() {
 		var mod = MinecraftSnap.getInstance();
 		return mod == null ? new TextConfigFile() : mod.getTextConfig();
+	}
+
+	private void reapplyVillagerEnchants(ServerPlayerEntity player, PlayerMatchState state, UnitDefinition definition) {
+		if (player == null
+			|| state == null
+			|| definition == null
+			|| definition.factionId() != FactionId.VILLAGER
+			|| villagerEnchantService == null
+			|| villagerShopConfigSupplier == null) {
+			return;
+		}
+		var config = villagerShopConfigSupplier.get();
+		if (config == null || config.entries == null || config.entries.isEmpty()) {
+			return;
+		}
+		villagerEnchantService.reapplyCurrentEnchantments(player, state, config.entries);
 	}
 
 	private UnitClass unitClassOf(String unitId) {

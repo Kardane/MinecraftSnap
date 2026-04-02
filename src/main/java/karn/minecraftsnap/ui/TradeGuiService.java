@@ -11,6 +11,7 @@ import karn.minecraftsnap.config.StatsRepository;
 import karn.minecraftsnap.game.FactionId;
 import karn.minecraftsnap.game.PlayerMatchState;
 import karn.minecraftsnap.game.UnitLoadoutService;
+import karn.minecraftsnap.game.VillagerEnchantService;
 import karn.minecraftsnap.util.TextTemplateResolver;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.Items;
@@ -33,6 +34,7 @@ public class TradeGuiService {
 	private final Function<FactionId, ShopConfigFile> shopConfigProvider;
 	private final Supplier<StatsRepository> statsRepositorySupplier;
 	private final UiSoundService uiSoundService;
+	private final VillagerEnchantService villagerEnchantService;
 
 	public TradeGuiService(
 		TextTemplateResolver textTemplateResolver,
@@ -40,7 +42,7 @@ public class TradeGuiService {
 		Function<FactionId, ShopConfigFile> shopConfigProvider,
 		Supplier<StatsRepository> statsRepositorySupplier
 	) {
-		this(textTemplateResolver, unitLoadoutService, shopConfigProvider, statsRepositorySupplier, null);
+		this(textTemplateResolver, unitLoadoutService, shopConfigProvider, statsRepositorySupplier, null, new VillagerEnchantService());
 	}
 
 	public TradeGuiService(
@@ -50,11 +52,23 @@ public class TradeGuiService {
 		Supplier<StatsRepository> statsRepositorySupplier,
 		UiSoundService uiSoundService
 	) {
+		this(textTemplateResolver, unitLoadoutService, shopConfigProvider, statsRepositorySupplier, uiSoundService, new VillagerEnchantService());
+	}
+
+	public TradeGuiService(
+		TextTemplateResolver textTemplateResolver,
+		UnitLoadoutService unitLoadoutService,
+		Function<FactionId, ShopConfigFile> shopConfigProvider,
+		Supplier<StatsRepository> statsRepositorySupplier,
+		UiSoundService uiSoundService,
+		VillagerEnchantService villagerEnchantService
+	) {
 		this.textTemplateResolver = textTemplateResolver;
 		this.unitLoadoutService = unitLoadoutService;
 		this.shopConfigProvider = shopConfigProvider;
 		this.statsRepositorySupplier = statsRepositorySupplier;
 		this.uiSoundService = uiSoundService;
+		this.villagerEnchantService = villagerEnchantService;
 	}
 
 	public void open(ServerPlayerEntity player, PlayerMatchState state) {
@@ -109,7 +123,7 @@ public class TradeGuiService {
 
 	private void openInternal(ServerPlayerEntity player, PlayerMatchState state, FactionId factionId) {
 		var gui = new SimpleGui(ScreenHandlerType.GENERIC_9X3, player, false);
-		gui.setTitle(textTemplateResolver.format(factionId == FactionId.NETHER ? textConfig().tradeNetherTitle : textConfig().tradeVillagerTitle));
+		gui.setTitle(textTemplateResolver.formatUi(resolveTitle(factionId)));
 		renderMerchandise(gui, player, state, factionId);
 		gui.open();
 	}
@@ -123,7 +137,7 @@ public class TradeGuiService {
 			if (displayStack.isEmpty()) {
 				continue;
 			}
-			mergeShopLore(displayStack, factionId, entry.price);
+			mergeShopLore(displayStack, factionId, state, entry);
 			var builder = new GuiElementBuilder(displayStack)
 				.setCallback((slotIndex, clickType, action, slotGui) -> {
 					if (uiSoundService != null) {
@@ -155,6 +169,18 @@ public class TradeGuiService {
 							}
 							player.sendMessage(textTemplateResolver.format(textConfig().tradeInvalidEntryMessage), false);
 						}
+						case MAX_LEVEL -> {
+							if (uiSoundService != null) {
+								uiSoundService.playUiDeny(player);
+							}
+							player.sendMessage(textTemplateResolver.format(textConfig().tradeMaxLevelMessage), false);
+						}
+						case NO_ELIGIBLE_EQUIPMENT -> {
+							if (uiSoundService != null) {
+								uiSoundService.playUiDeny(player);
+							}
+							player.sendMessage(textTemplateResolver.format(textConfig().tradeNoEligibleEquipmentMessage), false);
+						}
 						case UNSUPPORTED_FACTION -> {
 							if (uiSoundService != null) {
 								uiSoundService.playUiDeny(player);
@@ -167,20 +193,42 @@ public class TradeGuiService {
 		}
 	}
 
-	private void mergeShopLore(ItemStack displayStack, FactionId factionId, int price) {
+	private void mergeShopLore(ItemStack displayStack, FactionId factionId, PlayerMatchState state, ShopEntry entry) {
 		var mergedLore = new ArrayList<net.minecraft.text.Text>();
 		var existingLore = displayStack.get(net.minecraft.component.DataComponentTypes.LORE);
 		if (existingLore != null) {
 			mergedLore.addAll(existingLore.lines());
 		}
-		mergedLore.add(textTemplateResolver.format(textConfig().tradePriceLoreTemplate
-			.replace("{color}", currencyColor(factionId))
-			.replace("{price}", Integer.toString(price))));
-		mergedLore.add(textTemplateResolver.format(textConfig().tradeClickLore));
+		if (villagerEnchantService.isEnchantEntry(entry)) {
+			var currentLevel = villagerEnchantService.currentLevel(state, entry);
+			mergedLore.add(textTemplateResolver.formatUi(textConfig().tradeEnchantTargetLoreTemplate
+				.replace("{target}", villagerEnchantService.targetLabel(entry))));
+			mergedLore.add(textTemplateResolver.formatUi(textConfig().tradeEnchantCurrentLoreTemplate
+				.replace("{label}", villagerEnchantService.enchantLabel(entry))
+				.replace("{level}", villagerEnchantService.levelText(currentLevel))));
+			if (villagerEnchantService.isMaxLevel(state, entry)) {
+				mergedLore.add(textTemplateResolver.formatUi(textConfig().tradeEnchantMaxLore));
+			} else {
+				mergedLore.add(textTemplateResolver.formatUi(textConfig().tradeEnchantNextLoreTemplate
+					.replace("{label}", villagerEnchantService.enchantLabel(entry))
+					.replace("{level}", villagerEnchantService.levelText(currentLevel + 1))));
+				mergedLore.add(textTemplateResolver.formatUi(textConfig().tradePriceLoreTemplate
+					.replace("{color}", currencyColor(factionId))
+					.replace("{price}", Integer.toString(villagerEnchantService.priceForNextLevel(state, entry)))));
+			}
+		} else {
+			mergedLore.add(textTemplateResolver.formatUi(textConfig().tradePriceLoreTemplate
+				.replace("{color}", currencyColor(factionId))
+				.replace("{price}", Integer.toString(entry.price))));
+		}
+		mergedLore.add(textTemplateResolver.formatUi(textConfig().tradeClickLore));
 		displayStack.set(net.minecraft.component.DataComponentTypes.LORE, new net.minecraft.component.type.LoreComponent(mergedLore));
 	}
 
 	private PurchaseResult purchase(ServerPlayerEntity player, PlayerMatchState state, FactionId factionId, ShopEntry entry) {
+		if (villagerEnchantService.isEnchantEntry(entry)) {
+			return purchaseEnchant(player, state, factionId, entry);
+		}
 		if (entry == null || entry.item == null || entry.item.isEmpty()) {
 			return PurchaseResult.INVALID_ENTRY;
 		}
@@ -205,6 +253,40 @@ public class TradeGuiService {
 			() -> consumeInventoryCurrency(factionId, inventoryStacks(player), inventoryCurrencySpent),
 			() -> tryInsertReward(player, reward)
 		);
+	}
+
+	private PurchaseResult purchaseEnchant(ServerPlayerEntity player, PlayerMatchState state, FactionId factionId, ShopEntry entry) {
+		if (factionId != FactionId.VILLAGER) {
+			return PurchaseResult.UNSUPPORTED_FACTION;
+		}
+		if (!villagerEnchantService.supportsConfiguredEnchant(entry) || player == null || state == null) {
+			return PurchaseResult.INVALID_ENTRY;
+		}
+		if (villagerEnchantService.isMaxLevel(state, entry)) {
+			return PurchaseResult.MAX_LEVEL;
+		}
+		if (!villagerEnchantService.hasEligibleEquipment(player, entry)) {
+			return PurchaseResult.NO_ELIGIBLE_EQUIPMENT;
+		}
+		var price = villagerEnchantService.priceForNextLevel(state, entry);
+		if (price <= 0) {
+			return PurchaseResult.INVALID_ENTRY;
+		}
+		var stacks = inventoryStacks(player);
+		var inventoryCurrencyAvailable = countInventoryCurrency(factionId, stacks);
+		if (inventoryCurrencyAvailable < price) {
+			return PurchaseResult.INSUFFICIENT_FUNDS;
+		}
+		int previousLevel = villagerEnchantService.currentLevel(state, entry);
+		if (!villagerEnchantService.tryUpgrade(state, entry)) {
+			return PurchaseResult.MAX_LEVEL;
+		}
+		if (!villagerEnchantService.applyCurrentLevel(player, state, entry)) {
+			villagerEnchantService.restoreLevel(state, entry, previousLevel);
+			return PurchaseResult.INVALID_ENTRY;
+		}
+		consumeInventoryCurrency(factionId, stacks, price);
+		return PurchaseResult.SUCCESS;
 	}
 
 	private ItemStack buildDisplayStack(ServerPlayerEntity player, ShopEntry entry) {
@@ -318,6 +400,14 @@ public class TradeGuiService {
 		return factionId == FactionId.NETHER ? "&6" : "&a";
 	}
 
+	private String resolveTitle(FactionId factionId) {
+		return switch (factionId) {
+			case NETHER -> textConfig().tradeNetherTitle;
+			case VILLAGER -> textConfig().tradeVillagerEnchantTitle;
+			default -> textConfig().tradeVillagerTitle;
+		};
+	}
+
 	private TextConfigFile textConfig() {
 		var mod = MinecraftSnap.getInstance();
 		return mod == null ? new TextConfigFile() : mod.getTextConfig();
@@ -328,6 +418,8 @@ public class TradeGuiService {
 		INSUFFICIENT_FUNDS,
 		INVENTORY_FULL,
 		INVALID_ENTRY,
+		MAX_LEVEL,
+		NO_ELIGIBLE_EQUIPMENT,
 		UNSUPPORTED_FACTION
 	}
 

@@ -29,7 +29,7 @@ public class CaptainWeatherGuiService {
 		Consumer<WeatherOption> onSelect
 	) {
 		var gui = new SimpleGui(ScreenHandlerType.HOPPER, player, false);
-		gui.setTitle(textTemplateResolver.format(textConfig.captainMonsterWeatherGuiTitle));
+		gui.setTitle(textTemplateResolver.formatUi(textConfig.captainMonsterWeatherGuiTitle));
 		gui.setSlot(0, option(Items.FEATHER, textConfig.captainMonsterWeatherClearName, textConfig, current, remainingSeconds, WeatherOption.CLEAR, onSelect));
 		gui.setSlot(2, option(Items.WATER_BUCKET, textConfig.captainMonsterWeatherRainName, textConfig, current, remainingSeconds, WeatherOption.RAIN, onSelect));
 		gui.setSlot(4, option(Items.TRIDENT, textConfig.captainMonsterWeatherThunderName, textConfig, current, remainingSeconds, WeatherOption.THUNDER, onSelect));
@@ -47,9 +47,8 @@ public class CaptainWeatherGuiService {
 	) {
 		var lore = optionLore(textConfig, current, remainingSeconds, target);
 		return new GuiElementBuilder(item)
-			.setName(textTemplateResolver.format(name))
-			.setLore(lore.stream().map(textTemplateResolver::format).toList())
-			.glow(current == target)
+			.setName(textTemplateResolver.formatUi(name))
+			.setLore(lore.stream().map(textTemplateResolver::formatUi).toList())
 			.setCallback((index, clickType, actionType, gui) -> {
 				if (uiSoundService != null && gui.getPlayer() instanceof ServerPlayerEntity player) {
 					uiSoundService.playUiClick(player);

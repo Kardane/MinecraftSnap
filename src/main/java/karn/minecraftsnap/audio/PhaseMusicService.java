@@ -137,7 +137,7 @@ public class PhaseMusicService {
 
 	private void playCue(MinecraftServer server, MinecraftSnapAudioCatalog.ManagedCueSound sound) {
 		for (var player : server.getPlayerManager().getPlayerList()) {
-			playSound(player, sound.id());
+			playCueSound(player, sound.id());
 		}
 	}
 
@@ -155,6 +155,10 @@ public class PhaseMusicService {
 
 	private void playSound(ServerPlayerEntity player, net.minecraft.util.Identifier soundId) {
 		player.playSoundToPlayer(net.minecraft.sound.SoundEvent.of(soundId), SoundCategory.VOICE, 0.5F, 1.0F);
+	}
+
+	private void playCueSound(ServerPlayerEntity player, net.minecraft.util.Identifier soundId) {
+		player.playSoundToPlayer(net.minecraft.sound.SoundEvent.of(soundId), SoundCategory.VOICE, 1F, 1.0F);
 	}
 
 	enum PhaseMode {

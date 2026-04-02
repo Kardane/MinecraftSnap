@@ -5,10 +5,15 @@ public final class BossBarFormatter {
 	}
 
 	public static String format(String template, int remainingSeconds, int redScore, int blueScore) {
+		return format(template, remainingSeconds, redScore, blueScore, "--:--");
+	}
+
+	public static String format(String template, int remainingSeconds, int redScore, int blueScore, String nextRevealTime) {
 		return template
 			.replace("{time}", formatTime(remainingSeconds))
 			.replace("{red_score}", Integer.toString(redScore))
-			.replace("{blue_score}", Integer.toString(blueScore));
+			.replace("{blue_score}", Integer.toString(blueScore))
+			.replace("{next_reveal_time}", nextRevealTime == null || nextRevealTime.isBlank() ? "--:--" : nextRevealTime);
 	}
 
 	public static String formatTime(int remainingSeconds) {
@@ -23,5 +28,13 @@ public final class BossBarFormatter {
 		}
 
 		return Math.clamp((float) remainingSeconds / (float) totalSeconds, 0.0f, 1.0f);
+	}
+
+	public static float percentTicks(int remainingTicks, int totalTicks) {
+		if (totalTicks <= 0) {
+			return 0.0f;
+		}
+
+		return Math.clamp((float) remainingTicks / (float) totalTicks, 0.0f, 1.0f);
 	}
 }

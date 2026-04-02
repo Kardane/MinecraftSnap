@@ -15,11 +15,12 @@ public class SystemConfig {
 	public InGameConfig inGame = new InGameConfig();
 	public AdvanceConfig advance = new AdvanceConfig();
 	public GameEndConfig gameEnd = new GameEndConfig();
+	public LadderRewardConfig ladderReward = new LadderRewardConfig();
 	public DisplayConfig display = new DisplayConfig();
 	public AnnouncementConfig announcements = new AnnouncementConfig();
 
 	public static class BossBarConfig {
-		public transient String template = "&c레드 {red_score} &8| &f남은 시간 {time} &8| &9블루 {blue_score}";
+		public transient String template = "&c레드 &f{red_score} &8| &f⌛{time} &8| &e다음 라인 공개: &f{next_reveal_time} &8| &9블루 &f{blue_score}";
 		public String color = "WHITE";
 		public String style = "PROGRESS";
 	}
@@ -133,6 +134,14 @@ public class SystemConfig {
 		public transient String victoryCountdownSubtitleTemplate = "&e{team} 팀 승리 임박 &7({seconds}초)";
 	}
 
+	public static class LadderRewardConfig {
+		public int captainBase = 30;
+		public float captainScoreGapMultiplier = 1.0f;
+		public float unitBase = 5.0f;
+		public float unitKillWeight = 1.0f;
+		public float unitCaptureScoreDivisor = 12.0f;
+	}
+
 	public static class PositionConfig {
 		public double x;
 		public double y;
@@ -188,6 +197,9 @@ public class SystemConfig {
 		public transient String unitHudReadyMessage = "&a준비 완료";
 		public transient String unitHudFallbackSkillName = "기본 스킬";
 		public transient String unitHudUnknownUnitName = "알 수 없는 유닛";
+		public transient String captainHudTemplate = "&b{current_mana}&7/&f{max_mana} &8({mana_cooldown}초) &8| &e{lane} &8| &d{player} &8| &c{skill_cooldown}초";
+		public transient String captainHudNoTargetPlayerName = "대기 중 없음";
+		public transient String spectatorQueueHudTemplate = "&7소환 대기열: &f{position}번";
 	}
 
 	public static class AnnouncementConfig {
@@ -279,6 +291,9 @@ public class SystemConfig {
 		if (gameEnd == null) {
 			gameEnd = new GameEndConfig();
 		}
+		if (ladderReward == null) {
+			ladderReward = new LadderRewardConfig();
+		}
 		if (display == null) {
 			display = new DisplayConfig();
 		}
@@ -320,6 +335,9 @@ public class SystemConfig {
 		}
 		if (inGame.captainManaRecoverySeconds <= 0) {
 			inGame.captainManaRecoverySeconds = 10;
+		}
+		if (ladderReward.unitCaptureScoreDivisor <= 0.0f) {
+			ladderReward.unitCaptureScoreDivisor = 12.0f;
 		}
 		if (capture.lane1 == null) {
 			capture.lane1 = CaptureRegionConfig.create("1번 라인", -4.0, 60.0, -4.0, 4.0, 68.0, 4.0);

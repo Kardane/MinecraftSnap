@@ -65,6 +65,24 @@ class BiomeRevealServiceTest {
 	}
 
 	@Test
+	void nextRevealRemainingSecondsTracksNextHiddenLane() {
+		var manager = new MatchManager();
+		var service = new BiomeRevealService(manager, new TextTemplateResolver(), new Random(1));
+		var config = new SystemConfig();
+		manager.startGameRunning();
+		for (int i = 0; i < 120; i++) {
+			manager.tick();
+		}
+
+		assertEquals(174, service.nextRevealRemainingSeconds(config));
+		assertEquals("02:54", service.nextRevealRemainingTime(config));
+
+		manager.revealLane(LaneId.LANE_2);
+
+		assertEquals(354, service.nextRevealRemainingSeconds(config));
+	}
+
+	@Test
 	void prepareForMatchSetsRuntimeEffectAndPlacesStructureForImmediateReveal() {
 		var manager = new MatchManager();
 		var registry = new LaneRuntimeRegistry();
@@ -114,9 +132,56 @@ class BiomeRevealServiceTest {
 		assertEquals("forest", manager.getAssignedBiomeId(LaneId.LANE_1));
 		assertTrue(registry.get(LaneId.LANE_1).hasActiveBiome());
 		assertEquals("forest", registry.get(LaneId.LANE_1).biomeEntry().id);
-		assertEquals(1, revealCalls.get());
+		assertEquals(0, revealCalls.get());
 		assertEquals(1, structurePlacements.get());
 		assertTrue(applied.stream().flatMap(List::stream).anyMatch(snapshot -> "minecraft:forest".equals(snapshot.biomeId())));
+
+		manager.startGameRunning();
+		service.syncRevealState(0, config, catalog, laneBiomeService, null);
+
+		assertEquals(1, revealCalls.get());
+	}
+
+	@Test
+	void immediateEndRevealEffectAppliesWhenGameStartsRunning() {
+		var manager = new MatchManager();
+		manager.applyGameDuration(300);
+		manager.enterGameStart();
+		var registry = new LaneRuntimeRegistry();
+		var config = new SystemConfig();
+		registry.refresh(null, config, manager, null);
+		var service = new BiomeRevealService(
+			manager,
+			new TextTemplateResolver(),
+			new Random(0),
+			registry,
+			new LaneStructureService((server, worldId, structureId, originPos) -> true),
+			new BiomeEffectRegistry()
+		);
+		var laneBiomeService = new LaneBiomeService(new LaneBiomeService.BiomeApplier() {
+			@Override
+			public List<LaneBiomeService.BiomeCellSnapshot> snapshot(net.minecraft.server.MinecraftServer server, String worldId, SystemConfig.LaneRegionConfig region) {
+				return List.of();
+			}
+
+			@Override
+			public void apply(net.minecraft.server.MinecraftServer server, List<LaneBiomeService.BiomeCellSnapshot> snapshots) {
+			}
+		});
+		var catalog = new BiomeCatalog();
+		catalog.biomes = List.of(entry("end"));
+		catalog.normalize();
+
+		service.prepareForMatch(null, config, catalog, laneBiomeService);
+
+		assertEquals(300, manager.getRemainingSeconds());
+
+		manager.startGameRunning();
+		service.syncRevealState(0, config, catalog, laneBiomeService, null);
+		assertEquals(240, manager.getRemainingSeconds());
+
+		service.syncRevealState(0, config, catalog, laneBiomeService, null);
+		assertEquals(240, manager.getRemainingSeconds());
 	}
 
 	private BiomeCatalog catalog() {

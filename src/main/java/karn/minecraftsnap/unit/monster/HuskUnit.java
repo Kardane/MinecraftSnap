@@ -53,7 +53,22 @@ public class HuskUnit extends ZombieUnit {
 		victim.addStatusEffect(new StatusEffectInstance(StatusEffects.WEAKNESS, statusDurationTicks(), 0), context.player());
 	}
 
+	@Override
+	public void onTick(UnitContext context) {
+		super.onTick(context);
+		if (isHotDryBiome(context.currentBiomeId())) {
+			context.player().addStatusEffect(new StatusEffectInstance(StatusEffects.SPEED, 40, 0, true, false, false));
+		}
+	}
+
+	boolean isHotDryBiome(String biomeId) {
+		if (biomeId == null || biomeId.isBlank()) {
+			return false;
+		}
+		return biomeId.contains("desert") || biomeId.contains("badlands");
+	}
+
 	int statusDurationTicks() {
-		return 20 * 2;
+		return 20 * 3;
 	}
 }

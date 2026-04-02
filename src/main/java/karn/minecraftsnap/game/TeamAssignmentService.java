@@ -28,7 +28,7 @@ public class TeamAssignmentService {
 		int blueCount = 0;
 
 		for (var player : players) {
-			if (player.lockedTeam() == null) {
+			if (player.lockedTeam() == null || !player.lockedCaptain()) {
 				continue;
 			}
 
@@ -43,7 +43,7 @@ public class TeamAssignmentService {
 		}
 
 		var remaining = players.stream()
-			.filter(player -> player.lockedTeam() == null)
+			.filter(player -> player.lockedTeam() == null || !player.lockedCaptain())
 			.sorted(Comparator.comparingInt(PlayerCandidate::ladder).reversed()
 				.thenComparing(PlayerCandidate::playerName))
 			.toList();

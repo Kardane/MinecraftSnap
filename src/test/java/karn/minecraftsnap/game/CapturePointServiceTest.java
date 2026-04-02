@@ -1,8 +1,15 @@
 package karn.minecraftsnap.game;
 
+import karn.minecraftsnap.biome.BiomeRuntimeContext;
+import karn.minecraftsnap.biome.ReverseIcicleBiomeEffect;
+import karn.minecraftsnap.config.BiomeEntry;
 import karn.minecraftsnap.config.SystemConfig;
+import karn.minecraftsnap.lane.LaneRuntime;
+import karn.minecraftsnap.util.TextTemplateResolver;
 import net.minecraft.util.math.Vec3d;
 import org.junit.jupiter.api.Test;
+
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -28,17 +35,20 @@ class CapturePointServiceTest {
 	}
 
 	@Test
-	void captainCountsAsCaptureParticipant() {
+	void onlyAssignedUnitsCountAsCaptureParticipant() {
 		var captain = new PlayerMatchState();
 		captain.setTeam(TeamId.RED, RoleType.CAPTAIN);
 		var unit = new PlayerMatchState();
 		unit.setTeam(TeamId.RED, RoleType.UNIT);
 		unit.setCurrentUnitId("villager");
+		var unassignedUnit = new PlayerMatchState();
+		unassignedUnit.setTeam(TeamId.RED, RoleType.UNIT);
 		var spectator = new PlayerMatchState();
 		spectator.setTeam(TeamId.RED, RoleType.SPECTATOR);
 
-		assertTrue(CapturePointService.countsForCapture(captain, false));
+		assertFalse(CapturePointService.countsForCapture(captain, false));
 		assertTrue(CapturePointService.countsForCapture(unit, false));
+		assertFalse(CapturePointService.countsForCapture(unassignedUnit, false));
 		assertFalse(CapturePointService.countsForCapture(spectator, false));
 		assertFalse(CapturePointService.countsForCapture(captain, true));
 	}
@@ -59,10 +69,48 @@ class CapturePointServiceTest {
 	}
 
 	@Test
-	void particleBorderYUsesTopEdge() {
+	void particleBeamUsesConfiguredDefaults() {
 		var capture = SystemConfig.CaptureRegionConfig.create("inside", -4.0, 60.0, -4.0, 4.0, 68.0, 4.0);
 
-		assertEquals(68.0D, CapturePointService.particleBorderY(capture));
+		assertEquals(0.0D, CapturePointService.particleCenterX(capture));
+		assertEquals(0.0D, CapturePointService.particleCenterZ(capture));
+		assertEquals(30.0D, CapturePointService.particleBeamTopY());
 		assertEquals(0.5D, CapturePointService.particleSpacing());
+		assertEquals(3.0F, CapturePointService.particleSize());
+	}
+
+	@Test
+	void particleBeamStepLoopsAcrossFullColumn() {
+		assertEquals(0, CapturePointService.particleBeamStep(0L, 81));
+		assertEquals(1, CapturePointService.particleBeamStep(2L, 81));
+		assertEquals(80, CapturePointService.particleBeamStep(160L, 81));
+		assertEquals(0, CapturePointService.particleBeamStep(162L, 81));
+	}
+
+	@Test
+	void fireworkLaunchPositionsUseAllCaptureCorners() {
+		var capture = SystemConfig.CaptureRegionConfig.create("inside", -4.0, 60.0, -8.0, 4.0, 68.0, 8.0);
+
+		assertEquals(List.of(
+			new Vec3d(-4.0, 68.5, -8.0),
+			new Vec3d(-4.0, 68.5, 8.0),
+			new Vec3d(4.0, 68.5, -8.0),
+			new Vec3d(4.0, 68.5, 8.0)
+		), CapturePointService.fireworkLaunchPositions(capture));
+	}
+
+	@Test
+	void reverseIcicleMakesCaptureScoreAmountZero() {
+		var service = new CapturePointService(new MatchManager(), null, null, new TextTemplateResolver(), null, null);
+		var entry = new BiomeEntry();
+		entry.id = "reverse_icicle";
+		entry.effectType = "reverse_icicle";
+		entry.displayName = "역고드름";
+		entry.normalize();
+		var runtime = new LaneRuntime(LaneId.LANE_1);
+		runtime.revealBiome(entry, new ReverseIcicleBiomeEffect(), 0);
+		var context = new BiomeRuntimeContext(null, null, new MatchManager(), runtime, entry, new TextTemplateResolver(), 0L, 0);
+
+		assertEquals(0, service.captureScoreAmount(context, TeamId.RED));
 	}
 }

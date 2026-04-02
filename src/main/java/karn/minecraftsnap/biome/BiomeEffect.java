@@ -32,4 +32,8 @@ public interface BiomeEffect {
 
 	default void onCaptureScore(BiomeRuntimeContext context, TeamId ownerTeam) {
 	}
+
+	default int captureScoreAmount(BiomeRuntimeContext context, TeamId ownerTeam) {
+		return 1;
+	}
 }

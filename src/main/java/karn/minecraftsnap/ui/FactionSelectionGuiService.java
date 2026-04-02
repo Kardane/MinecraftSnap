@@ -35,7 +35,7 @@ public class FactionSelectionGuiService {
 
 	public void open(ServerPlayerEntity player, TeamId teamId, FactionId selectedFaction, Consumer<FactionId> onSelect) {
 		var gui = new SimpleGui(ScreenHandlerType.GENERIC_9X3, player, false);
-		gui.setTitle(textTemplateResolver.format(teamId == TeamId.RED ? textConfig().factionSelectionRedTitle : textConfig().factionSelectionBlueTitle));
+		gui.setTitle(textTemplateResolver.formatUi(teamId == TeamId.RED ? textConfig().factionSelectionRedTitle : textConfig().factionSelectionBlueTitle));
 		gui.setSlot(11, buildFactionSlot(gui, FactionId.VILLAGER, Items.EMERALD, selectedFaction, onSelect));
 		gui.setSlot(13, buildFactionSlot(gui, FactionId.MONSTER, Items.IRON_SWORD, selectedFaction, onSelect));
 		gui.setSlot(15, buildFactionSlot(gui, FactionId.NETHER, Items.BLAZE_ROD, selectedFaction, onSelect));
@@ -52,7 +52,7 @@ public class FactionSelectionGuiService {
 		var config = unitRegistry.getFactionSpec(factionId);
 		var name = config == null ? factionId.name() : config.displayName();
 		var builder = new GuiElementBuilder(item)
-			.setName(textTemplateResolver.format("&f" + name))
+			.setName(textTemplateResolver.formatUi("&f" + name))
 			.setLore(buildLore(config, selectedFaction == factionId))
 			.setCallback((index, clickType, action, slotGui) -> {
 				if (uiSoundService != null) {
@@ -61,10 +61,6 @@ public class FactionSelectionGuiService {
 				onSelect.accept(factionId);
 				gui.close();
 			});
-
-		if (selectedFaction == factionId) {
-			builder.glow();
-		}
 
 		return builder.build();
 	}
@@ -83,7 +79,7 @@ public class FactionSelectionGuiService {
 
 	private List<net.minecraft.text.Text> lines(String... values) {
 		return java.util.Arrays.stream(values)
-			.map(textTemplateResolver::format)
+			.map(textTemplateResolver::formatUi)
 			.toList();
 	}
 

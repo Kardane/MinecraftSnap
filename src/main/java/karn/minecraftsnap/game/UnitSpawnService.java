@@ -6,8 +6,12 @@ import karn.minecraftsnap.config.TextConfigFile;
 import karn.minecraftsnap.config.SystemConfig;
 import karn.minecraftsnap.integration.DisguiseSupport;
 import karn.minecraftsnap.util.TextTemplateResolver;
+import net.minecraft.entity.effect.StatusEffectInstance;
+import net.minecraft.entity.effect.StatusEffects;
+import net.minecraft.particle.ParticleTypes;
 import net.minecraft.registry.RegistryKey;
 import net.minecraft.registry.RegistryKeys;
+import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.util.Identifier;
@@ -19,6 +23,10 @@ import java.util.List;
 import java.util.UUID;
 
 public class UnitSpawnService {
+	static final String SPAWN_PROTECTION_UNTIL_TICK_KEY = "spawn_protection_until_tick";
+	static final String DELAYED_AMMO_RESTOCK_TICK_KEY = "delayed_ammo_restock_tick";
+	static final int SPAWN_PROTECTION_TICKS = 60;
+	static final long DELAYED_AMMO_RESTOCK_TICKS = 20L;
 	private final CaptainManaService captainManaService;
 	private final UnitRegistry unitRegistry;
 	private final UnitLoadoutService unitLoadoutService;
@@ -26,10 +34,11 @@ public class UnitSpawnService {
 	private final UiSoundService uiSoundService;
 	private final java.util.function.Supplier<CaptainSkillService> captainSkillServiceSupplier;
 	private final java.util.function.Supplier<UnitHookService> unitHookServiceSupplier;
+	private final UnitSpawnQueueService unitSpawnQueueService;
 	private final java.util.Random random = new java.util.Random();
 
 	public UnitSpawnService() {
-		this(new CaptainManaService(), null, new UnitLoadoutService(), new UnitAbilityService(), null, () -> null, () -> null);
+		this(new CaptainManaService(), null, new UnitLoadoutService(), new UnitAbilityService(), null, null, () -> null, () -> null);
 	}
 
 	public UnitSpawnService(
@@ -37,10 +46,11 @@ public class UnitSpawnService {
 		UnitRegistry unitRegistry,
 		UnitLoadoutService unitLoadoutService,
 		UnitAbilityService unitAbilityService,
+		UnitSpawnQueueService unitSpawnQueueService,
 		java.util.function.Supplier<CaptainSkillService> captainSkillServiceSupplier,
 		java.util.function.Supplier<UnitHookService> unitHookServiceSupplier
 	) {
-		this(captainManaService, unitRegistry, unitLoadoutService, unitAbilityService, null, captainSkillServiceSupplier, unitHookServiceSupplier);
+		this(captainManaService, unitRegistry, unitLoadoutService, unitAbilityService, null, unitSpawnQueueService, captainSkillServiceSupplier, unitHookServiceSupplier);
 	}
 
 	public UnitSpawnService(
@@ -49,6 +59,7 @@ public class UnitSpawnService {
 		UnitLoadoutService unitLoadoutService,
 		UnitAbilityService unitAbilityService,
 		UiSoundService uiSoundService,
+		UnitSpawnQueueService unitSpawnQueueService,
 		java.util.function.Supplier<CaptainSkillService> captainSkillServiceSupplier,
 		java.util.function.Supplier<UnitHookService> unitHookServiceSupplier
 	) {
@@ -57,6 +68,7 @@ public class UnitSpawnService {
 		this.unitLoadoutService = unitLoadoutService;
 		this.unitAbilityService = unitAbilityService;
 		this.uiSoundService = uiSoundService;
+		this.unitSpawnQueueService = unitSpawnQueueService;
 		this.captainSkillServiceSupplier = captainSkillServiceSupplier;
 		this.unitHookServiceSupplier = unitHookServiceSupplier;
 	}
@@ -101,18 +113,12 @@ public class UnitSpawnService {
 			return SpawnResult.error(textConfig().unitSpawnWrongFactionMessage);
 		}
 		var laneId = nearestLaneForCaptain(captain, systemConfig);
-		if (!matchManager.isLaneRevealed(laneId)) {
+		if (!canSpawnOnLane(matchManager, laneId)) {
 			playDeny(captain);
-			return SpawnResult.error(systemConfig.gameStart.captainSpawnBlockedLaneMessage.replace("{lane}", laneLabel(laneId)));
+			return SpawnResult.error(textConfig().captainSpawnBlockedLaneMessage.replace("{lane}", laneLabel(laneId)));
 		}
 
-		var candidates = matchManager.getOnlineSpectatorUnits(captainState.getTeamId()).stream()
-			.map(player -> {
-				var state = matchManager.getPlayerState(player.getUuid());
-				return new SpawnCandidate(player.getUuid(), state.getPreferredUnitId(), player.isSpectator());
-			})
-			.toList();
-		var candidate = selectSpawnCandidate(unitId, candidates);
+		var candidate = selectCandidate(unitId, matchManager, captainState.getTeamId());
 		if (candidate == null) {
 			playDeny(captain);
 			return SpawnResult.error(textConfig().unitSpawnNoCandidateMessage);
@@ -124,6 +130,9 @@ public class UnitSpawnService {
 
 		var target = captain.getServer().getPlayerManager().getPlayer(candidate.playerId());
 		if (target == null) {
+			if (unitSpawnQueueService != null) {
+				unitSpawnQueueService.removePlayer(candidate.playerId());
+			}
 			playDeny(captain);
 			return SpawnResult.error(textConfig().unitSpawnTargetMissingMessage);
 		}
@@ -139,17 +148,37 @@ public class UnitSpawnService {
 			unitLoadoutService.applyUnitLoadout(target, definition, textTemplateResolver);
 			DisguiseSupport.applyDisguise(target, definition.disguise());
 		}
+		applySpawnProtection(target, matchManager);
 		target.sendMessage(textTemplateResolver.format(textConfig().unitSpawnedMessage.replace("{unit}", definition.displayName())), false);
-		var captainSkillService = captainSkillServiceSupplier.get();
-		if (captainSkillService != null) {
-			captainSkillService.handleSpawnRefund(captain, definition, laneId);
-		}
 		captain.sendMessage(textTemplateResolver.format(textConfig().captainSpawnSuccessMessage
 			.replace("{player}", target.getName().getString())
 			.replace("{unit}", definition.displayName())), false);
+		if (unitSpawnQueueService != null) {
+			unitSpawnQueueService.consume(captainState.getTeamId(), target.getUuid());
+		}
 		playSuccess(captain);
 		playSuccess(target);
 		return SpawnResult.success(target.getUuid(), definition.id());
+	}
+
+	private SpawnCandidate selectCandidate(String unitId, MatchManager matchManager, TeamId teamId) {
+		if (unitSpawnQueueService != null) {
+			var nextPlayerId = unitSpawnQueueService.peekNextPlayer(matchManager, teamId);
+			if (nextPlayerId == null) {
+				return null;
+			}
+			var player = matchManager.getServer() == null ? null : matchManager.getServer().getPlayerManager().getPlayer(nextPlayerId);
+			var spectator = player == null || player.isSpectator();
+			return new SpawnCandidate(nextPlayerId, null, spectator);
+		}
+
+		var candidates = matchManager.getOnlineSpectatorUnits(teamId).stream()
+			.map(player -> {
+				var state = matchManager.getPlayerState(player.getUuid());
+				return new SpawnCandidate(player.getUuid(), state.getPreferredUnitId(), player.isSpectator());
+			})
+			.toList();
+		return selectSpawnCandidate(unitId, candidates);
 	}
 
 	public void maintainActiveUnits(MatchManager matchManager) {
@@ -164,10 +193,86 @@ public class UnitSpawnService {
 				continue;
 			}
 			unitLoadoutService.maintainLoadout(player, definition);
+			maintainDelayedAmmoRestock(player, state, definition, matchManager.getServerTicks());
+		}
+	}
+
+	static boolean usesDelayedAmmoRestock(String unitId) {
+		return "skeleton".equals(unitId) || "stray".equals(unitId) || "bogged".equals(unitId);
+	}
+
+	static Long nextAmmoRestockTick(String unitId, boolean hasAmmo, Long pendingTick, long serverTicks) {
+		if (!usesDelayedAmmoRestock(unitId) || hasAmmo) {
+			return null;
+		}
+		return pendingTick != null ? pendingTick : serverTicks + DELAYED_AMMO_RESTOCK_TICKS;
+	}
+
+	static boolean shouldRestockAmmo(String unitId, boolean hasAmmo, Long pendingTick, long serverTicks) {
+		return usesDelayedAmmoRestock(unitId)
+			&& !hasAmmo
+			&& pendingTick != null
+			&& serverTicks >= pendingTick;
+	}
+
+	private void maintainDelayedAmmoRestock(ServerPlayerEntity player, PlayerMatchState state, UnitDefinition definition, long serverTicks) {
+		if (player == null || state == null || definition == null) {
+			return;
+		}
+		var ammoStack = unitLoadoutService.ammoStack(definition.ammoType());
+		if (ammoStack.isEmpty()) {
+			state.removeUnitRuntimeLong(DELAYED_AMMO_RESTOCK_TICK_KEY);
+			return;
+		}
+		boolean hasAmmo = player.getInventory().contains(ammoStack);
+		if (!usesDelayedAmmoRestock(definition.id())) {
+			if (!hasAmmo) {
+				player.getInventory().insertStack(ammoStack.copy());
+			}
+			state.removeUnitRuntimeLong(DELAYED_AMMO_RESTOCK_TICK_KEY);
+			return;
+		}
+		var pendingTick = state.getUnitRuntimeLong(DELAYED_AMMO_RESTOCK_TICK_KEY);
+		var nextTick = nextAmmoRestockTick(definition.id(), hasAmmo, pendingTick, serverTicks);
+		if (nextTick == null) {
+			state.removeUnitRuntimeLong(DELAYED_AMMO_RESTOCK_TICK_KEY);
+			return;
+		}
+		if (shouldRestockAmmo(definition.id(), hasAmmo, nextTick, serverTicks)) {
+			player.getInventory().insertStack(ammoStack.copy());
+			state.removeUnitRuntimeLong(DELAYED_AMMO_RESTOCK_TICK_KEY);
+			return;
+		}
+		state.setUnitRuntimeLong(DELAYED_AMMO_RESTOCK_TICK_KEY, nextTick);
+	}
+
+	public void tickSpawnProtection(MinecraftServer server, MatchManager matchManager) {
+		if (server == null || matchManager == null) {
+			return;
+		}
+		long serverTicks = matchManager.getServerTicks();
+		for (var player : server.getPlayerManager().getPlayerList()) {
+			var state = matchManager.getPlayerState(player.getUuid());
+			var protectedUntil = state.getUnitRuntimeLong(SPAWN_PROTECTION_UNTIL_TICK_KEY);
+			if (protectedUntil == null || protectedUntil <= 0L) {
+				continue;
+			}
+			if (!state.isUnit() || state.getCurrentUnitId() == null || player.isSpectator() || serverTicks >= protectedUntil) {
+				state.removeUnitRuntimeLong(SPAWN_PROTECTION_UNTIL_TICK_KEY);
+				player.setInvulnerable(false);
+				continue;
+			}
+			player.setInvulnerable(true);
+			player.addStatusEffect(new StatusEffectInstance(StatusEffects.RESISTANCE, 10, 4, true, false, false));
+			if (serverTicks % 5L == 0L) {
+				player.getWorld().spawnParticles(player, ParticleTypes.HAPPY_VILLAGER, true, false, player.getX(), player.getY() + 2.1D, player.getZ(), 4, 0.25D, 0.15D, 0.25D, 0.0D);
+			}
 		}
 	}
 
 	public void resetPlayer(ServerPlayerEntity player) {
+		player.setInvulnerable(false);
+		unitLoadoutService.resetPlayerAttributes(player);
 		unitAbilityService.clearPlayerState(player.getUuid());
 		DisguiseSupport.clearDisguise(player);
 		unitLoadoutService.resetCombatState(player);
@@ -237,12 +342,25 @@ public class UnitSpawnService {
 		return closestLane;
 	}
 
+	static boolean canSpawnOnLane(MatchManager matchManager, LaneId laneId) {
+		return matchManager != null && laneId != null && matchManager.isLaneRevealed(laneId);
+	}
+
 	static SystemConfig.PositionConfig safeUnitSpawn(SystemConfig systemConfig, TeamId teamId, LaneId laneId) {
 		var spawn = systemConfig.gameStart.unitSpawnFor(teamId, laneId);
 		if (spawn == null || spawn.y < 0.0D) {
 			return systemConfig.gameStart.captainSpawnFor(teamId);
 		}
 		return spawn;
+	}
+
+	void applySpawnProtection(ServerPlayerEntity target, MatchManager matchManager) {
+		if (target == null || matchManager == null) {
+			return;
+		}
+		matchManager.getPlayerState(target.getUuid()).setUnitRuntimeLong(SPAWN_PROTECTION_UNTIL_TICK_KEY, matchManager.getServerTicks() + SPAWN_PROTECTION_TICKS);
+		target.setInvulnerable(true);
+		target.addStatusEffect(new StatusEffectInstance(StatusEffects.RESISTANCE, SPAWN_PROTECTION_TICKS, 4, true, false, false));
 	}
 
 	private static double centerX(SystemConfig.LaneRegionConfig region) {

@@ -54,6 +54,10 @@ public class UnitAbilityService {
 	}
 
 	public boolean activateUnitSkill(ServerPlayerEntity player, MatchManager matchManager, UnitDefinition definition, BooleanSupplier action) {
+		return activateUnitSkill(player, matchManager, definition, null, action);
+	}
+
+	public boolean activateUnitSkill(ServerPlayerEntity player, MatchManager matchManager, UnitDefinition definition, Long cooldownTicksOverride, BooleanSupplier action) {
 		if (player == null || matchManager == null || definition == null || action == null) {
 			return false;
 		}
@@ -65,9 +69,20 @@ public class UnitAbilityService {
 			return false;
 		}
 		notifyActiveSkillHook(player, definition, matchManager);
-		unitCooldownTicks.put(player.getUuid(), matchManager.getServerTicks() + definition.abilityCooldownSeconds() * 20L);
-		player.getItemCooldownManager().set(player.getMainHandStack(), definition.abilityCooldownSeconds() * 20);
+		var cooldownTicks = resolveCooldownTicks(definition, cooldownTicksOverride);
+		unitCooldownTicks.put(player.getUuid(), matchManager.getServerTicks() + cooldownTicks);
+		var cooldownItem = definition.skillCooldownItem();
+		if (cooldownItem != null) {
+			player.getItemCooldownManager().set(cooldownItem.getDefaultStack(), (int) cooldownTicks);
+		}
 		return true;
+	}
+
+	long resolveCooldownTicks(UnitDefinition definition, Long cooldownTicksOverride) {
+		if (cooldownTicksOverride != null && cooldownTicksOverride >= 0L) {
+			return cooldownTicksOverride;
+		}
+		return definition == null ? 0L : definition.abilityCooldownSeconds() * 20L;
 	}
 
 	public void clearPlayerState(UUID playerId) {
@@ -101,7 +116,7 @@ public class UnitAbilityService {
 			runtime.biomeEntry(),
 			textTemplateResolver,
 			matchManager.getServerTicks(),
-			matchManager.getTotalSeconds() - matchManager.getRemainingSeconds()
+			matchManager.getElapsedSeconds()
 		);
 		runtime.biomeEffect().onActiveSkill(context, player, definition);
 	}

@@ -14,6 +14,7 @@ import net.minecraft.text.Text;
  * MinecraftSnap에서 추출된 표시 로직.
  */
 public class TitleDisplayService {
+	private static final int VICTORY_COUNTDOWN_STAY_TICKS = 25;
 	private final TextTemplateResolver textTemplateResolver;
 
 	public TitleDisplayService(TextTemplateResolver textTemplateResolver) {
@@ -60,6 +61,8 @@ public class TitleDisplayService {
 			.replace("{team}", teamId.getDisplayName())
 			.replace("{seconds}", String.valueOf(remainingSeconds)));
 		for (var player : server.getPlayerManager().getPlayerList()) {
+			player.networkHandler.sendPacket(new TitleFadeS2CPacket(0, VICTORY_COUNTDOWN_STAY_TICKS, 0));
+			player.networkHandler.sendPacket(new TitleS2CPacket(Text.empty()));
 			player.networkHandler.sendPacket(new SubtitleS2CPacket(subtitle));
 		}
 	}

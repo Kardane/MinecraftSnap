@@ -1,9 +1,12 @@
 package karn.minecraftsnap.game;
 
+import karn.minecraftsnap.config.EntitySpecEntry;
 import karn.minecraftsnap.config.StatsRepository;
 import karn.minecraftsnap.config.SystemConfig;
+import karn.minecraftsnap.integration.DisguiseSupport;
 import karn.minecraftsnap.ui.FactionSelectionGuiService;
 import karn.minecraftsnap.ui.LobbyScoreboardService;
+import karn.minecraftsnap.ui.MainLobbyGuiService;
 import karn.minecraftsnap.ui.PreparationGuiService;
 import karn.minecraftsnap.ui.WikiGuiService;
 import karn.minecraftsnap.util.TextTemplateResolver;
@@ -18,6 +21,7 @@ import net.minecraft.world.GameMode;
 import net.minecraft.world.TeleportTarget;
 
 public class LobbyCoordinator {
+	private static final EntitySpecEntry CAPTAIN_DISGUISE = transparentCaptainDisguise();
 	private final java.util.EnumMap<TeamId, Long> factionGuiOpenTicks = new java.util.EnumMap<>(TeamId.class);
 	private boolean autoAdvanceTeamSelection = true;
 	private final MatchManager matchManager;
@@ -26,12 +30,14 @@ public class LobbyCoordinator {
 	private final CaptainSelectionService captainSelectionService;
 	private final FactionSelectionService factionSelectionService;
 	private final WikiGuiService wikiGuiService;
+	private final MainLobbyGuiService mainLobbyGuiService;
 	private final FactionSelectionGuiService factionSelectionGuiService;
 	private final LobbyScoreboardService lobbyScoreboardService;
 	private final PreparationGuiService preparationGuiService;
 	private final UnitSpawnService unitSpawnService;
 	private final TextTemplateResolver textTemplateResolver;
 	private final java.util.function.BiConsumer<TeamId, FactionId> factionSelectionHandler;
+	private final java.util.function.BooleanSupplier preGameReadySupplier;
 
 	public LobbyCoordinator(
 		MatchManager matchManager,
@@ -40,12 +46,14 @@ public class LobbyCoordinator {
 		CaptainSelectionService captainSelectionService,
 		FactionSelectionService factionSelectionService,
 		WikiGuiService wikiGuiService,
+		MainLobbyGuiService mainLobbyGuiService,
 		FactionSelectionGuiService factionSelectionGuiService,
 		LobbyScoreboardService lobbyScoreboardService,
 		PreparationGuiService preparationGuiService,
 		UnitSpawnService unitSpawnService,
 		TextTemplateResolver textTemplateResolver,
-		java.util.function.BiConsumer<TeamId, FactionId> factionSelectionHandler
+		java.util.function.BiConsumer<TeamId, FactionId> factionSelectionHandler,
+		java.util.function.BooleanSupplier preGameReadySupplier
 	) {
 		this.matchManager = matchManager;
 		this.statsRepository = statsRepository;
@@ -53,12 +61,14 @@ public class LobbyCoordinator {
 		this.captainSelectionService = captainSelectionService;
 		this.factionSelectionService = factionSelectionService;
 		this.wikiGuiService = wikiGuiService;
+		this.mainLobbyGuiService = mainLobbyGuiService;
 		this.factionSelectionGuiService = factionSelectionGuiService;
 		this.lobbyScoreboardService = lobbyScoreboardService;
 		this.preparationGuiService = preparationGuiService;
 		this.unitSpawnService = unitSpawnService;
 		this.textTemplateResolver = textTemplateResolver;
 		this.factionSelectionHandler = factionSelectionHandler;
+		this.preGameReadySupplier = preGameReadySupplier;
 	}
 
 	public void handleJoin(ServerPlayerEntity player, SystemConfig config) {
@@ -90,8 +100,9 @@ public class LobbyCoordinator {
 
 		if (matchManager.getPhase() == MatchPhase.FACTION_SELECT) {
 			reopenUnselectedCaptainFactionGuis(server, config);
-			if (matchManager.isFactionSelectionComplete()
-				|| matchManager.getPhaseTicks() >= config.lobby.factionSelectDurationSeconds * 20L) {
+			if ((matchManager.isFactionSelectionComplete()
+				|| matchManager.getPhaseTicks() >= config.lobby.factionSelectDurationSeconds * 20L)
+				&& preGameReadySupplier.getAsBoolean()) {
 				enterGameStart(server, config, false);
 			}
 		}
@@ -128,6 +139,10 @@ public class LobbyCoordinator {
 			for (var player : server.getPlayerManager().getPlayerList()) {
 				applyLobbyState(player, config);
 			}
+			return;
+		}
+		if (phase == MatchPhase.FACTION_SELECT) {
+			openCaptainFactionGuis(server, config);
 		}
 	}
 
@@ -150,6 +165,7 @@ public class LobbyCoordinator {
 
 	private void startTeamSelection(MinecraftServer server, SystemConfig config, boolean autoAdvance) {
 		autoAdvanceTeamSelection = autoAdvance;
+		matchManager.syncOnlinePlayersFromScoreboard();
 		var players = server.getPlayerManager().getPlayerList();
 		if (players.isEmpty()) {
 			matchManager.setPhase(MatchPhase.TEAM_SELECT);
@@ -180,6 +196,9 @@ public class LobbyCoordinator {
 			matchManager.setRole(candidate.playerId(), teamId, roleType);
 			var state = matchManager.getPlayerState(candidate.playerId());
 			state.setPreferredUnitId(roleType == RoleType.UNIT ? preferredUnitId(candidate.preference()) : null);
+			if (roleType == RoleType.CAPTAIN) {
+				statsRepository.addCaptainGame(candidate.playerId(), candidate.playerName(), 1);
+			}
 		}
 
 		for (var player : players) {
@@ -198,7 +217,7 @@ public class LobbyCoordinator {
 	}
 
 	public void openWiki(ServerPlayerEntity player) {
-		wikiGuiService.open(player, matchManager.getPhase());
+		mainLobbyGuiService.open(player);
 	}
 
 	public boolean handleShortcut(ServerPlayerEntity player, SystemConfig config) {
@@ -212,6 +231,10 @@ public class LobbyCoordinator {
 			return true;
 		}
 
+		if (shouldOpenMainLobby(matchManager.getPhase())) {
+			mainLobbyGuiService.open(player);
+			return true;
+		}
 		wikiGuiService.open(player, matchManager.getPhase());
 		return true;
 	}
@@ -227,7 +250,15 @@ public class LobbyCoordinator {
 			return;
 		}
 
-		openWiki(player);
+		if (shouldOpenMainLobby(matchManager.getPhase())) {
+			mainLobbyGuiService.open(player);
+			return;
+		}
+		wikiGuiService.open(player, matchManager.getPhase());
+	}
+
+	static boolean shouldOpenMainLobby(MatchPhase phase) {
+		return phase == MatchPhase.LOBBY || phase == MatchPhase.TEAM_SELECT || phase == MatchPhase.FACTION_SELECT;
 	}
 
 	private void enterGameStart(MinecraftServer server, SystemConfig config, boolean forced) {
@@ -322,6 +353,7 @@ public class LobbyCoordinator {
 		} else {
 			player.changeGameMode(GameMode.ADVENTURE);
 			teleport(player, config.world, config.gameStart.captainSpawnFor(state.getTeamId()));
+			DisguiseSupport.applyDisguise(player, CAPTAIN_DISGUISE);
 			unitSpawnService.getUnitLoadoutService().giveCaptainItems(player, state.getFactionId(), textTemplateResolver);
 		}
 	}
@@ -369,5 +401,12 @@ public class LobbyCoordinator {
 		}
 		var unitId = preference.substring("unit:".length()).trim();
 		return unitId.isBlank() ? null : unitId;
+	}
+
+	static EntitySpecEntry transparentCaptainDisguise() {
+		var entry = EntitySpecEntry.create("minecraft:text_display");
+		entry.entityNbt = "{text:'\"\"',background:0,shadow:0b,see_through:1b,line_width:0,transformation:{scale:[0.0f,0.0f,0.0f]}}";
+		entry.normalize();
+		return entry;
 	}
 }

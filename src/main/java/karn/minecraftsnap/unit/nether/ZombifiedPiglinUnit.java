@@ -6,11 +6,16 @@ import karn.minecraftsnap.unit.ConfiguredUnitClass;
 import karn.minecraftsnap.unit.SummonedMobSupport;
 import karn.minecraftsnap.unit.UnitContext;
 import net.minecraft.entity.Entity;
+import net.minecraft.entity.EquipmentSlot;
 import net.minecraft.entity.EntityType;
 import net.minecraft.entity.SpawnReason;
 import net.minecraft.entity.damage.DamageSource;
+import net.minecraft.entity.effect.StatusEffectInstance;
+import net.minecraft.entity.effect.StatusEffects;
 import net.minecraft.entity.mob.ZombifiedPiglinEntity;
 import net.minecraft.entity.projectile.ProjectileEntity;
+import net.minecraft.item.ItemStack;
+import net.minecraft.item.Items;
 
 import java.util.List;
 
@@ -27,7 +32,7 @@ public class ZombifiedPiglinUnit extends AbstractNetherUnit implements Configure
 		true,
 		1,
 		20.0,
-		1.0,
+		0.9,
 		item("minecraft:golden_sword"),
 		none(),
 		none(),
@@ -49,6 +54,11 @@ public class ZombifiedPiglinUnit extends AbstractNetherUnit implements Configure
 	}
 
 	@Override
+	public void onTick(UnitContext context) {
+		context.player().addStatusEffect(new StatusEffectInstance(StatusEffects.FIRE_RESISTANCE, fireResistanceDurationTicks(), 0, true, false, false));
+	}
+
+	@Override
 	public void onDamaged(UnitContext context, DamageSource source, float amount) {
 		if (!hasTriggeringAttacker(source)) {
 			return;
@@ -66,8 +76,18 @@ public class ZombifiedPiglinUnit extends AbstractNetherUnit implements Configure
 		var x = player.getX() + random.nextBetween(-5, 5);
 		var z = player.getZ() + random.nextBetween(-5, 5);
 		piglin.refreshPositionAndAngles(x, player.getY(), z, player.getYaw(), player.getPitch());
+		piglin.equipStack(EquipmentSlot.MAINHAND, new ItemStack(Items.GOLDEN_SWORD));
+		piglin.setEquipmentDropChance(EquipmentSlot.MAINHAND, 0.0f);
 		world.spawnEntity(piglin);
 		SummonedMobSupport.applyFriendlyTeam(context, piglin);
+	}
+
+	String summonedPiglinWeaponItemId() {
+		return "minecraft:golden_sword";
+	}
+
+	int fireResistanceDurationTicks() {
+		return 40;
 	}
 
 	boolean hasTriggeringAttacker(DamageSource source) {
@@ -85,7 +105,7 @@ public class ZombifiedPiglinUnit extends AbstractNetherUnit implements Configure
 	}
 
 	double summonChance() {
-		return 0.1D;
+		return 0.15D;
 	}
 
 	double summonRange() {

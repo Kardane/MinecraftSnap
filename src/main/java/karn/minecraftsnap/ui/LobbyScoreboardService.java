@@ -11,11 +11,14 @@ import net.minecraft.scoreboard.ScoreHolder;
 import net.minecraft.scoreboard.Scoreboard;
 import net.minecraft.scoreboard.ScoreboardCriterion;
 import net.minecraft.scoreboard.ScoreboardDisplaySlot;
+import net.minecraft.scoreboard.number.BlankNumberFormat;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.text.Text;
 
 import java.util.Comparator;
+import java.util.List;
+import java.util.Locale;
 
 public class LobbyScoreboardService {
 	private static final String OBJECTIVE_NAME = "minecraftsnap_lobby";
@@ -26,13 +29,25 @@ public class LobbyScoreboardService {
 		"mcsnap_line_3",
 		"mcsnap_line_4",
 		"mcsnap_line_5",
-		"mcsnap_line_6"
+		"mcsnap_line_6",
+		"mcsnap_line_7",
+		"mcsnap_line_8",
+		"mcsnap_line_9",
+		"mcsnap_line_10",
+		"mcsnap_line_11",
+		"mcsnap_line_12",
+		"mcsnap_line_13",
+		"mcsnap_line_14"
 	};
 
 	private final TextTemplateResolver textTemplateResolver;
 
 	public LobbyScoreboardService(TextTemplateResolver textTemplateResolver) {
 		this.textTemplateResolver = textTemplateResolver;
+	}
+
+	static BlankNumberFormat sidebarNumberFormat() {
+		return BlankNumberFormat.INSTANCE;
 	}
 
 	public void sync(MinecraftServer server, MatchManager matchManager, StatsRepository statsRepository) {
@@ -52,10 +67,11 @@ public class LobbyScoreboardService {
 				textTemplateResolver.format(textConfig().lobbyScoreboardTitle),
 				ScoreboardCriterion.RenderType.INTEGER,
 				false,
-				null
+				sidebarNumberFormat()
 			);
 		} else {
 			objective.setDisplayName(textTemplateResolver.format(textConfig().lobbyScoreboardTitle));
+			objective.setNumberFormat(sidebarNumberFormat());
 		}
 
 		scoreboard.setObjectiveSlot(ScoreboardDisplaySlot.SIDEBAR, objective);
@@ -63,29 +79,29 @@ public class LobbyScoreboardService {
 			renderRunningSidebar(scoreboard, objective, matchManager);
 			return;
 		}
-		updateLine(scoreboard, objective, 0, textTemplateResolver.format(textConfig().lobbyScoreboardPhaseTemplate.replace("{phase}", matchManager.getPhase().getDisplayName())));
+		var rankedPlayers = rankEntries(statsRepository.allEntries().stream()
+			.map(entry -> {
+				var stats = entry.stats();
+				return new LobbyRankingEntry(
+					stats.lastKnownName == null || stats.lastKnownName.isBlank() ? entry.playerId().toString() : stats.lastKnownName,
+					stats.ladder,
+					stats.wins,
+					stats.losses
+				);
+			})
+			.toList());
 
-		var players = server.getPlayerManager().getPlayerList().stream()
-			.sorted(Comparator.comparingInt((ServerPlayerEntity player) ->
-				statsRepository.getLadder(player.getUuid(), player.getName().getString())).reversed()
-				.thenComparing(player -> player.getName().getString()))
-			.limit(5)
-			.toList();
-
-		for (int i = 0; i < 5; i++) {
-			if (i < players.size()) {
-				var player = players.get(i);
-				var ladder = statsRepository.getLadder(player.getUuid(), player.getName().getString());
-				updateLine(scoreboard, objective, i + 1, textTemplateResolver.format(textConfig().lobbyScoreboardPlayerTemplate
+		for (int i = 0; i < LINE_HOLDERS.length; i++) {
+			if (i < rankedPlayers.size()) {
+				var player = rankedPlayers.get(i);
+				updateLine(scoreboard, objective, i, textTemplateResolver.format(textConfig().lobbyScoreboardPlayerTemplate
 					.replace("{rank}", Integer.toString(i + 1))
-					.replace("{player}", player.getName().getString())
-					.replace("{ladder}", Integer.toString(ladder))));
+					.replace("{player}", player.playerName())
+					.replace("{ladder}", Integer.toString(player.ladder()))));
 			} else {
-				updateLine(scoreboard, objective, i + 1, Text.literal(" "));
+				updateLine(scoreboard, objective, i, Text.literal(" "));
 			}
 		}
-
-		updateLine(scoreboard, objective, 6, textTemplateResolver.format(textConfig().lobbyScoreboardWikiHint));
 	}
 
 	private void renderRunningSidebar(Scoreboard scoreboard, net.minecraft.scoreboard.ScoreboardObjective objective, MatchManager matchManager) {
@@ -149,6 +165,34 @@ public class LobbyScoreboardService {
 		return phase == MatchPhase.GAME_START || phase == MatchPhase.GAME_END;
 	}
 
+	static List<LobbyRankingEntry> rankEntries(List<LobbyRankingEntry> entries) {
+		if (entries == null) {
+			return List.of();
+		}
+		return entries.stream()
+			.sorted((left, right) -> {
+				int ladderCompare = Integer.compare(right.ladder(), left.ladder());
+				if (ladderCompare != 0) {
+					return ladderCompare;
+				}
+				int winRateCompare = Double.compare(winRate(right), winRate(left));
+				if (winRateCompare != 0) {
+					return winRateCompare;
+				}
+				int gamesCompare = Integer.compare(right.games(), left.games());
+				if (gamesCompare != 0) {
+					return gamesCompare;
+				}
+				return left.playerName().toLowerCase(Locale.ROOT).compareTo(right.playerName().toLowerCase(Locale.ROOT));
+			})
+			.limit(LINE_HOLDERS.length)
+			.toList();
+	}
+
+	static double winRate(LobbyRankingEntry entry) {
+		return entry.games() <= 0 ? 0.0 : (double) entry.wins() / (double) entry.games();
+	}
+
 	private void updateLine(Scoreboard scoreboard, net.minecraft.scoreboard.ScoreboardObjective objective, int index, Text displayText) {
 		var holder = ScoreHolder.fromName(LINE_HOLDERS[index]);
 		var score = scoreboard.getOrCreateScore(holder, objective);
@@ -159,6 +203,12 @@ public class LobbyScoreboardService {
 	private TextConfigFile textConfig() {
 		var mod = MinecraftSnap.getInstance();
 		return mod == null ? new TextConfigFile() : mod.getTextConfig();
+	}
+
+	record LobbyRankingEntry(String playerName, int ladder, int wins, int losses) {
+		int games() {
+			return wins + losses;
+		}
 	}
 
 }

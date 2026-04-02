@@ -4,7 +4,6 @@ import karn.minecraftsnap.game.FactionId;
 import karn.minecraftsnap.game.UnitDefinition;
 import karn.minecraftsnap.unit.ConfiguredUnitClass;
 import karn.minecraftsnap.unit.UnitContext;
-import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.effect.StatusEffectInstance;
 import net.minecraft.entity.effect.StatusEffects;
 
@@ -23,7 +22,7 @@ public class StrayUnit extends AbstractMonsterUnit implements ConfiguredUnitClas
 		false,
 		4,
 		16.0,
-		0.8,
+		0.75,
 		item("minecraft:bow"),
 		none(),
 		none(),
@@ -33,9 +32,9 @@ public class StrayUnit extends AbstractMonsterUnit implements ConfiguredUnitClas
 		none(),
 		"",
 		0,
-		UnitDefinition.AmmoType.ARROW,
+		UnitDefinition.AmmoType.SLOWNESS_ARROW,
 		disguise("minecraft:stray"),
-			List.of("&f패시브 &7- 공격시 구속을 부여합니다.","&f무기 &7- 활"),
+		List.of("&f패시브&7- 감속의 화살을 사용합니다.", "&f무기 &7- 활"),
 		List.of()
 	);
 
@@ -45,18 +44,20 @@ public class StrayUnit extends AbstractMonsterUnit implements ConfiguredUnitClas
 	}
 
 	@Override
-	public void onAttack(UnitContext context, LivingEntity victim, float amount) {
-		if (!context.isEnemyTarget(victim)) {
-			return;
+	public void onTick(UnitContext context) {
+		super.onTick(context);
+		if (isColdBiome(context.currentBiomeId())) {
+			context.player().addStatusEffect(new StatusEffectInstance(StatusEffects.SPEED, 40, 1, true, false, false));
 		}
-		victim.addStatusEffect(new StatusEffectInstance(StatusEffects.SLOWNESS, statusDurationTicks(), effectAmplifier()), context.player());
 	}
 
-	int statusDurationTicks() {
-		return 20 * 2;
-	}
-
-	int effectAmplifier() {
-		return 1;
+	boolean isColdBiome(String biomeId) {
+		if (biomeId == null || biomeId.isBlank()) {
+			return false;
+		}
+		return biomeId.contains("taiga")
+			|| biomeId.contains("cold_ocean")
+			|| biomeId.contains("frozen_ocean")
+			|| biomeId.contains("jagged_peaks");
 	}
 }

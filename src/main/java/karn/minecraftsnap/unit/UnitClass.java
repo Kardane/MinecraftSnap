@@ -1,9 +1,12 @@
 package karn.minecraftsnap.unit;
 
 import karn.minecraftsnap.game.LaneId;
+import net.minecraft.entity.Entity;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.damage.DamageSource;
+import net.minecraft.entity.projectile.ProjectileEntity;
 import net.minecraft.server.network.ServerPlayerEntity;
+import net.minecraft.util.math.Vec3d;
 
 public interface UnitClass {
 	default void onTick(UnitContext context) {
@@ -34,6 +37,12 @@ public interface UnitClass {
 	}
 
 	default void onCaptureScore(UnitContext context) {
+	}
+
+	default void onProjectileHit(UnitContext context, ProjectileEntity projectile, Entity target) {
+	}
+
+	default void onProjectileImpact(UnitContext context, ProjectileEntity projectile, Vec3d impactPos) {
 	}
 
 	default void applyAttributes(UnitContext context) {

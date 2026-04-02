@@ -20,6 +20,10 @@ public class BiomeEffectRegistry {
 		register("end", EndBiomeEffect::new);
 		register("deep_dark", DeepDarkBiomeEffect::new);
 		register("nether", NetherBiomeEffect::new);
+		register("lush_cave", LushCaveBiomeEffect::new);
+		register("mushroom_island", MushroomIslandBiomeEffect::new);
+		register("cold_ocean", ColdOceanBiomeEffect::new);
+		register("reverse_icicle", ReverseIcicleBiomeEffect::new);
 	}
 
 	public void register(String effectType, Supplier<BiomeEffect> factory) {
@@ -33,6 +37,19 @@ public class BiomeEffectRegistry {
 		if (biomeEntry == null) {
 			return new NoOpBiomeEffect();
 		}
-		return factories.getOrDefault(biomeEntry.effectType, NoOpBiomeEffect::new).get();
+		var effectType = normalizedEffectType(biomeEntry);
+		return factories.getOrDefault(effectType, NoOpBiomeEffect::new).get();
+	}
+
+	private String normalizedEffectType(BiomeEntry biomeEntry) {
+		if (biomeEntry.effectType != null
+			&& !biomeEntry.effectType.isBlank()
+			&& !"noop".equals(biomeEntry.effectType)) {
+			return biomeEntry.effectType;
+		}
+		if (biomeEntry.id != null && factories.containsKey(biomeEntry.id)) {
+			return biomeEntry.id;
+		}
+		return biomeEntry.effectType;
 	}
 }

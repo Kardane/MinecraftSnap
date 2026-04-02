@@ -37,10 +37,10 @@ public class AdvanceGuiService {
 		Consumer<String> onAdvance
 	) {
 		var gui = new SimpleGui(ScreenHandlerType.HOPPER, player, false);
-		gui.setTitle(textTemplateResolver.format(textConfig().advanceGuiTitle));
+		gui.setTitle(textTemplateResolver.formatUi(textConfig().advanceGuiTitle));
 		if (options == null || options.isEmpty()) {
 			gui.setSlot(0, new GuiElementBuilder(Items.BARRIER)
-				.setName(textTemplateResolver.format(textConfig().advanceNoOptionName))
+				.setName(textTemplateResolver.formatUi(textConfig().advanceNoOptionName))
 				.setLore(lines(textConfig().advanceNoOptionLore))
 				.build());
 			gui.open();
@@ -51,7 +51,7 @@ public class AdvanceGuiService {
 			var definition = option.definition();
 			var item = definition == null || definition.mainHandItem() == null ? Items.BARRIER : definition.mainHandItem();
 			gui.setSlot(slot, new GuiElementBuilder(item)
-				.setName(textTemplateResolver.format("&f" + option.displayName()))
+				.setName(textTemplateResolver.formatUi("&f" + option.displayName()))
 				.setLore(buildOptionLoreTexts(option))
 				.setCallback((index, clickType, action, slotGui) -> {
 					if (option.ready()) {
@@ -96,15 +96,15 @@ public class AdvanceGuiService {
 		if (conditionLine != null) {
 			lines.add(conditionLine);
 		}
-		lines.add(textTemplateResolver.format(textConfig.advanceProgressLoreTemplate
+		lines.add(textTemplateResolver.formatUi(textConfig.advanceProgressLoreTemplate
 			.replace("{current}", Integer.toString(option.currentTicks()))
 			.replace("{required}", Integer.toString(option.requiredTicks()))));
 		if (!option.conditionsMet()) {
-			lines.add(textTemplateResolver.format(textConfig.advanceConditionUnmetLore));
+			lines.add(textTemplateResolver.formatUi(textConfig.advanceConditionUnmetLore));
 		} else if (!option.ready()) {
-			lines.add(textTemplateResolver.format(textConfig.advanceWaitingLore));
+			lines.add(textTemplateResolver.formatUi(textConfig.advanceWaitingLore));
 		} else {
-			lines.add(textTemplateResolver.format(textConfig.advanceClickLore));
+			lines.add(textTemplateResolver.formatUi(textConfig.advanceClickLore));
 		}
 		return lines;
 	}
@@ -137,22 +137,22 @@ public class AdvanceGuiService {
 		var weather = formatWeatherNames(option.weathers());
 		var biomeTexts = biomeTexts(option.biomes());
 		if (!biomeTexts.isEmpty() && !weather.isBlank()) {
-			return textTemplateResolver.format(textConfig.advanceConditionPrefix)
+			return textTemplateResolver.formatUi(textConfig.advanceConditionPrefix)
 				.copy()
 				.append(joinBiomeTexts(biomeTexts))
-				.append(textTemplateResolver.format(textConfig.advanceConditionBiomeWeatherDurationSuffixTemplate
+				.append(textTemplateResolver.formatUi(textConfig.advanceConditionBiomeWeatherDurationSuffixTemplate
 					.replace("{weather}", weather)
 					.replace("{seconds}", seconds)));
 		}
 		if (!biomeTexts.isEmpty()) {
-			return textTemplateResolver.format(textConfig.advanceConditionPrefix)
+			return textTemplateResolver.formatUi(textConfig.advanceConditionPrefix)
 				.copy()
 				.append(joinBiomeTexts(biomeTexts))
-				.append(textTemplateResolver.format(textConfig.advanceConditionBiomeDurationSuffixTemplate
+				.append(textTemplateResolver.formatUi(textConfig.advanceConditionBiomeDurationSuffixTemplate
 					.replace("{seconds}", seconds)));
 		}
 		if (!weather.isBlank()) {
-			return textTemplateResolver.format(textConfig.advanceConditionWeatherDurationLoreTemplate
+			return textTemplateResolver.formatUi(textConfig.advanceConditionWeatherDurationLoreTemplate
 				.replace("{weather}", weather)
 				.replace("{seconds}", seconds));
 		}
@@ -181,7 +181,7 @@ public class AdvanceGuiService {
 				continue;
 			}
 			if (!texts.isEmpty()) {
-				texts.add(Text.literal(", "));
+				texts.add(Text.literal(", ").styled(style -> style.withItalic(false)));
 			}
 			texts.add(biomeText(biome));
 		}
@@ -199,9 +199,9 @@ public class AdvanceGuiService {
 	private static Text biomeText(String biomeId) {
 		try {
 			var id = Identifier.of(biomeId);
-			return Text.translatable("biome." + id.getNamespace() + "." + id.getPath());
+			return Text.translatable("biome." + id.getNamespace() + "." + id.getPath()).styled(style -> style.withItalic(false));
 		} catch (Exception ignored) {
-			return Text.literal(formatResourceName(biomeId));
+			return Text.literal(formatResourceName(biomeId)).styled(style -> style.withItalic(false));
 		}
 	}
 
@@ -248,7 +248,7 @@ public class AdvanceGuiService {
 
 	private List<net.minecraft.text.Text> lines(String... values) {
 		return java.util.Arrays.stream(values)
-			.map(textTemplateResolver::format)
+			.map(textTemplateResolver::formatUi)
 			.toList();
 	}
 

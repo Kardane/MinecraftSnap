@@ -22,7 +22,7 @@ public class VillagerUnit extends AbstractVillagerUnit implements ConfiguredUnit
 		true,
 		1,
 		20.0,
-		0.8,
+		0.9,
 		karn.minecraftsnap.unit.UnitSpecSupport.item("minecraft:wooden_sword"),
 		item("minecraft:bread"),
 		none(),

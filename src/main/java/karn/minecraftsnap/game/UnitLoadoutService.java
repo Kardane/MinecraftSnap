@@ -8,7 +8,9 @@ import net.minecraft.component.ComponentChanges;
 import net.minecraft.component.DataComponentTypes;
 import net.minecraft.component.type.LoreComponent;
 import net.minecraft.component.type.NbtComponent;
+import net.minecraft.component.type.PotionContentsComponent;
 import net.minecraft.entity.EquipmentSlot;
+import net.minecraft.entity.attribute.EntityAttributeInstance;
 import net.minecraft.entity.attribute.EntityAttributes;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
@@ -21,6 +23,7 @@ import net.minecraft.registry.RegistryOps;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.text.Text;
 import net.minecraft.util.Unit;
+import net.minecraft.potion.Potions;
 
 import java.util.List;
 
@@ -71,30 +74,9 @@ public class UnitLoadoutService {
 	}
 
 	public void applyBaseAttributes(ServerPlayerEntity player, UnitDefinition definition) {
-		var maxHealth = player.getAttributeInstance(EntityAttributes.MAX_HEALTH);
-		if (maxHealth != null) {
-			maxHealth.setBaseValue(definition.maxHealth());
-		}
-		var moveSpeed = player.getAttributeInstance(EntityAttributes.MOVEMENT_SPEED);
-		if (moveSpeed != null) {
-			moveSpeed.setBaseValue(0.1D * definition.moveSpeedScale());
-		}
-		var attackDamage = player.getAttributeInstance(EntityAttributes.ATTACK_DAMAGE);
-		if (attackDamage != null) {
-			attackDamage.setBaseValue(1.0D);
-		}
-		var attackSpeed = player.getAttributeInstance(EntityAttributes.ATTACK_SPEED);
-		if (attackSpeed != null) {
-			attackSpeed.setBaseValue(4.0D);
-		}
-		var scale = player.getAttributeInstance(EntityAttributes.SCALE);
-		if (scale != null) {
-			scale.setBaseValue(1.0D);
-		}
-		var jumpStrength = player.getAttributeInstance(EntityAttributes.JUMP_STRENGTH);
-		if (jumpStrength != null) {
-			jumpStrength.setBaseValue(0.42D);
-		}
+		resetPlayerAttributes(player);
+		setBaseValue(player.getAttributeInstance(EntityAttributes.MAX_HEALTH), definition.maxHealth());
+		setBaseValue(player.getAttributeInstance(EntityAttributes.MOVEMENT_SPEED), 0.1D * definition.moveSpeedScale());
 		player.setHealth((float) definition.maxHealth());
 	}
 
@@ -107,32 +89,51 @@ public class UnitLoadoutService {
 	}
 
 	public void resetCombatState(ServerPlayerEntity player) {
-		var maxHealth = player.getAttributeInstance(EntityAttributes.MAX_HEALTH);
-		if (maxHealth != null) {
-			maxHealth.setBaseValue(20.0D);
-		}
-		var moveSpeed = player.getAttributeInstance(EntityAttributes.MOVEMENT_SPEED);
-		if (moveSpeed != null) {
-			moveSpeed.setBaseValue(0.1D);
-		}
-		var attackDamage = player.getAttributeInstance(EntityAttributes.ATTACK_DAMAGE);
-		if (attackDamage != null) {
-			attackDamage.setBaseValue(1.0D);
-		}
-		var attackSpeed = player.getAttributeInstance(EntityAttributes.ATTACK_SPEED);
-		if (attackSpeed != null) {
-			attackSpeed.setBaseValue(4.0D);
-		}
-		var scale = player.getAttributeInstance(EntityAttributes.SCALE);
-		if (scale != null) {
-			scale.setBaseValue(1.0D);
-		}
-		var jumpStrength = player.getAttributeInstance(EntityAttributes.JUMP_STRENGTH);
-		if (jumpStrength != null) {
-			jumpStrength.setBaseValue(0.42D);
-		}
+		resetPlayerAttributes(player);
 		player.clearStatusEffects();
-		player.setHealth(20.0f);
+		player.setNoGravity(false);
+		player.setHealth((float) defaultMaxHealth());
+	}
+
+	public void resetPlayerAttributes(ServerPlayerEntity player) {
+		if (player == null) {
+			return;
+		}
+		setBaseValue(player.getAttributeInstance(EntityAttributes.MAX_HEALTH), defaultMaxHealth());
+		setBaseValue(player.getAttributeInstance(EntityAttributes.MOVEMENT_SPEED), defaultMoveSpeed());
+		setBaseValue(player.getAttributeInstance(EntityAttributes.ATTACK_DAMAGE), defaultAttackDamage());
+		setBaseValue(player.getAttributeInstance(EntityAttributes.ATTACK_SPEED), defaultAttackSpeed());
+		setBaseValue(player.getAttributeInstance(EntityAttributes.SCALE), defaultScale());
+		setBaseValue(player.getAttributeInstance(EntityAttributes.JUMP_STRENGTH), defaultJumpStrength());
+		setBaseValue(player.getAttributeInstance(EntityAttributes.STEP_HEIGHT), defaultStepHeight());
+	}
+
+	public static double defaultMaxHealth() {
+		return 20.0D;
+	}
+
+	public static double defaultMoveSpeed() {
+		return 0.1D;
+	}
+
+	public static double defaultAttackDamage() {
+		return 1.0D;
+	}
+
+	public static double defaultAttackSpeed() {
+		return 4.0D;
+	}
+
+	public static double defaultScale() {
+		return 1.0D;
+	}
+
+	public static double defaultJumpStrength() {
+		return 0.42D;
+	}
+
+	public static double defaultStepHeight() {
+		return 0.6D;
 	}
 
 	public void maintainLoadout(ServerPlayerEntity player, UnitDefinition definition) {
@@ -142,7 +143,6 @@ public class UnitLoadoutService {
 		resetDurability(player.getEquippedStack(EquipmentSlot.CHEST));
 		resetDurability(player.getEquippedStack(EquipmentSlot.LEGS));
 		resetDurability(player.getEquippedStack(EquipmentSlot.FEET));
-		restockAmmo(player, definition);
 	}
 
 	public boolean isCaptainMenuItem(ItemStack stack) {
@@ -206,35 +206,46 @@ public class UnitLoadoutService {
 	}
 
 	private void restockAmmo(ServerPlayerEntity player, UnitDefinition definition) {
-		if (definition.ammoType() == UnitDefinition.AmmoType.ARROW && !player.getInventory().contains(new ItemStack(Items.ARROW))) {
-			player.getInventory().insertStack(new ItemStack(Items.ARROW));
+		var ammoStack = ammoStack(definition.ammoType());
+		if (!ammoStack.isEmpty() && !player.getInventory().contains(ammoStack)) {
+			player.getInventory().insertStack(ammoStack);
 		}
-		if (definition.ammoType() == UnitDefinition.AmmoType.FIREWORK && !player.getInventory().contains(new ItemStack(Items.FIREWORK_ROCKET))) {
-			player.getInventory().insertStack(new ItemStack(Items.FIREWORK_ROCKET));
+	}
+
+	ItemStack ammoStack(UnitDefinition.AmmoType ammoType) {
+		if (ammoType == null) {
+			return ItemStack.EMPTY;
 		}
+		return switch (ammoType) {
+			case NONE -> ItemStack.EMPTY;
+			case ARROW -> new ItemStack(Items.ARROW);
+			case SLOWNESS_ARROW -> PotionContentsComponent.createStack(Items.TIPPED_ARROW, Potions.SLOWNESS);
+			case POISON_ARROW -> PotionContentsComponent.createStack(Items.TIPPED_ARROW, Potions.POISON);
+			case FIREWORK -> new ItemStack(Items.FIREWORK_ROCKET);
+		};
 	}
 
 	ItemStack createCaptainMenuItem(FactionId factionId, TextTemplateResolver textTemplateResolver) {
 		var stack = createTaggedStack(Items.BELL, KIND_CAPTAIN_MENU, factionId, null);
-		stack.set(DataComponentTypes.CUSTOM_NAME, textTemplateResolver.format(textConfig().captainMenuItemName));
+		stack.set(DataComponentTypes.CUSTOM_NAME, textTemplateResolver.formatUi(textConfig().captainMenuItemName));
 		stack.set(DataComponentTypes.LORE, new LoreComponent(List.of(
-			textTemplateResolver.format(textConfig().captainMenuItemUseLore),
-			textTemplateResolver.format(textConfig().captainMenuItemFactionLoreTemplate.replace("{faction}", factionLabel(factionId)))
+			textTemplateResolver.formatUi(textConfig().captainMenuItemUseLore),
+			textTemplateResolver.formatUi(textConfig().captainMenuItemFactionLoreTemplate.replace("{faction}", factionLabel(factionId)))
 		)));
 		return stack;
 	}
 
 	ItemStack createCaptainSkillItem(FactionId factionId, TextTemplateResolver textTemplateResolver) {
 		var stack = createTaggedStack(Items.NETHER_STAR, KIND_CAPTAIN_SKILL, factionId, null);
-		stack.set(DataComponentTypes.CUSTOM_NAME, textTemplateResolver.format(textConfig().captainSkillItemName));
+		stack.set(DataComponentTypes.CUSTOM_NAME, textTemplateResolver.formatUi(textConfig().captainSkillItemName));
 		var lore = new java.util.ArrayList<net.minecraft.text.Text>();
-		lore.add(textTemplateResolver.format(textConfig().captainSkillItemUseLore));
-		lore.add(textTemplateResolver.format(textConfig().captainSkillItemFactionLoreTemplate.replace("{faction}", factionLabel(factionId))));
+		lore.add(textTemplateResolver.formatUi(textConfig().captainSkillItemUseLore));
+		lore.add(textTemplateResolver.formatUi(textConfig().captainSkillItemFactionLoreTemplate.replace("{faction}", factionLabel(factionId))));
 		var skillSpec = FactionSpecs.get(factionId);
 		if (skillSpec != null) {
 			lore.addAll(skillSpec.captainSkillDescriptionLines().stream()
 				.limit(2)
-				.map(textTemplateResolver::format)
+				.map(textTemplateResolver::formatUi)
 				.toList());
 		}
 		stack.set(DataComponentTypes.LORE, new LoreComponent(lore));
@@ -265,10 +276,10 @@ public class UnitLoadoutService {
 			return ItemStack.EMPTY;
 		}
 		if (textTemplateResolver != null && spec.displayName != null && !spec.displayName.isBlank()) {
-			stack.set(DataComponentTypes.CUSTOM_NAME, textTemplateResolver.format(spec.displayName));
+			stack.set(DataComponentTypes.CUSTOM_NAME, textTemplateResolver.formatUi(spec.displayName));
 		}
 		if (textTemplateResolver != null && spec.loreLines != null && !spec.loreLines.isEmpty()) {
-			stack.set(DataComponentTypes.LORE, new LoreComponent(spec.loreLines.stream().map(textTemplateResolver::format).toList()));
+			stack.set(DataComponentTypes.LORE, new LoreComponent(spec.loreLines.stream().map(textTemplateResolver::formatUi).toList()));
 		}
 		return stack;
 	}
@@ -287,13 +298,22 @@ public class UnitLoadoutService {
 			}
 			return AbilityTriggerTarget.NONE;
 		}
-		if (definition.mainHand() != null && abilitySpec.sameSpec(definition.mainHand())) {
+		if (sameTriggerItem(abilitySpec, definition.mainHand())) {
 			return AbilityTriggerTarget.MAIN_HAND;
 		}
-		if (definition.offHand() != null && abilitySpec.sameSpec(definition.offHand())) {
+		if (sameTriggerItem(abilitySpec, definition.offHand())) {
 			return AbilityTriggerTarget.OFF_HAND;
 		}
 		return AbilityTriggerTarget.EXTRA_ITEM;
+	}
+
+	private boolean sameTriggerItem(UnitItemEntry left, UnitItemEntry right) {
+		if (left == null || right == null || left.isEmpty() || right.isEmpty()) {
+			return false;
+		}
+		var leftItemId = left.resolvedItemId();
+		var rightItemId = right.resolvedItemId();
+		return leftItemId != null && !leftItemId.isBlank() && leftItemId.equals(rightItemId);
 	}
 
 	private ItemStack createTaggedStack(Item item, String kind, FactionId factionId, String unitId) {
@@ -325,20 +345,20 @@ public class UnitLoadoutService {
 		if ((name == null || name.isBlank()) && fallbackDisplayName != null && !fallbackDisplayName.isBlank()) {
 			// SNBT에 이미 이름이 포함되어 있는지 확인
 			if (!stack.contains(DataComponentTypes.CUSTOM_NAME)) {
-				stack.set(DataComponentTypes.CUSTOM_NAME, textTemplateResolver.format(fallbackDisplayName));
+				stack.set(DataComponentTypes.CUSTOM_NAME, textTemplateResolver.formatUi(fallbackDisplayName));
 			}
 		} else if (name != null && !name.isBlank()) {
-			stack.set(DataComponentTypes.CUSTOM_NAME, textTemplateResolver.format(name));
+			stack.set(DataComponentTypes.CUSTOM_NAME, textTemplateResolver.formatUi(name));
 		}
 
 		var loreLines = spec.loreLines;
 		if ((loreLines == null || loreLines.isEmpty()) && fallbackLoreLines != null && !fallbackLoreLines.isEmpty()) {
 			// SNBT에 이미 설명이 포함되어 있는지 확인
 			if (!stack.contains(DataComponentTypes.LORE)) {
-				stack.set(DataComponentTypes.LORE, new LoreComponent(fallbackLoreLines.stream().map(textTemplateResolver::format).toList()));
+				stack.set(DataComponentTypes.LORE, new LoreComponent(fallbackLoreLines.stream().map(textTemplateResolver::formatUi).toList()));
 			}
 		} else if (loreLines != null && !loreLines.isEmpty()) {
-			stack.set(DataComponentTypes.LORE, new LoreComponent(loreLines.stream().map(textTemplateResolver::format).toList()));
+			stack.set(DataComponentTypes.LORE, new LoreComponent(loreLines.stream().map(textTemplateResolver::formatUi).toList()));
 		}
 		applyCustomData(stack, kind, factionId, unitId);
 		return stack;
@@ -430,6 +450,12 @@ public class UnitLoadoutService {
 	private void resetDurability(ItemStack stack) {
 		if (!stack.isEmpty() && stack.isDamageable() && stack.isDamaged()) {
 			stack.setDamage(0);
+		}
+	}
+
+	private void setBaseValue(EntityAttributeInstance attribute, double value) {
+		if (attribute != null) {
+			attribute.setBaseValue(value);
 		}
 	}
 

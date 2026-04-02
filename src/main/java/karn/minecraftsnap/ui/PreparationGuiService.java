@@ -32,7 +32,7 @@ public class PreparationGuiService {
 
 	public void open(ServerPlayerEntity player, PlayerMatchState state) {
 		var gui = new SimpleGui(ScreenHandlerType.GENERIC_9X3, player, false);
-		gui.setTitle(textTemplateResolver.format(textConfig().preparationGuiTitle));
+		gui.setTitle(textTemplateResolver.formatUi(textConfig().preparationGuiTitle));
 
 		var units = unitsFor(state.getFactionId());
 		for (int i = 0; i < units.size(); i++) {
@@ -43,12 +43,9 @@ public class PreparationGuiService {
 			lore.add(textConfig().preparationCostLoreTemplate.replace("{cost}", Integer.toString(unit.cost())));
 			lore.addAll(unit.descriptionLines());
 			lore.add(selected ? textConfig().preparationSelectedLore : textConfig().preparationUnselectedLore);
-			var builder = new GuiElementBuilder(unit.mainHandItem())
-				.setName(textTemplateResolver.format("&f" + unit.displayName()))
-				.setLore(lore.stream().map(textTemplateResolver::format).toList());
-			if (selected) {
-				builder.glow();
-			}
+			var builder = new GuiElementBuilder(unit.guiIconItem())
+				.setName(textTemplateResolver.formatUi("&f" + unit.displayName()))
+				.setLore(lore.stream().map(textTemplateResolver::formatUi).toList());
 			if (state.getRoleType() == RoleType.UNIT) {
 				builder.setCallback((index, clickType, action, slotGui) -> {
 					if (uiSoundService != null) {

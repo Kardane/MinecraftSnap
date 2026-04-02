@@ -11,7 +11,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class UnitHookServiceTest {
 	@Test
 	void dispatchesAllConfiguredHooks() {
-		var service = new UnitHookService(null, null, null, null, () -> null, null, null, null, null, null, null, null, null, null);
+		var service = new UnitHookService(null, null, null, null, () -> null, null, null, null, null, null, null, null, null, null, null, () -> null);
 		var unitClass = new RecordingUnitClass();
 		var context = new UnitContext(null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
 
@@ -24,6 +24,8 @@ class UnitHookServiceTest {
 		service.dispatchOnDeath(unitClass, context, null);
 		service.dispatchOnKill(unitClass, context, null);
 		service.dispatchOnAttack(unitClass, context, null, 4.0f);
+		service.dispatchOnProjectileHit(unitClass, context, null, null);
+		service.dispatchOnProjectileImpact(unitClass, context, null, net.minecraft.util.math.Vec3d.ZERO);
 
 		assertEquals(1, unitClass.tickCalls);
 		assertEquals(1, unitClass.skillCalls);
@@ -34,6 +36,8 @@ class UnitHookServiceTest {
 		assertEquals(1, unitClass.deathCalls);
 		assertEquals(1, unitClass.killCalls);
 		assertEquals(1, unitClass.attackCalls);
+		assertEquals(1, unitClass.projectileHitCalls);
+		assertEquals(1, unitClass.projectileImpactCalls);
 	}
 
 	@Test
@@ -54,6 +58,8 @@ class UnitHookServiceTest {
 		int laneEnterCalls;
 		int captureTickCalls;
 		int captureScoreCalls;
+		int projectileHitCalls;
+		int projectileImpactCalls;
 
 		@Override
 		public void onTick(UnitContext context) {
@@ -98,6 +104,16 @@ class UnitHookServiceTest {
 		@Override
 		public void onCaptureScore(UnitContext context) {
 			captureScoreCalls++;
+		}
+
+		@Override
+		public void onProjectileHit(UnitContext context, net.minecraft.entity.projectile.ProjectileEntity projectile, net.minecraft.entity.Entity target) {
+			projectileHitCalls++;
+		}
+
+		@Override
+		public void onProjectileImpact(UnitContext context, net.minecraft.entity.projectile.ProjectileEntity projectile, net.minecraft.util.math.Vec3d impactPos) {
+			projectileImpactCalls++;
 		}
 	}
 }

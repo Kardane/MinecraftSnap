@@ -4,8 +4,6 @@ import karn.minecraftsnap.game.FactionId;
 import karn.minecraftsnap.game.UnitDefinition;
 import karn.minecraftsnap.unit.ConfiguredUnitClass;
 import karn.minecraftsnap.unit.UnitContext;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.entity.effect.StatusEffectInstance;
 import net.minecraft.entity.effect.StatusEffects;
 
 import java.util.List;
@@ -23,7 +21,7 @@ public class BoggedUnit extends AbstractMonsterUnit implements ConfiguredUnitCla
 		false,
 		4,
 		16.0,
-		0.8,
+		0.75,
 		item("minecraft:bow"),
 		none(),
 		none(),
@@ -33,9 +31,9 @@ public class BoggedUnit extends AbstractMonsterUnit implements ConfiguredUnitCla
 		none(),
 		"",
 		0,
-		UnitDefinition.AmmoType.ARROW,
+		UnitDefinition.AmmoType.POISON_ARROW,
 		disguise("minecraft:bogged"),
-			List.of("&f패시브 &7- 공격시 독을 부여합니다.","&f무기 &7- 활"),
+		List.of("&f패시브&7- 독 화살을 사용합니다.", "&f무기 &7- 활"),
 		List.of()
 	);
 
@@ -45,18 +43,14 @@ public class BoggedUnit extends AbstractMonsterUnit implements ConfiguredUnitCla
 	}
 
 	@Override
-	public void onAttack(UnitContext context, LivingEntity victim, float amount) {
-		if (!context.isEnemyTarget(victim)) {
-			return;
+	public void onTick(UnitContext context) {
+		super.onTick(context);
+		if (isPoisonImmune()) {
+			context.player().removeStatusEffect(StatusEffects.POISON);
 		}
-		victim.addStatusEffect(new StatusEffectInstance(StatusEffects.POISON, statusDurationTicks(), effectAmplifier()), context.player());
 	}
 
-	int statusDurationTicks() {
-		return 20 * 5;
-	}
-
-	int effectAmplifier() {
-		return 1;
+	boolean isPoisonImmune() {
+		return true;
 	}
 }

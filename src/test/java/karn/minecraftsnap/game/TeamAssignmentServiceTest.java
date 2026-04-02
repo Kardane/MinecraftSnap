@@ -41,6 +41,18 @@ class TeamAssignmentServiceTest {
 	}
 
 	@Test
+	void nonCaptainLockedTeamIsIgnored() {
+		var service = new TeamAssignmentService(new Random(0L));
+		var lockedCaptain = new TeamAssignmentService.PlayerCandidate(UUID.randomUUID(), "captain", 300, "none", TeamId.RED, true);
+		var previousUnit = new TeamAssignmentService.PlayerCandidate(UUID.randomUUID(), "unit", 500, "none", TeamId.RED, false);
+		var other = new TeamAssignmentService.PlayerCandidate(UUID.randomUUID(), "other", 100, "none", null, false);
+
+		var result = service.assignTeams(List.of(lockedCaptain, previousUnit, other));
+
+		assertEquals(TeamId.BLUE, result.get(previousUnit.playerId()));
+	}
+
+	@Test
 	void similarLadderUsesRandomTieBreak() {
 		var players = List.of(
 			new TeamAssignmentService.PlayerCandidate(UUID.randomUUID(), "p1", 250, "none", null, false),

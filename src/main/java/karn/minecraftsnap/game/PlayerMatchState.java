@@ -18,6 +18,7 @@ public class PlayerMatchState {
 	private int matchKills;
 	private int matchCaptureScore;
 	private final Map<String, Long> unitRuntimeLongs = new HashMap<>();
+	private final Map<String, Integer> unitRuntimeInts = new HashMap<>();
 	private final Map<String, Double> unitRuntimeDoubles = new HashMap<>();
 	private final Map<String, Integer> advanceOptionTicks = new HashMap<>();
 
@@ -31,6 +32,12 @@ public class PlayerMatchState {
 	}
 
 	public void clear() {
+		clearTeamAssignment();
+		this.matchKills = 0;
+		this.matchCaptureScore = 0;
+	}
+
+	public void clearTeamAssignment() {
 		this.teamId = null;
 		this.roleType = RoleType.NONE;
 		this.factionId = null;
@@ -40,9 +47,8 @@ public class PlayerMatchState {
 		this.advanceExp = 0;
 		this.advanceTargetUnitId = null;
 		this.lastLaneId = null;
-		this.matchKills = 0;
-		this.matchCaptureScore = 0;
 		this.unitRuntimeLongs.clear();
+		this.unitRuntimeInts.clear();
 		this.unitRuntimeDoubles.clear();
 		this.advanceOptionTicks.clear();
 	}
@@ -219,7 +225,20 @@ public class PlayerMatchState {
 	public void clearUnitRuntimeState() {
 		this.lastLaneId = null;
 		this.unitRuntimeLongs.clear();
+		this.unitRuntimeInts.clear();
 		this.unitRuntimeDoubles.clear();
+	}
+
+	public Integer getUnitRuntimeInt(String key) {
+		return unitRuntimeInts.get(key);
+	}
+
+	public void setUnitRuntimeInt(String key, int value) {
+		unitRuntimeInts.put(key, value);
+	}
+
+	public void removeUnitRuntimeInt(String key) {
+		unitRuntimeInts.remove(key);
 	}
 
 	public Double getUnitRuntimeDouble(String key) {

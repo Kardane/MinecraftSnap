@@ -13,15 +13,27 @@ public class TextTemplateResolver {
 	}
 
 	public Text format(String template, Map<String, String> placeholders) {
+		return formatInternal(template, placeholders, false);
+	}
+
+	public Text formatUi(String template) {
+		return formatUi(template, Map.of());
+	}
+
+	public Text formatUi(String template, Map<String, String> placeholders) {
+		return formatInternal(template, placeholders, true);
+	}
+
+	private Text formatInternal(String template, Map<String, String> placeholders, boolean disableItalic) {
 		var replaced = template;
 		for (var entry : placeholders.entrySet()) {
 			replaced = replaced.replace(entry.getKey(), entry.getValue());
 		}
 
-		return parseLegacyColors(replaced);
+		return parseLegacyColors(replaced, disableItalic);
 	}
 
-	private Text parseLegacyColors(String input) {
+	private Text parseLegacyColors(String input, boolean disableItalic) {
 		MutableText root = Text.empty();
 		Style currentStyle = Style.EMPTY;
 		StringBuilder buffer = new StringBuilder();
@@ -35,6 +47,9 @@ public class TextTemplateResolver {
 					currentStyle = formatting == Formatting.RESET
 						? Style.EMPTY
 						: currentStyle.withFormatting(formatting);
+					if (disableItalic) {
+						currentStyle = currentStyle.withItalic(false);
+					}
 					i++;
 					continue;
 				}
@@ -43,7 +58,7 @@ public class TextTemplateResolver {
 			buffer.append(current);
 		}
 
-		flush(root, buffer, currentStyle);
+		flush(root, buffer, disableItalic ? currentStyle.withItalic(false) : currentStyle);
 		return root;
 	}
 

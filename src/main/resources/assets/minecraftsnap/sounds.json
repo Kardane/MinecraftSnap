@@ -34,16 +34,14 @@
   "music.start": {
     "sounds": [
       {
-        "name": "minecraftsnap:music/start",
-        "stream": true
+        "name": "minecraftsnap:music/start"
       }
     ]
   },
   "music.end": {
     "sounds": [
       {
-        "name": "minecraftsnap:music/end",
-        "stream": true
+        "name": "minecraftsnap:music/end"
       }
     ]
   }

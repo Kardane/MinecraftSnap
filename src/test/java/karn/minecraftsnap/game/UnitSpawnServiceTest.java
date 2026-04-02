@@ -8,7 +8,9 @@ import java.util.List;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class UnitSpawnServiceTest {
 	@Test
@@ -63,5 +65,16 @@ class UnitSpawnServiceTest {
 		config.inGame.lane3Region = SystemConfig.LaneRegionConfig.create(40.0, 0.0, -8.0, 50.0, 320.0, 8.0);
 
 		assertEquals(LaneId.LANE_2, UnitSpawnService.nearestLaneForPosition(23.0, 0.0, config));
+	}
+
+	@Test
+	void hiddenLaneCannotSpawn() {
+		var manager = new MatchManager();
+
+		assertFalse(UnitSpawnService.canSpawnOnLane(manager, LaneId.LANE_2));
+
+		manager.revealLane(LaneId.LANE_2);
+
+		assertTrue(UnitSpawnService.canSpawnOnLane(manager, LaneId.LANE_2));
 	}
 }

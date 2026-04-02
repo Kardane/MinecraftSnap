@@ -85,7 +85,7 @@ class InGameRuleServiceTest {
 	}
 
 	@Test
-	void blocksClosedLaneForUnitAndCaptain() {
+	void blocksClosedLaneForUnitButNotCaptain() {
 		var manager = new MatchManager();
 		var service = createService(manager);
 		var unit = new PlayerMatchState();
@@ -94,15 +94,42 @@ class InGameRuleServiceTest {
 		captain.setTeam(TeamId.RED, RoleType.CAPTAIN);
 
 		assertTrue(service.shouldBlockClosedLane(unit, LaneId.LANE_2));
-		assertTrue(service.shouldBlockClosedLane(captain, LaneId.LANE_2));
+		assertFalse(service.shouldBlockClosedLane(captain, LaneId.LANE_2));
 
 		manager.revealLane(LaneId.LANE_2);
 		assertFalse(service.shouldBlockClosedLane(unit, LaneId.LANE_2));
-		assertTrue(service.shouldBlockClosedLane(captain, LaneId.LANE_2));
+		assertFalse(service.shouldBlockClosedLane(captain, LaneId.LANE_2));
 	}
 
 	@Test
-	void recordsKillAndDeathAndMarksPendingSpectator() {
+	void blocksCaptainOnlyOnRevealedLane() {
+		var manager = new MatchManager();
+		var service = createService(manager);
+		var captain = new PlayerMatchState();
+		captain.setTeam(TeamId.RED, RoleType.CAPTAIN);
+
+		assertFalse(service.shouldBlockCaptainLane(captain, LaneId.LANE_2));
+
+		manager.revealLane(LaneId.LANE_2);
+		assertTrue(service.shouldBlockCaptainLane(captain, LaneId.LANE_2));
+	}
+
+	@Test
+	void unitBelowVoidFloorIsForcedToDie() {
+		var unit = new PlayerMatchState();
+		unit.setTeam(TeamId.RED, RoleType.UNIT);
+		unit.setCurrentUnitId("villager");
+		var spectator = new PlayerMatchState();
+		spectator.setTeam(TeamId.RED, RoleType.SPECTATOR);
+
+		assertTrue(InGameRuleService.shouldForceUnitVoidDeath(unit, -60.0));
+		assertTrue(InGameRuleService.shouldForceUnitVoidDeath(unit, -120.0));
+		assertFalse(InGameRuleService.shouldForceUnitVoidDeath(unit, -59.99));
+		assertFalse(InGameRuleService.shouldForceUnitVoidDeath(spectator, -60.0));
+	}
+
+	@Test
+	void villagerKillDoesNotRewardEmeraldButStillRecordsKillAndDeath() {
 		var manager = new MatchManager();
 		var service = createService(manager);
 		var victimId = UUID.randomUUID();
@@ -118,7 +145,7 @@ class InGameRuleServiceTest {
 		assertEquals(1, repository.getOrCreate(victimId, "victim").deaths);
 		assertEquals(1, repository.getOrCreate(killerId, "killer").kills);
 		assertEquals(300, repository.getLadder(killerId, "killer"));
-		assertEquals(1, repository.getOrCreate(killerId, "killer").emeralds);
+		assertEquals(0, repository.getOrCreate(killerId, "killer").emeralds);
 		assertEquals(1, manager.getPlayerState(killerId).getMatchKills());
 		assertTrue(service.isPendingSpectator(victimId));
 	}
@@ -174,6 +201,16 @@ class InGameRuleServiceTest {
 		assertTrue(InGameRuleService.isCaptainGamePhase(MatchPhase.GAME_END));
 		assertEquals(1.0f, config.inGame.captainFlySpeed);
 		assertEquals(0.05f, config.inGame.defaultFlySpeed);
+	}
+
+	@Test
+	void blocksFriendlySummonedMobDamageForSameTeam() {
+		var victim = new PlayerMatchState();
+		victim.setTeam(TeamId.RED, RoleType.UNIT);
+
+		assertTrue(InGameRuleService.shouldBlockFriendlySummonedMobDamage(victim, TeamId.RED));
+		assertFalse(InGameRuleService.shouldBlockFriendlySummonedMobDamage(victim, TeamId.BLUE));
+		assertFalse(InGameRuleService.shouldBlockFriendlySummonedMobDamage(victim, null));
 	}
 
 	private InGameRuleService createService(MatchManager manager) {

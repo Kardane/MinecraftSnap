@@ -8,6 +8,13 @@ import karn.minecraftsnap.config.SystemConfig;
 import karn.minecraftsnap.config.TextConfigFile;
 import karn.minecraftsnap.lane.LaneRuntimeRegistry;
 import karn.minecraftsnap.util.TextTemplateResolver;
+import it.unimi.dsi.fastutil.ints.IntList;
+import net.minecraft.component.DataComponentTypes;
+import net.minecraft.component.type.FireworkExplosionComponent;
+import net.minecraft.component.type.FireworksComponent;
+import net.minecraft.entity.projectile.FireworkRocketEntity;
+import net.minecraft.item.ItemStack;
+import net.minecraft.item.Items;
 import net.minecraft.particle.DustParticleEffect;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.network.ServerPlayerEntity;
@@ -83,8 +90,8 @@ public class CapturePointService {
 		int scoreIntervalTicks
 	) {
 		var state = states.get(laneId);
-		if (shouldRenderParticles(matchManager.isLaneActive(laneId), laneRegion, pointConfig) && matchManager.getServerTicks() % 10L == 0L) {
-			spawnDustBorder(server, worldId, pointConfig, state.getOwner());
+		if (shouldRenderParticles(matchManager.isLaneActive(laneId), laneRegion, pointConfig) && matchManager.getServerTicks() % 2L == 0L) {
+			spawnDustBeam(server, worldId, pointConfig, state.getOwner(), matchManager.getServerTicks());
 		}
 		if (!matchManager.isLaneActive(laneId) || pointConfig == null || !pointConfig.enabled || !contains(laneRegion, pointConfig)) {
 			state.getProgress().reset();
@@ -119,6 +126,8 @@ public class CapturePointService {
 		}
 		if (captured && previousOwner != state.getOwner()) {
 			playCapturedSound(occupants);
+			broadcastCaptureOwnerChanged(server, laneId, state.getOwner());
+			spawnCaptureFireworks(server, worldId, pointConfig, state.getOwner());
 		}
 		if (captured && occupyingTeam != null) {
 			for (var player : occupants) {
@@ -148,17 +157,29 @@ public class CapturePointService {
 		}
 
 		if (ownerPresent) {
-			matchManager.addScore(ownerTeam, 1);
-			notifyCaptureScoreBiomeEffect(server, systemConfig, laneId, ownerTeam);
+			var context = createBiomeContext(server, systemConfig, laneId);
+			var scoreAmount = captureScoreAmount(context, ownerTeam);
+			if (scoreAmount <= 0) {
+				return;
+			}
+			matchManager.addScore(ownerTeam, scoreAmount);
+			notifyCaptureScoreBiomeEffect(context, ownerTeam);
 			rewardCaptureScore(occupants, ownerTeam, systemConfig);
 		}
 	}
 
-	private void notifyCaptureScoreBiomeEffect(MinecraftServer server, SystemConfig systemConfig, LaneId laneId, TeamId ownerTeam) {
-		var context = createBiomeContext(server, systemConfig, laneId);
-		if (context != null) {
-			context.laneRuntime().biomeEffect().onCaptureScore(context, ownerTeam);
+	int captureScoreAmount(BiomeRuntimeContext context, TeamId ownerTeam) {
+		if (context == null) {
+			return 1;
 		}
+		return context.laneRuntime().biomeEffect().captureScoreAmount(context, ownerTeam);
+	}
+
+	private void notifyCaptureScoreBiomeEffect(BiomeRuntimeContext context, TeamId ownerTeam) {
+		if (context == null) {
+			return;
+		}
+		context.laneRuntime().biomeEffect().onCaptureScore(context, ownerTeam);
 	}
 
 	private List<ServerPlayerEntity> findOccupants(MinecraftServer server, String worldId, SystemConfig.CaptureRegionConfig pointConfig) {
@@ -241,61 +262,29 @@ public class CapturePointService {
 		if (playerState == null || spectator || playerState.getTeamId() == null) {
 			return false;
 		}
-		return playerState.isCaptain()
-			|| (playerState.isUnit() && playerState.getCurrentUnitId() != null);
+		return playerState.isUnit() && playerState.getCurrentUnitId() != null;
 	}
 
 	static boolean shouldRenderParticles(boolean laneActive, SystemConfig.LaneRegionConfig laneRegion, SystemConfig.CaptureRegionConfig captureRegion) {
 		return captureRegion != null && captureRegion.enabled && contains(laneRegion, captureRegion);
 	}
 
-	private void spawnDustBorder(MinecraftServer server, String worldId, SystemConfig.CaptureRegionConfig region, CaptureOwner owner) {
+	private void spawnDustBeam(MinecraftServer server, String worldId, SystemConfig.CaptureRegionConfig region, CaptureOwner owner, long serverTicks) {
 		var world = resolveWorld(server, worldId);
 		if (world == null) {
 			return;
 		}
-		var effect = new DustParticleEffect(color(owner), 1.0f);
-		var minX = region.minX;
-		var maxX = region.maxX;
-		var minY = region.minY;
-		var maxY = region.maxY;
-		var minZ = region.minZ;
-		var maxZ = region.maxZ;
-		sampleEdge(world, effect, minX, minY, minZ, maxX, minY, minZ);
-		sampleEdge(world, effect, minX, minY, maxZ, maxX, minY, maxZ);
-		sampleEdge(world, effect, minX, maxY, minZ, maxX, maxY, minZ);
-		sampleEdge(world, effect, minX, maxY, maxZ, maxX, maxY, maxZ);
-		sampleEdge(world, effect, minX, minY, minZ, minX, maxY, minZ);
-		sampleEdge(world, effect, maxX, minY, minZ, maxX, maxY, minZ);
-		sampleEdge(world, effect, minX, minY, maxZ, minX, maxY, maxZ);
-		sampleEdge(world, effect, maxX, minY, maxZ, maxX, maxY, maxZ);
-		sampleEdge(world, effect, minX, minY, minZ, minX, minY, maxZ);
-		sampleEdge(world, effect, maxX, minY, minZ, maxX, minY, maxZ);
-		sampleEdge(world, effect, minX, maxY, minZ, minX, maxY, maxZ);
-		sampleEdge(world, effect, maxX, maxY, minZ, maxX, maxY, maxZ);
+		var effect = new DustParticleEffect(color(owner), particleSize());
+		var startY = region.maxY;
+		var sampleCount = Math.max(1, (int) Math.ceil((particleBeamTopY() - startY) / particleSpacing()) + 1);
+		var step = particleBeamStep(serverTicks, sampleCount);
+		var y = Math.min(particleBeamTopY(), startY + step * particleSpacing());
+		spawnDust(world, effect, particleCenterX(region), y, particleCenterZ(region));
 	}
 
 	private void spawnDust(ServerWorld world, DustParticleEffect effect, double x, double y, double z) {
 		for (var player : world.getPlayers()) {
-			world.spawnParticles(player, effect, true, false, x + 0.5, y + 0.5, z + 0.5, 8, 0.04, 0.04, 0.04, 0.0);
-		}
-	}
-
-	private void sampleEdge(ServerWorld world, DustParticleEffect effect, double startX, double startY, double startZ, double endX, double endY, double endZ) {
-		var dx = endX - startX;
-		var dy = endY - startY;
-		var dz = endZ - startZ;
-		var length = Math.max(Math.max(Math.abs(dx), Math.abs(dy)), Math.abs(dz));
-		var steps = Math.max(1, (int) Math.ceil(length / particleSpacing()));
-		for (int i = 0; i <= steps; i++) {
-			var progress = i / (double) steps;
-			spawnDust(
-				world,
-				effect,
-				startX + dx * progress,
-				startY + dy * progress,
-				startZ + dz * progress
-			);
+			world.spawnParticles(player, effect, true, false, x, y, z, 1, 0.0, 0.0, 0.0, 0.0);
 		}
 	}
 
@@ -307,12 +296,44 @@ public class CapturePointService {
 		};
 	}
 
-	static double particleBorderY(SystemConfig.CaptureRegionConfig region) {
-		return region == null ? 0.0D : region.maxY;
+	static double particleCenterX(SystemConfig.CaptureRegionConfig region) {
+		return region == null ? 0.0D : (region.minX + region.maxX) / 2.0D;
+	}
+
+	static double particleCenterZ(SystemConfig.CaptureRegionConfig region) {
+		return region == null ? 0.0D : (region.minZ + region.maxZ) / 2.0D;
+	}
+
+	static List<Vec3d> fireworkLaunchPositions(SystemConfig.CaptureRegionConfig region) {
+		if (region == null) {
+			return List.of();
+		}
+		double y = region.maxY + 0.5D;
+		return List.of(
+			new Vec3d(region.minX, y, region.minZ),
+			new Vec3d(region.minX, y, region.maxZ),
+			new Vec3d(region.maxX, y, region.minZ),
+			new Vec3d(region.maxX, y, region.maxZ)
+		);
+	}
+
+	static double particleBeamTopY() {
+		return 30.0D;
 	}
 
 	static double particleSpacing() {
 		return 0.5D;
+	}
+
+	static float particleSize() {
+		return 3.0F;
+	}
+
+	static int particleBeamStep(long serverTicks, int sampleCount) {
+		if (sampleCount <= 0) {
+			return 0;
+		}
+		return (int) ((serverTicks / 2L) % sampleCount);
 	}
 
 	private boolean isCaptureInProgress(CapturePointState state, TeamId occupyingTeam, boolean contested) {
@@ -370,6 +391,57 @@ public class CapturePointService {
 		}
 	}
 
+	private void broadcastCaptureOwnerChanged(MinecraftServer server, LaneId laneId, CaptureOwner owner) {
+		if (server == null || textTemplateResolver == null) {
+			return;
+		}
+		server.getPlayerManager().broadcast(textTemplateResolver.format(textConfig().captureOwnerChangedBroadcastTemplate
+			.replace("{lane}", laneLabel(laneId))
+			.replace("{owner}", ownerLabel(owner))), false);
+	}
+
+	private void spawnCaptureFireworks(MinecraftServer server, String worldId, SystemConfig.CaptureRegionConfig region, CaptureOwner owner) {
+		var world = resolveWorld(server, worldId);
+		if (world == null || region == null) {
+			return;
+		}
+		var rocket = captureFireworkRocket(owner);
+		for (var position : fireworkLaunchPositions(region)) {
+			world.spawnEntity(new FireworkRocketEntity(world, position.x, position.y, position.z, rocket.copy()));
+		}
+	}
+
+	private ItemStack captureFireworkRocket(CaptureOwner owner) {
+		var rocket = new ItemStack(Items.FIREWORK_ROCKET);
+		rocket.set(DataComponentTypes.FIREWORKS, new FireworksComponent(
+			1,
+			List.of(new FireworkExplosionComponent(
+				FireworkExplosionComponent.Type.SMALL_BALL,
+				IntList.of(color(owner)),
+				IntList.of(),
+				false,
+				false
+			))
+		));
+		return rocket;
+	}
+
+	private String laneLabel(LaneId laneId) {
+		return switch (laneId) {
+			case LANE_1 -> textConfig().captureLane1Name;
+			case LANE_2 -> textConfig().captureLane2Name;
+			case LANE_3 -> textConfig().captureLane3Name;
+		};
+	}
+
+	private String ownerLabel(CaptureOwner owner) {
+		return switch (owner) {
+			case RED -> textConfig().captureOwnerRedName;
+			case BLUE -> textConfig().captureOwnerBlueName;
+			case NEUTRAL -> textConfig().captureOwnerNeutralName;
+		};
+	}
+
 	private BiomeRuntimeContext createBiomeContext(MinecraftServer server, SystemConfig systemConfig, LaneId laneId) {
 		if (server == null || systemConfig == null || laneRuntimeRegistry == null || textTemplateResolver == null) {
 			return null;
@@ -386,7 +458,12 @@ public class CapturePointService {
 			runtime.biomeEntry(),
 			textTemplateResolver,
 			matchManager.getServerTicks(),
-			matchManager.getTotalSeconds() - matchManager.getRemainingSeconds()
+			matchManager.getElapsedSeconds()
 		);
+	}
+
+	private TextConfigFile textConfig() {
+		var mod = MinecraftSnap.getInstance();
+		return mod == null ? new TextConfigFile() : mod.getTextConfig();
 	}
 }

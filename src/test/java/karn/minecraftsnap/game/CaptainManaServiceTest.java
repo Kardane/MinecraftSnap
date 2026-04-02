@@ -25,6 +25,23 @@ class CaptainManaServiceTest {
 	}
 
 	@Test
+	void netherCaptainRecoversOneAdditionalManaEveryTickCycle() {
+		var service = new CaptainManaService();
+		var captainId = UUID.randomUUID();
+		service.setCaptainFaction(captainId, FactionId.NETHER);
+		var state = service.getOrCreate(captainId);
+		state.setCurrentMana(0);
+		state.setMaxMana(5);
+
+		for (int second = 1; second <= 10; second++) {
+			service.tickSecond(3, second, 10);
+		}
+
+		assertEquals(2, state.getCurrentMana());
+		assertEquals(10, state.getSecondsUntilNextMana());
+	}
+
+	@Test
 	void increasesMaxManaEveryMinuteAndRefillsGainedMana() {
 		var service = new CaptainManaService();
 		var captainId = UUID.randomUUID();
@@ -96,15 +113,29 @@ class CaptainManaServiceTest {
 	}
 
 	@Test
-	void refundSpawnResourcesClampsManaWithoutCooldownRefund() {
+	void restoreManaClampsManaToMax() {
 		var service = new CaptainManaService();
 		var captainId = UUID.randomUUID();
 		var state = service.getOrCreate(captainId);
 		state.setCurrentMana(2);
 
-		service.refundSpawnResources(captainId, 5);
+		service.restoreMana(captainId, 5);
 
 		assertEquals(3, state.getCurrentMana());
+	}
+
+	@Test
+	void netherCaptainRestoreManaGetsOneAdditionalMana() {
+		var service = new CaptainManaService();
+		var captainId = UUID.randomUUID();
+		service.setCaptainFaction(captainId, FactionId.NETHER);
+		var state = service.getOrCreate(captainId);
+		state.setCurrentMana(0);
+		state.setMaxMana(5);
+
+		service.restoreMana(captainId, 1);
+
+		assertEquals(2, state.getCurrentMana());
 	}
 
 	@Test
@@ -119,5 +150,17 @@ class CaptainManaServiceTest {
 		assertFalse(spent);
 		assertEquals(3, state.getCurrentMana());
 		assertEquals(5, state.getSkillCooldownSeconds());
+	}
+
+	@Test
+	void recoverySecondsShrinkWithMoreTeammatesUntilFiveSeconds() {
+		assertEquals(10, CaptainManaService.recoverySecondsForTeamSize(0));
+		assertEquals(10, CaptainManaService.recoverySecondsForTeamSize(4));
+		assertEquals(9, CaptainManaService.recoverySecondsForTeamSize(5));
+		assertEquals(8, CaptainManaService.recoverySecondsForTeamSize(6));
+		assertEquals(7, CaptainManaService.recoverySecondsForTeamSize(7));
+		assertEquals(6, CaptainManaService.recoverySecondsForTeamSize(8));
+		assertEquals(5, CaptainManaService.recoverySecondsForTeamSize(9));
+		assertEquals(5, CaptainManaService.recoverySecondsForTeamSize(20));
 	}
 }

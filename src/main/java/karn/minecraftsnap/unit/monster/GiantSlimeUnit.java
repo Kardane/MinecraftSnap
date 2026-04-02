@@ -20,7 +20,7 @@ public class GiantSlimeUnit extends SlimeUnit {
 		FactionId.MONSTER,
 		false,
 		0,
-		30.0,
+		50.0,
 		1.0,
 		item("minecraft:slime_ball"),
 		none(),
@@ -57,7 +57,7 @@ public class GiantSlimeUnit extends SlimeUnit {
 	private void applyScale(UnitContext context) {
 		var scale = context.player().getAttributeInstance(EntityAttributes.SCALE);
 		if (scale != null) {
-			scale.setBaseValue(2.0D);
+			scale.setBaseValue(context.unitDefinition().extraAttributes().scaleOrDefault(2.0D));
 		}
 	}
 
