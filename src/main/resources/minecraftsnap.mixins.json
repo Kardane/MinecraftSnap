@@ -8,6 +8,7 @@
 		"FireballEntityMixin",
 		"LivingEntityMixin",
 		"PlayerEntityMixin",
+		"ProjectileEntityMixin",
 		"SmallFireballEntityMixin",
 		"SnowballEntityMixin",
 		"ServerPlayNetworkHandlerMixin",

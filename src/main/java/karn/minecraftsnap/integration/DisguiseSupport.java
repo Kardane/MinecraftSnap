@@ -12,6 +12,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.lang.reflect.Method;
+import java.util.function.Consumer;
 
 public final class DisguiseSupport {
 	private static final String ENTITY_DISGUISE_CLASS = "xyz.nucleoid.disguiselib.api.EntityDisguise";
@@ -21,6 +22,10 @@ public final class DisguiseSupport {
 	}
 
 	public static void applyDisguise(ServerPlayerEntity player, EntitySpecEntry disguise) {
+		applyDisguise(player, disguise, null);
+	}
+
+	public static void applyDisguise(ServerPlayerEntity player, EntitySpecEntry disguise, Consumer<Entity> entityCustomizer) {
 		if (disguise == null || disguise.isEmpty()) {
 			clearDisguise(player);
 			return;
@@ -35,16 +40,25 @@ public final class DisguiseSupport {
 			if (entityType == EntityType.PLAYER) {
 				return;
 			}
-			var disguiseEntity = createDisguiseEntity(player, disguise);
+			if (!shouldCreateDisguiseEntity(disguise, entityCustomizer != null) && invokeDisguiseAsType(player, disguiseClass, entityType)) {
+				return;
+			}
+			var disguiseEntity = createDisguiseEntity(player, disguise, entityType, entityCustomizer);
 			if (disguiseEntity != null && invokeDisguiseAsEntity(player, disguiseClass, disguiseEntity)) {
 				return;
 			}
-			invokeDisguiseAsType(player, disguiseClass, entityType);
+			if (invokeDisguiseAsType(player, disguiseClass, entityType)) {
+				return;
+			}
 			if (disguiseEntity == null && !disguise.entityNbt.isBlank()) {
 				LOGGER.warn("변장 NBT 적용 실패, 엔티티 타입만 사용: {}", disguise.entityId);
 			}
 		} catch (Exception ignored) {
 		}
+	}
+
+	static boolean shouldCreateDisguiseEntity(EntitySpecEntry disguise, boolean hasEntityCustomizer) {
+		return hasEntityCustomizer || (disguise != null && disguise.entityNbt != null && !disguise.entityNbt.isBlank());
 	}
 
 	public static void clearDisguise(ServerPlayerEntity player) {
@@ -58,14 +72,28 @@ public final class DisguiseSupport {
 		}
 	}
 
-	private static Entity createDisguiseEntity(ServerPlayerEntity player, EntitySpecEntry disguise) {
-		if (disguise.entityNbt == null || disguise.entityNbt.isBlank()) {
-			return null;
-		}
+	private static Entity createDisguiseEntity(
+		ServerPlayerEntity player,
+		EntitySpecEntry disguise,
+		EntityType<?> entityType,
+		Consumer<Entity> entityCustomizer
+	) {
 		try {
-			var nbt = StringNbtReader.readCompound(disguise.entityNbt);
-			nbt.putString("id", disguise.entityId);
-			return EntityType.loadEntityWithPassengers(nbt, player.getWorld(), SpawnReason.COMMAND, entity -> entity);
+			Entity entity;
+			if (disguise.entityNbt == null || disguise.entityNbt.isBlank()) {
+				entity = entityType.create(player.getWorld(), SpawnReason.COMMAND);
+			} else {
+				var nbt = StringNbtReader.readCompound(disguise.entityNbt);
+				nbt.putString("id", disguise.entityId);
+				entity = EntityType.loadEntityWithPassengers(nbt, player.getWorld(), SpawnReason.COMMAND, loaded -> loaded);
+			}
+			if (entity != null) {
+				entity.refreshPositionAndAngles(player.getX(), player.getY(), player.getZ(), player.getYaw(), player.getPitch());
+			}
+			if (entity != null && entityCustomizer != null) {
+				entityCustomizer.accept(entity);
+			}
+			return entity;
 		} catch (Exception exception) {
 			LOGGER.warn("변장 엔티티 NBT 파싱 실패: {}", disguise.entityId, exception);
 			return null;
@@ -85,11 +113,13 @@ public final class DisguiseSupport {
 		}
 	}
 
-	private static void invokeDisguiseAsType(ServerPlayerEntity player, Class<?> disguiseClass, EntityType<?> entityType) throws Exception {
+	private static boolean invokeDisguiseAsType(ServerPlayerEntity player, Class<?> disguiseClass, EntityType<?> entityType) throws Exception {
 		var method = findMethod(disguiseClass, "disguiseAs", EntityType.class);
-		if (method != null) {
-			method.invoke(player, entityType);
+		if (method == null) {
+			return false;
 		}
+		method.invoke(player, entityType);
+		return true;
 	}
 
 	private static Method findMethod(Class<?> owner, String name, Class<?>... preferredTypes) {

@@ -228,6 +228,10 @@ public class UnitHookService {
 				player.sendMessage(textTemplateResolver.format(systemConfig.advance.notAvailableMessage), false);
 				return;
 			}
+			var repository = currentStatsRepository();
+			if (repository != null) {
+				repository.addAdvanceCount(player.getUuid(), player.getName().getString(), 1);
+			}
 			assignUnit(player, definition, systemConfig);
 			if (playerDisplayNameService != null && matchManager != null && matchManager.getServer() != null) {
 				playerDisplayNameService.refreshAll(matchManager.getServer(), matchManager, currentStatsRepository(), systemConfig);

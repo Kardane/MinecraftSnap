@@ -1,15 +1,32 @@
 package karn.minecraftsnap.unit;
 
-import karn.minecraftsnap.game.TeamId;
 import karn.minecraftsnap.game.MatchManager;
+import karn.minecraftsnap.game.TeamId;
+import karn.minecraftsnap.game.VanillaPlayerTeamService;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.mob.MobEntity;
 import net.minecraft.server.MinecraftServer;
-import net.minecraft.util.Formatting;
+import net.minecraft.server.world.ServerWorld;
 
 public final class SummonedMobSupport {
-	private static final String MANAGED_TEAM_PREFIX = "mcsnap_mob_";
+	private static final VanillaPlayerTeamService PLAYER_TEAM_SERVICE = new VanillaPlayerTeamService();
+	private static final double[][] SAFE_SPAWN_OFFSETS = {
+		{0.0D, 0.0D, 0.0D},
+		{1.0D, 0.0D, 0.0D},
+		{-1.0D, 0.0D, 0.0D},
+		{0.0D, 0.0D, 1.0D},
+		{0.0D, 0.0D, -1.0D},
+		{1.0D, 0.0D, 1.0D},
+		{-1.0D, 0.0D, 1.0D},
+		{1.0D, 0.0D, -1.0D},
+		{-1.0D, 0.0D, -1.0D},
+		{0.0D, 1.0D, 0.0D},
+		{1.0D, 1.0D, 0.0D},
+		{-1.0D, 1.0D, 0.0D},
+		{0.0D, 1.0D, 1.0D},
+		{0.0D, 1.0D, -1.0D}
+	};
 
 	private SummonedMobSupport() {
 	}
@@ -23,36 +40,35 @@ public final class SummonedMobSupport {
 		if (teamId == null || server == null) {
 			return;
 		}
-		var scoreboard = server.getScoreboard();
-		var teamName = managedTeamName(teamId);
-		var team = scoreboard.getTeam(teamName);
-		if (team == null) {
-			team = scoreboard.addTeam(teamName);
-			team.setColor(teamId == TeamId.RED ? Formatting.RED : Formatting.BLUE);
-			team.setFriendlyFireAllowed(false);
-		}
-		scoreboard.addScoreHolderToTeam(mob.getNameForScoreboard(), team);
+		PLAYER_TEAM_SERVICE.assignScoreHolder(server.getScoreboard(), mob.getNameForScoreboard(), teamId);
 		mob.setTarget(null);
 	}
 
-	public static String managedTeamName(TeamId teamId) {
-		return teamId == null ? "" : MANAGED_TEAM_PREFIX + teamId.name().toLowerCase();
+	public static boolean placeMobSafely(ServerWorld world, MobEntity mob, double x, double y, double z, float yaw, float pitch) {
+		if (world == null || mob == null) {
+			return false;
+		}
+		for (var offset : SAFE_SPAWN_OFFSETS) {
+			mob.refreshPositionAndAngles(x + offset[0], y + offset[1], z + offset[2], yaw, pitch);
+			if (world.isSpaceEmpty(mob)) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	public static TeamId resolveManagedTeam(Entity entity) {
-		if (entity == null || entity.getScoreboardTeam() == null) {
+		if (entity == null || entity instanceof net.minecraft.server.network.ServerPlayerEntity || entity.getScoreboardTeam() == null) {
 			return null;
 		}
 		var name = entity.getScoreboardTeam().getName();
-		if (!name.startsWith(MANAGED_TEAM_PREFIX)) {
-			return null;
+		if (VanillaPlayerTeamService.RED_TEAM_NAME.equals(name)) {
+			return TeamId.RED;
 		}
-		var rawTeam = name.substring(MANAGED_TEAM_PREFIX.length()).toUpperCase();
-		try {
-			return TeamId.valueOf(rawTeam);
-		} catch (IllegalArgumentException ignored) {
-			return null;
+		if (VanillaPlayerTeamService.BLUE_TEAM_NAME.equals(name)) {
+			return TeamId.BLUE;
 		}
+		return null;
 	}
 
 	public static void clearFriendlyTargets(MinecraftServer server, MatchManager matchManager) {

@@ -104,10 +104,24 @@ public class BiomeRevealService {
 			if (pool.isEmpty()) {
 				break;
 			}
-			var selected = pool.remove(random.nextInt(pool.size()));
+			var selected = selectBiomeForLane(laneId, pool);
 			result.put(laneId, selected);
 		}
 		return result;
+	}
+
+	private BiomeEntry selectBiomeForLane(LaneId laneId, List<BiomeEntry> pool) {
+		if (laneId == LaneId.LANE_1) {
+			var eligible = pool.stream()
+				.filter(entry -> entry != null && !"reverse_icicle".equals(entry.id))
+				.toList();
+			if (!eligible.isEmpty()) {
+				var selected = eligible.get(random.nextInt(eligible.size()));
+				pool.remove(selected);
+				return selected;
+			}
+		}
+		return pool.remove(random.nextInt(pool.size()));
 	}
 
 	public List<LaneId> syncRevealState(

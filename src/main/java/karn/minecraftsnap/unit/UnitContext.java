@@ -15,6 +15,7 @@ import karn.minecraftsnap.lane.LaneRuntime;
 import karn.minecraftsnap.ui.AdvanceGuiService;
 import karn.minecraftsnap.ui.TradeGuiService;
 import karn.minecraftsnap.util.TextTemplateResolver;
+import net.minecraft.entity.Entity;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.damage.DamageSource;
 import net.minecraft.entity.effect.StatusEffectInstance;
@@ -162,6 +163,19 @@ public class UnitContext {
 		statsRepository.addGoldIngots(player.getUuid(), player.getName().getString(), amount);
 	}
 
+	public double healSelf(float amount) {
+		if (amount <= 0 || player == null) {
+			return 0.0D;
+		}
+		float before = player.getHealth();
+		player.heal(amount);
+		double healed = Math.max(0.0D, (double) player.getHealth() - (double) before);
+		if (healed > 0.0D && statsRepository != null) {
+			statsRepository.addHealingDone(player.getUuid(), player.getName().getString(), healed);
+		}
+		return healed;
+	}
+
 	public void reduceCaptainSpawnCooldown(int seconds) {
 		return;
 	}
@@ -276,6 +290,12 @@ public class UnitContext {
 	public void dealExplosionDamage(LivingEntity target, float amount) {
 		if (player != null && target != null && world() != null) {
 			target.damage(world(), target.getDamageSources().explosion(player, player), amount);
+		}
+	}
+
+	public void dealExplosionDamage(LivingEntity target, float amount, Entity source, Entity attacker) {
+		if (target != null && world() != null) {
+			target.damage(world(), target.getDamageSources().explosion(source, attacker), amount);
 		}
 	}
 

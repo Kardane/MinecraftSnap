@@ -2,10 +2,12 @@ package karn.minecraftsnap.game;
 
 import karn.minecraftsnap.audio.UiSoundService;
 import karn.minecraftsnap.biome.BiomeRuntimeContext;
+import karn.minecraftsnap.config.ServerStatsRepository;
 import karn.minecraftsnap.config.TextConfigFile;
 import karn.minecraftsnap.config.StatsRepository;
 import karn.minecraftsnap.config.SystemConfig;
 import karn.minecraftsnap.unit.SummonedMobSupport;
+import karn.minecraftsnap.unit.nether.HoglinUnit;
 import karn.minecraftsnap.lane.LaneRuntimeRegistry;
 import karn.minecraftsnap.util.TextTemplateResolver;
 import net.minecraft.entity.LivingEntity;
@@ -28,8 +30,10 @@ import java.util.UUID;
 
 public class InGameRuleService {
 	private static final double UNIT_VOID_DEATH_Y = -60.0D;
+	static final long ASSIST_WINDOW_TICKS = 20L * 5L;
 	private final MatchManager matchManager;
 	private final StatsRepository statsRepository;
+	private final ServerStatsRepository serverStatsRepository;
 	private final TextTemplateResolver textTemplateResolver;
 	private final UnitSpawnQueueService unitSpawnQueueService;
 	private final UnitSpawnService unitSpawnService;
@@ -42,9 +46,10 @@ public class InGameRuleService {
 	private SystemConfig lastSystemConfig = new SystemConfig();
 	private final Set<UUID> pendingSpectators = new HashSet<>();
 	private final Map<UUID, Long> laneWarningTicks = new HashMap<>();
+	private final Map<UUID, Map<UUID, Long>> recentDamageTicksByVictim = new HashMap<>();
 
 	public InGameRuleService(MatchManager matchManager, StatsRepository statsRepository, TextTemplateResolver textTemplateResolver) {
-		this(matchManager, statsRepository, textTemplateResolver, null, null, null, null, null, null, null, null);
+		this(matchManager, statsRepository, textTemplateResolver, null, null, null, null, null, null, null, null, null);
 	}
 
 	public InGameRuleService(
@@ -60,8 +65,26 @@ public class InGameRuleService {
 		UnitHookService unitHookService,
 		UiSoundService uiSoundService
 	) {
+		this(matchManager, statsRepository, textTemplateResolver, unitSpawnQueueService, unitSpawnService, captainManaService, unitRegistry, unitAbilityService, laneRuntimeRegistry, unitHookService, uiSoundService, null);
+	}
+
+	public InGameRuleService(
+		MatchManager matchManager,
+		StatsRepository statsRepository,
+		TextTemplateResolver textTemplateResolver,
+		UnitSpawnQueueService unitSpawnQueueService,
+		UnitSpawnService unitSpawnService,
+		CaptainManaService captainManaService,
+		UnitRegistry unitRegistry,
+		UnitAbilityService unitAbilityService,
+		LaneRuntimeRegistry laneRuntimeRegistry,
+		UnitHookService unitHookService,
+		UiSoundService uiSoundService,
+		ServerStatsRepository serverStatsRepository
+	) {
 		this.matchManager = matchManager;
 		this.statsRepository = statsRepository;
+		this.serverStatsRepository = serverStatsRepository;
 		this.textTemplateResolver = textTemplateResolver;
 		this.unitSpawnQueueService = unitSpawnQueueService;
 		this.unitSpawnService = unitSpawnService;
@@ -178,7 +201,7 @@ public class InGameRuleService {
 				return false;
 			}
 		}
-		if (attacker != null && unitHookService != null) {
+		if (attacker != null && unitHookService != null && shouldApplyAttackEffects(entity.timeUntilRegen)) {
 			unitHookService.handleAttack(attacker, entity, amount, nullSafeSystemConfig());
 		}
 		if (!(entity instanceof ServerPlayerEntity victim)) {
@@ -191,7 +214,7 @@ public class InGameRuleService {
 			unitHookService.handleDamaged(victim, source, amount, nullSafeSystemConfig());
 		}
 		notifyDamagedHook(victim, source, amount);
-		if (attacker != null) {
+		if (attacker != null && shouldApplyAttackEffects(victim.timeUntilRegen)) {
 			notifyAttackHook(attacker, victim, amount);
 		}
 		if (matchManager.getPlayerState(victim.getUuid()).isCaptain()) {
@@ -215,12 +238,19 @@ public class InGameRuleService {
 		return isDamageAllowed(victimState, attackerState, matchManager.getPhase());
 	}
 
-	public void handleDamageApplied(LivingEntity entity, DamageSource source, boolean damaged) {
+	public void handleDamageApplied(LivingEntity entity, DamageSource source, float healthBefore, float healthAfter, boolean damaged) {
 		if (!damaged || entity == null || source == null) {
 			return;
 		}
 		if (source.getAttacker() instanceof ProjectileEntity || source.getSource() instanceof ProjectileEntity) {
 			entity.timeUntilRegen = 0;
+		}
+		if (entity instanceof ServerPlayerEntity victim) {
+			var attacker = resolvePlayerAttacker(source);
+			double actualDamage = Math.max(0.0D, (double) healthBefore - (double) healthAfter);
+			if (attacker != null && actualDamage > 0.0D) {
+				recordResolvedPlayerDamage(attacker.getUuid(), attacker.getName().getString(), victim.getUuid(), actualDamage);
+			}
 		}
 	}
 
@@ -274,6 +304,11 @@ public class InGameRuleService {
 			return true;
 		}
 		if (pendingSpectators.contains(player.getUuid())) {
+			return false;
+		}
+		if (shouldPreventHoglinDeath(state.getCurrentUnitId(), HoglinUnit.isZoglinState(state))) {
+			player.setHealth(HoglinUnit.healthAfterLastStand(player.getHealth(), player.getMaxHealth()));
+			HoglinUnit.enterZoglinState(player, state, matchManager.getServerTicks());
 			return false;
 		}
 		if (unitHookService != null) {
@@ -336,19 +371,48 @@ public class InGameRuleService {
 	}
 
 	public void recordKillAndDeath(UUID victimId, String victimName, UUID killerId, String killerName) {
+		var victimState = matchManager.getPlayerState(victimId);
 		statsRepository.addDeath(victimId, victimName, 1);
+		if (serverStatsRepository != null && victimState.getCurrentUnitId() != null) {
+			serverStatsRepository.addUnitDeath(victimState.getCurrentUnitId(), 1);
+		}
 		pendingSpectators.add(victimId);
 		if (killerId != null && killerName != null) {
-			var victimState = matchManager.getPlayerState(victimId);
 			var killerState = matchManager.getPlayerState(killerId);
 			if (victimState.getTeamId() != null && killerState.getTeamId() != null && victimState.getTeamId() != killerState.getTeamId()) {
 				statsRepository.addKill(killerId, killerName, 1);
+				if (serverStatsRepository != null && killerState.getCurrentUnitId() != null) {
+					serverStatsRepository.addUnitKill(killerState.getCurrentUnitId(), 1);
+				}
+				awardAssists(victimId, killerId);
 				if (killerState.isUnit() && killerState.getCurrentUnitId() != null) {
 					killerState.addMatchKill(1);
 				}
 				rewardKillCurrency(killerId, killerName, killerState);
 			}
+		} else {
+			awardAssists(victimId, null);
 		}
+		recentDamageTicksByVictim.remove(victimId);
+	}
+
+	void recordResolvedPlayerDamage(UUID attackerId, String attackerName, UUID victimId, double actualDamage) {
+		if (attackerId == null || victimId == null || actualDamage <= 0.0D) {
+			return;
+		}
+		var attackerState = matchManager.getPlayerState(attackerId);
+		var victimState = matchManager.getPlayerState(victimId);
+		if (attackerState.getTeamId() == null
+			|| victimState.getTeamId() == null
+			|| attackerState.getTeamId() == victimState.getTeamId()
+			|| attackerState.getRoleType() == RoleType.SPECTATOR
+			|| victimState.getRoleType() == RoleType.SPECTATOR) {
+			return;
+		}
+		statsRepository.addDamageDealt(attackerId, attackerName, actualDamage);
+		recentDamageTicksByVictim
+			.computeIfAbsent(victimId, ignored -> new HashMap<>())
+			.put(attackerId, matchManager.getServerTicks());
 	}
 
 	public boolean shouldBlockClosedLane(PlayerMatchState state, LaneId laneId) {
@@ -570,6 +634,64 @@ public class InGameRuleService {
 			&& victimState.getTeamId() == attackerTeamId;
 	}
 
+	static boolean shouldApplyAttackEffects(int timeUntilRegen) {
+		return timeUntilRegen <= 10;
+	}
+
+	public static float adjustLongRangeProjectileDamage(LivingEntity victim, DamageSource source, float amount) {
+		if (amount <= 0.0F || !isLongRangeProjectileDamage(victim, source)) {
+			return amount;
+		}
+		return amount * longRangeProjectileDamageMultiplier();
+	}
+
+	static boolean isLongRangeProjectileDamage(LivingEntity victim, DamageSource source) {
+		if (victim == null || source == null) {
+			return false;
+		}
+		var projectile = resolveProjectileDamageEntity(source);
+		if (projectile == null) {
+			return false;
+		}
+		var origin = resolveProjectileDamageOrigin(source, projectile);
+		return origin != null && origin.squaredDistanceTo(victim) >= longRangeProjectileDistanceThreshold() * longRangeProjectileDistanceThreshold();
+	}
+
+	private static ProjectileEntity resolveProjectileDamageEntity(DamageSource source) {
+		if (source == null) {
+			return null;
+		}
+		if (source.getSource() instanceof ProjectileEntity projectile) {
+			return projectile;
+		}
+		if (source.getAttacker() instanceof ProjectileEntity projectile) {
+			return projectile;
+		}
+		return null;
+	}
+
+	private static net.minecraft.entity.Entity resolveProjectileDamageOrigin(DamageSource source, ProjectileEntity projectile) {
+		if (projectile != null && projectile.getOwner() != null) {
+			return projectile.getOwner();
+		}
+		if (source != null && source.getAttacker() != null) {
+			return source.getAttacker();
+		}
+		return projectile;
+	}
+
+	private static double longRangeProjectileDistanceThreshold() {
+		return 32.0D;
+	}
+
+	private static float longRangeProjectileDamageMultiplier() {
+		return 0.5F;
+	}
+
+	static boolean shouldPreventHoglinDeath(String unitId, boolean zoglinState) {
+		return "hoglin".equals(unitId) && !zoglinState;
+	}
+
 	private void notifyDamagedHook(ServerPlayerEntity victim, DamageSource source, float amount) {
 		var context = createContext(victim);
 		if (context != null) {
@@ -656,6 +778,42 @@ public class InGameRuleService {
 	private TextConfigFile textConfig() {
 		var mod = karn.minecraftsnap.MinecraftSnap.getInstance();
 		return mod == null ? new TextConfigFile() : mod.getTextConfig();
+	}
+
+	private void awardAssists(UUID victimId, UUID killerId) {
+		var contributors = recentDamageTicksByVictim.get(victimId);
+		if (contributors == null || contributors.isEmpty()) {
+			return;
+		}
+		var victimState = matchManager.getPlayerState(victimId);
+		long cutoff = matchManager.getServerTicks() - ASSIST_WINDOW_TICKS;
+		for (var entry : contributors.entrySet()) {
+			var assisterId = entry.getKey();
+			if (assisterId == null || assisterId.equals(killerId) || entry.getValue() < cutoff) {
+				continue;
+			}
+			var assisterState = matchManager.getPlayerState(assisterId);
+			if (assisterState.getTeamId() == null
+				|| victimState.getTeamId() == null
+				|| assisterState.getTeamId() == victimState.getTeamId()) {
+				continue;
+			}
+			statsRepository.addAssist(assisterId, resolvePlayerName(assisterId), 1);
+		}
+	}
+
+	private String resolvePlayerName(UUID playerId) {
+		if (playerId == null) {
+			return "";
+		}
+		var server = matchManager.getServer();
+		if (server != null) {
+			var player = server.getPlayerManager().getPlayer(playerId);
+			if (player != null) {
+				return player.getName().getString();
+			}
+		}
+		return statsRepository.getLastKnownName(playerId, playerId.toString());
 	}
 
 }
