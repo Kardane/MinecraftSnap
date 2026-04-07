@@ -78,8 +78,7 @@ Minecraft **1.21.8 Fabric 서버 전용** 미니게임 모드 템플릿.
 | fabric-permissions-api | 0.4.0 | `me.lucko:fabric-permissions-api` |
 | RGBMapUtils | `6b89c1177972c96fc01f1186d13fa9b1bd4681a7` | `com.github.biryeongtrain:RGBMapUtils` |
 | DialogUtils | v1.7.2-mc1.21.8 | `com.github.Kardane:DialogUtils` |
-| NBTtooltips | vendor(includeBuild) | `com.github.Uni0305:NBTtooltips` |
-| DisguiseLib | vendor(includeBuild) | `com.github.Kardane:DisguiseLib` |
+| DisguiseLib | `v1.21.8.4` (`17d8f670fb187824f476ddf855661580f0283bf9`) | `libs/disguiselib-v1.21.8.4.jar` |
 
 ## 4. 프로젝트 구조
 
@@ -236,7 +235,7 @@ public static Text renderHudText(ServerPlayerEntity player) {
 
 1. `repositories`에 저장소 추가 (필요한 경우만)
 2. `dependencies`에 `modImplementation`/`include(...)`/`compileOnly` 중 목적에 맞게 추가
-3. 로컬 소스 의존이면 `vendor/` 클론 + `settings.gradle`의 `includeBuild`/`dependencySubstitution` 적용
+3. 직접 관리하는 로컬 JAR 의존성은 `libs/`에 두고 버전을 파일명으로 고정
 4. 버전 문자열은 `gradle.properties`로 분리
 5. `fabric.mod.json`의 `depends`/`suggests` 정리
 

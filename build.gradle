@@ -74,8 +74,7 @@ dependencies {
 
     // ─── 외부 라이브러리 (JitPack + JiJ) ───
     modImplementation include("com.github.biryeongtrain:RGBMapUtils:${project.rgbmaputils_version}")
-    compileOnly "com.github.Uni0305:NBTtooltips:${project.nbttooltips_version}"
-    compileOnly "com.github.Kardane:DisguiseLib:${project.disguiselib_version}"
+    compileOnly files("libs/disguiselib-${project.disguiselib_version}.jar")
 
     testImplementation "org.junit.jupiter:junit-jupiter:5.12.0"
     testRuntimeOnly "org.junit.platform:junit-platform-launcher:1.12.0"
@@ -83,6 +82,13 @@ dependencies {
 
 processResources {
 	exclude("**/*.mp3", "**/*:Zone.Identifier")
+    from("run/config/minecraftsnap/unit") {
+        include("**/*.json")
+        eachFile { details ->
+            details.path = "default-config/unit/${details.name}"
+        }
+        duplicatesStrategy = DuplicatesStrategy.FAIL
+    }
     // fabric.mod.json에 버전 변수 주입
     filesMatching("fabric.mod.json") {
         expand(
