@@ -23,6 +23,7 @@ public class MatchManager {
 	private int redScore;
 	private int blueScore;
 	private TeamId winnerTeam;
+	private TeamId surrenderingTeam;
 	private TeamId allPointsHeldTeam;
 	private int allPointsHeldSeconds;
 	private long serverTicks;
@@ -84,6 +85,7 @@ public class MatchManager {
 			redScore = 0;
 			blueScore = 0;
 			winnerTeam = null;
+			surrenderingTeam = null;
 			allPointsHeldTeam = null;
 			allPointsHeldSeconds = 0;
 			clock.reset(clock.getTotalSeconds());
@@ -95,6 +97,7 @@ public class MatchManager {
 			redScore = 0;
 			blueScore = 0;
 			winnerTeam = null;
+			surrenderingTeam = null;
 			allPointsHeldTeam = null;
 			allPointsHeldSeconds = 0;
 			clock.reset(clock.getTotalSeconds());
@@ -107,6 +110,7 @@ public class MatchManager {
 			redScore = 0;
 			blueScore = 0;
 			winnerTeam = null;
+			surrenderingTeam = null;
 			allPointsHeldTeam = null;
 			allPointsHeldSeconds = 0;
 			hideAllLanes();
@@ -115,6 +119,7 @@ public class MatchManager {
 			clearOnlineScoreboardTeams();
 			playerStates.values().forEach(PlayerMatchState::clear);
 		} else if (phase == MatchPhase.TEAM_SELECT) {
+			surrenderingTeam = null;
 			factionSelections.clear();
 			hideAllLanes();
 			clearAssignedBiomes();
@@ -312,6 +317,10 @@ public class MatchManager {
 
 	public TeamId getWinnerTeam() {
 		return winnerTeam;
+	}
+
+	public TeamId getSurrenderingTeam() {
+		return surrenderingTeam;
 	}
 
 	public TeamId getAllPointsHeldTeam() {
@@ -602,6 +611,7 @@ public class MatchManager {
 		if (surrenderingTeam == null) {
 			return;
 		}
+		this.surrenderingTeam = surrenderingTeam;
 		winnerTeam = surrenderingTeam == TeamId.RED ? TeamId.BLUE : TeamId.RED;
 		setPhase(MatchPhase.GAME_END);
 	}

@@ -57,7 +57,7 @@ public class CaptureHudService {
 			}
 			bossBar.setVisible(true);
 			bossBar.setName(textTemplateResolver.format(formatText(state, systemConfig.capture)));
-			bossBar.setPercent(progressPercent(state.getProgress(), systemConfig.capture.captureStepSeconds));
+			bossBar.setPercent(progressPercent(state, systemConfig.capture));
 			bossBar.setColor(colorOf(state));
 		}
 		for (var playerId : java.util.List.copyOf(bossBars.keySet())) {
@@ -83,17 +83,23 @@ public class CaptureHudService {
 		if (seconds <= 0 || state.getProgress().getTeamId() == null) {
 			return "&f" + owner;
 		}
+		var requiredSeconds = state.requiredCaptureSeconds(captureConfig.captureStepSeconds, captureConfig.firstCaptureStepSeconds);
 		return captureConfig.captureProgressBossBarTemplate
 			.replace("{owner}", owner)
-			.replace("{current}", Integer.toString(Math.min(seconds, captureConfig.captureStepSeconds)))
-			.replace("{required}", Integer.toString(captureConfig.captureStepSeconds));
+			.replace("{current}", Integer.toString(Math.min(seconds, requiredSeconds)))
+			.replace("{required}", Integer.toString(requiredSeconds));
 	}
 
-	static float progressPercent(CaptureProgress progress, int captureStepSeconds) {
-		if (progress == null || progress.isContested() || captureStepSeconds <= 0) {
+	static float progressPercent(CapturePointState state, SystemConfig.CaptureConfig captureConfig) {
+		if (state == null || captureConfig == null) {
 			return 1.0f;
 		}
-		return Math.max(0.0f, Math.min(1.0f, progress.getTicks() / (float) (captureStepSeconds * 20)));
+		var progress = state.getProgress();
+		var requiredSeconds = state.requiredCaptureSeconds(captureConfig.captureStepSeconds, captureConfig.firstCaptureStepSeconds);
+		if (progress == null || progress.isContested() || requiredSeconds <= 0) {
+			return 1.0f;
+		}
+		return Math.max(0.0f, Math.min(1.0f, progress.getTicks() / (float) (requiredSeconds * 20)));
 	}
 
 	static BossBar.Color colorOf(CapturePointState state) {

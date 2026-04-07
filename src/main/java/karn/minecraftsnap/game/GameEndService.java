@@ -5,7 +5,7 @@ import karn.minecraftsnap.util.TextTemplateResolver;
 
 import java.util.Map;
 import java.util.function.BiConsumer;
-import java.util.function.Consumer;
+import java.util.function.BooleanSupplier;
 import java.util.function.IntConsumer;
 
 public class GameEndService {
@@ -14,11 +14,13 @@ public class GameEndService {
 	public static final int TITLE_FADE_OUT_TICKS = 0;
 	private final MatchManager matchManager;
 	private final TextTemplateResolver textTemplateResolver;
-	private final Consumer<String> titleSender;
+	private final BiConsumer<String, String> titleSender;
 	private final BiConsumer<TeamId, Integer> winnerGlowApplier;
 	private final Runnable playerAttributeResetter;
+	private final Runnable laneEntityCleanupAction;
 	private final Runnable glowClearer;
 	private final IntConsumer tickRateController;
+	private final BooleanSupplier shouldApplyRewardAction;
 	private final Runnable rewardAction;
 	private final Runnable lobbyReturnAction;
 	private final Runnable biomeRestoreAction;
@@ -27,11 +29,13 @@ public class GameEndService {
 	public GameEndService(
 		MatchManager matchManager,
 		TextTemplateResolver textTemplateResolver,
-		Consumer<String> titleSender,
+		BiConsumer<String, String> titleSender,
 		BiConsumer<TeamId, Integer> winnerGlowApplier,
 		Runnable playerAttributeResetter,
+		Runnable laneEntityCleanupAction,
 		Runnable glowClearer,
 		IntConsumer tickRateController,
+		BooleanSupplier shouldApplyRewardAction,
 		Runnable rewardAction,
 		Runnable lobbyReturnAction,
 		Runnable biomeRestoreAction
@@ -41,8 +45,10 @@ public class GameEndService {
 		this.titleSender = titleSender;
 		this.winnerGlowApplier = winnerGlowApplier;
 		this.playerAttributeResetter = playerAttributeResetter;
+		this.laneEntityCleanupAction = laneEntityCleanupAction;
 		this.glowClearer = glowClearer;
 		this.tickRateController = tickRateController;
+		this.shouldApplyRewardAction = shouldApplyRewardAction;
 		this.rewardAction = rewardAction;
 		this.lobbyReturnAction = lobbyReturnAction;
 		this.biomeRestoreAction = biomeRestoreAction;
@@ -57,11 +63,14 @@ public class GameEndService {
 		if (!active) {
 			active = true;
 			announce(systemConfig.gameEnd);
-			rewardAction.run();
+			if (shouldApplyRewardAction.getAsBoolean()) {
+				rewardAction.run();
+			}
 			if (matchManager.getWinnerTeam() != null) {
 				winnerGlowApplier.accept(matchManager.getWinnerTeam(), systemConfig.gameEnd.winnerGlowSeconds);
 			}
 			playerAttributeResetter.run();
+			laneEntityCleanupAction.run();
 			tickRateController.accept(systemConfig.gameEnd.finalTickRate);
 		}
 
@@ -77,11 +86,14 @@ public class GameEndService {
 	}
 
 	private void announce(SystemConfig.GameEndConfig config) {
+		var subtitle = config.scoreSubtitleTemplate
+			.replace("{red_score}", Integer.toString(matchManager.getRedScore()))
+			.replace("{blue_score}", Integer.toString(matchManager.getBlueScore()));
 		if (matchManager.getWinnerTeam() == null) {
-			titleSender.accept(config.drawTitleTemplate);
+			titleSender.accept(config.drawTitleTemplate, subtitle);
 			return;
 		}
 
-		titleSender.accept(config.titleTemplate.replace("{winner}", matchManager.getWinnerTeam().getDisplayName()));
+		titleSender.accept(config.titleTemplate.replace("{winner}", matchManager.getWinnerTeam().getDisplayName()), subtitle);
 	}
 }

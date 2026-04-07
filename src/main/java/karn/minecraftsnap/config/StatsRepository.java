@@ -164,6 +164,51 @@ public class StatsRepository {
 		dirty = true;
 	}
 
+	public void addAdvanceCount(UUID playerId, String name, int amount) {
+		if (amount <= 0) {
+			return;
+		}
+		var stats = getOrCreate(playerId, name);
+		stats.advanceCount += amount;
+		dirty = true;
+	}
+
+	public void addAssist(UUID playerId, String name, int amount) {
+		if (amount <= 0) {
+			return;
+		}
+		var stats = getOrCreate(playerId, name);
+		stats.assists += amount;
+		dirty = true;
+	}
+
+	public void addPlayTimeSeconds(UUID playerId, String name, int amount) {
+		if (amount <= 0) {
+			return;
+		}
+		var stats = getOrCreate(playerId, name);
+		stats.playTimeSeconds += amount;
+		dirty = true;
+	}
+
+	public void addDamageDealt(UUID playerId, String name, double amount) {
+		if (amount <= 0.0D) {
+			return;
+		}
+		var stats = getOrCreate(playerId, name);
+		stats.totalDamageDealt += amount;
+		dirty = true;
+	}
+
+	public void addHealingDone(UUID playerId, String name, double amount) {
+		if (amount <= 0.0D) {
+			return;
+		}
+		var stats = getOrCreate(playerId, name);
+		stats.totalHealingDone += amount;
+		dirty = true;
+	}
+
 	public List<PlayerStatsEntry> allEntries() {
 		return statsFile.players.entrySet().stream()
 			.map(entry -> new PlayerStatsEntry(UUID.fromString(entry.getKey()), entry.getValue()))

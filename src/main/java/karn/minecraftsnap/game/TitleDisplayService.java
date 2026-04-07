@@ -7,6 +7,7 @@ import net.minecraft.network.packet.s2c.play.SubtitleS2CPacket;
 import net.minecraft.network.packet.s2c.play.TitleFadeS2CPacket;
 import net.minecraft.network.packet.s2c.play.TitleS2CPacket;
 import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.text.Text;
 
 /**
@@ -22,10 +23,17 @@ public class TitleDisplayService {
 	}
 
 	public void showGameTitle(MinecraftServer server, String message) {
+		showGameTitle(server, message, "");
+	}
+
+	public void showGameTitle(MinecraftServer server, String message, String subtitleMessage) {
 		if (server == null) {
 			return;
 		}
 		var title = textTemplateResolver.format(message);
+		var subtitle = subtitleMessage == null || subtitleMessage.isBlank()
+			? Text.empty()
+			: textTemplateResolver.format(subtitleMessage);
 		for (var player : server.getPlayerManager().getPlayerList()) {
 			player.networkHandler.sendPacket(new ClearTitleS2CPacket(false));
 			player.networkHandler.sendPacket(new TitleFadeS2CPacket(
@@ -34,7 +42,7 @@ public class TitleDisplayService {
 				GameEndService.TITLE_FADE_OUT_TICKS
 			));
 			player.networkHandler.sendPacket(new TitleS2CPacket(title));
-			player.networkHandler.sendPacket(new SubtitleS2CPacket(Text.empty()));
+			player.networkHandler.sendPacket(new SubtitleS2CPacket(subtitle));
 		}
 	}
 
@@ -65,5 +73,17 @@ public class TitleDisplayService {
 			player.networkHandler.sendPacket(new TitleS2CPacket(Text.empty()));
 			player.networkHandler.sendPacket(new SubtitleS2CPacket(subtitle));
 		}
+	}
+
+	public void showPersonalTitle(ServerPlayerEntity player, String titleMessage, String subtitleMessage) {
+		if (player == null) {
+			return;
+		}
+		var title = textTemplateResolver.format(titleMessage);
+		var subtitle = textTemplateResolver.format(subtitleMessage);
+		player.networkHandler.sendPacket(new ClearTitleS2CPacket(false));
+		player.networkHandler.sendPacket(new TitleFadeS2CPacket(0, 40, 10));
+		player.networkHandler.sendPacket(new TitleS2CPacket(title));
+		player.networkHandler.sendPacket(new SubtitleS2CPacket(subtitle));
 	}
 }

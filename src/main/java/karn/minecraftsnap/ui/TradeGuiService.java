@@ -15,9 +15,13 @@ import karn.minecraftsnap.game.VillagerEnchantService;
 import karn.minecraftsnap.util.TextTemplateResolver;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.Items;
+import net.minecraft.particle.ParticleTypes;
 import net.minecraft.registry.Registries;
 import net.minecraft.screen.ScreenHandlerType;
 import net.minecraft.server.network.ServerPlayerEntity;
+import net.minecraft.server.world.ServerWorld;
+import net.minecraft.sound.SoundCategory;
+import net.minecraft.sound.SoundEvents;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -72,11 +76,11 @@ public class TradeGuiService {
 	}
 
 	public void open(ServerPlayerEntity player, PlayerMatchState state) {
-		openInternal(player, state, state.getFactionId() == FactionId.NETHER ? FactionId.NETHER : FactionId.VILLAGER);
+		openInternal(player, state, resolveSupportedFaction(state == null ? null : state.getFactionId()));
 	}
 
 	public void open(ServerPlayerEntity player, PlayerMatchState state, FactionId factionId) {
-		openInternal(player, state, factionId == FactionId.NETHER ? FactionId.NETHER : FactionId.VILLAGER);
+		openInternal(player, state, resolveSupportedFaction(factionId));
 	}
 
 	public void openVillagerShop(ServerPlayerEntity player, PlayerMatchState state) {
@@ -89,6 +93,16 @@ public class TradeGuiService {
 
 	static List<Integer> merchandiseSlots() {
 		return MERCHANDISE_SLOTS;
+	}
+
+	static FactionId resolveSupportedFaction(FactionId factionId) {
+		if (factionId == null) {
+			return null;
+		}
+		return switch (factionId) {
+			case VILLAGER, NETHER -> factionId;
+			default -> null;
+		};
 	}
 
 	PurchaseResult completePurchase(
@@ -122,6 +136,9 @@ public class TradeGuiService {
 	}
 
 	private void openInternal(ServerPlayerEntity player, PlayerMatchState state, FactionId factionId) {
+		if (player == null || state == null || factionId == null) {
+			return;
+		}
 		var gui = new SimpleGui(ScreenHandlerType.GENERIC_9X3, player, false);
 		gui.setTitle(textTemplateResolver.formatUi(resolveTitle(factionId)));
 		renderMerchandise(gui, player, state, factionId);
@@ -130,7 +147,9 @@ public class TradeGuiService {
 
 	private void renderMerchandise(SimpleGui gui, ServerPlayerEntity player, PlayerMatchState state, FactionId factionId) {
 		var config = shopConfigProvider == null ? null : shopConfigProvider.apply(factionId);
-		var entries = config == null ? List.<ShopEntry>of() : config.entries;
+		var entries = config == null
+			? List.<ShopEntry>of()
+			: config.entries.stream().filter(entry -> supportsEntryType(factionId, entry)).toList();
 		for (int index = 0; index < Math.min(entries.size(), MERCHANDISE_SLOTS.size()); index++) {
 			var entry = entries.get(index);
 			var displayStack = buildDisplayStack(player, entry);
@@ -148,6 +167,9 @@ public class TradeGuiService {
 						case SUCCESS -> {
 							if (uiSoundService != null) {
 								uiSoundService.playUiConfirm(player);
+							}
+							if (villagerEnchantService.isEnchantEntry(entry)) {
+								playEnchantUpgradeFeedback(player);
 							}
 							player.sendMessage(textTemplateResolver.format(textConfig().tradePurchaseSuccessMessage), false);
 						}
@@ -226,6 +248,9 @@ public class TradeGuiService {
 	}
 
 	private PurchaseResult purchase(ServerPlayerEntity player, PlayerMatchState state, FactionId factionId, ShopEntry entry) {
+		if (!supportsEntryType(factionId, entry)) {
+			return PurchaseResult.INVALID_ENTRY;
+		}
 		if (villagerEnchantService.isEnchantEntry(entry)) {
 			return purchaseEnchant(player, state, factionId, entry);
 		}
@@ -265,7 +290,7 @@ public class TradeGuiService {
 		if (villagerEnchantService.isMaxLevel(state, entry)) {
 			return PurchaseResult.MAX_LEVEL;
 		}
-		if (!villagerEnchantService.hasEligibleEquipment(player, entry)) {
+		if (!villagerEnchantService.hasEligibleEquipment(player, state, entry)) {
 			return PurchaseResult.NO_ELIGIBLE_EQUIPMENT;
 		}
 		var price = villagerEnchantService.priceForNextLevel(state, entry);
@@ -289,6 +314,19 @@ public class TradeGuiService {
 		return PurchaseResult.SUCCESS;
 	}
 
+	boolean supportsEntryType(FactionId factionId, ShopEntry entry) {
+		if (factionId == null || entry == null) {
+			return false;
+		}
+		return switch (factionId) {
+			case VILLAGER -> villagerEnchantService.isEnchantEntry(entry);
+			case NETHER -> "item".equalsIgnoreCase(entry.type)
+				&& entry.item != null
+				&& !entry.item.isEmpty();
+			default -> false;
+		};
+	}
+
 	private ItemStack buildDisplayStack(ServerPlayerEntity player, ShopEntry entry) {
 		if (entry == null || entry.item == null || entry.item.isEmpty()) {
 			return ItemStack.EMPTY;
@@ -297,6 +335,16 @@ public class TradeGuiService {
 			return unitLoadoutService.createShopItem(player, entry.item, textTemplateResolver);
 		} catch (IllegalArgumentException exception) {
 			return ItemStack.EMPTY;
+		}
+	}
+
+	private void playEnchantUpgradeFeedback(ServerPlayerEntity player) {
+		if (player == null) {
+			return;
+		}
+		player.getWorld().playSound(null, player.getBlockPos(), SoundEvents.BLOCK_ENCHANTMENT_TABLE_USE, SoundCategory.PLAYERS, 0.9f, 1.1f);
+		if (player.getWorld() instanceof ServerWorld serverWorld) {
+			serverWorld.spawnParticles(ParticleTypes.ENCHANT, player.getX(), player.getBodyY(0.75D), player.getZ(), 18, 0.35D, 0.45D, 0.35D, 0.0D);
 		}
 	}
 

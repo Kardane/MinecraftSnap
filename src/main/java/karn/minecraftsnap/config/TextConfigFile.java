@@ -50,20 +50,25 @@ public class TextConfigFile {
 	public String advanceReadyMessage = "&a전직 가능 상태가 됨";
 	public String gameEndTitleTemplate = "&6승리: &f{winner}";
 	public String gameEndDrawTitleTemplate = "&e무승부";
+	public String gameEndScoreSubtitleTemplate = "&c레드 &f{red_score} &8| &9블루 &f{blue_score}";
+	public String gameEndLadderDeltaTitleTemplate = "{delta} SP";
 	public String captainSpawnGuiTitle = "&6유닛 소환";
 	public String captainSpawnNoFactionMessage = "&c팩션이 정해지지 않았음";
 	public String captainSpawnBlockedLaneMessage = "&c{lane}은 아직 공개되지 않아 소환 불가";
 	public String gameStartCountdownTitle = "&e게임 시작";
 	public String gameStartCountdownSubtitleTemplate = "&f{seconds}초";
 	public String victoryCountdownSubtitleTemplate = "&e{team} 팀 승리 임박 &7({seconds}초)";
+	public String gameEndLadderDeltaSubtitleTemplate = "({previous}) -> ({current})";
 	public String customDeathMessage = "&8[사망] &f{victim} &7사망";
 	public String customDeathMessageWithAttacker = "&8[사망] &f{victim} &7사망 &8(공격자: &f{attacker}&8)";
 	public String autoStartEnabledMessage = "&a팀 선택 자동 시작: &f켜짐";
 	public String autoStartDisabledMessage = "&c팀 선택 자동 시작: &f꺼짐";
 	public String mainLobbyTitle = "&0메인 UI";
 	public String mainLobbyCaptainPreferenceName = "&6사령관 선호";
-	public List<String> mainLobbyCaptainPreferenceLore = List.of("&7사령관 우선 배정 설정", "{state}");
-	public String mainLobbyCaptainPreferenceEnabledLore = "&a현재 활성화됨";
+	public List<String> mainLobbyCaptainPreferenceLore = List.of("&7클릭할 때마다 선호 상태가 변경됩니다.", "{state}");
+	public String mainLobbyCaptainPreferenceEnabledLore = "&a현재 선호";
+	public String mainLobbyCaptainPreferenceNeutralLore = "&e현재 선호 없음";
+	public String mainLobbyCaptainPreferenceAvoidedLore = "&c현재 비선호";
 	public String mainLobbyCaptainPreferenceDisabledLore = "&8현재 비활성화됨";
 	public String mainLobbyStatsName = "&e개인 통계";
 	public List<String> mainLobbyStatsLore = List.of(
@@ -72,7 +77,11 @@ public class TextConfigFile {
 		"&7플레이 횟수: &f{games}",
 		"&7사령관 횟수: &f{captain_games}",
 		"&7평균 점령 포인트: &f{average_capture}",
-		"&7K/D: &f{kd} &8({kills}/{deaths})"
+		"&7K/D: &f{kd} &8({kills}/{deaths})",
+		"&7어시스트: &f{assists} &8/ &7전직: &f{advances}",
+		"&7총 피해량: &c{damage}",
+		"&7총 치유량: &a{healing}",
+		"&7플레이 시간: &f{play_time}"
 	);
 	public String mainLobbyRulesName = "&e게임 설명";
 	public List<String> mainLobbyRulesLore = List.of("&7클릭해서 게임 규칙 확인");
@@ -202,7 +211,7 @@ public class TextConfigFile {
 	public String captainSkillItemUseLore = "&7우클릭으로 팩션 전용 사령관 능력 발동";
 	public String captainSkillItemFactionLoreTemplate = "&8현재 팩션: &f{faction}";
 	public String captainSkillCooldownMessage = "&c사령관 스킬 쿨다운: &f{seconds}초";
-	public String captainSkillActivatedMessage = "&d사령관 스킬 발동";
+	public String captainSkillActivatedMessage = "&d사령관 스킬 &7- &f{captain}&7: {detail}";
 	public String captainSkillInsufficientManaMessage = "&c사령관 마나가 부족함";
 	public String captainVillagerSuccessMessage = "&a습격 소집 발동: &f{lane}";
 	public String captainVillagerNoTargetMessage = "&c소집할 다른 라인 아군 유닛이 없음";
@@ -212,7 +221,7 @@ public class TextConfigFile {
 	public String captainMonsterWeatherThunderName = "천둥";
 	public String captainMonsterWeatherClearLore = "&7다음 변경 전까지 현재 날씨 유지";
 	public String captainMonsterWeatherRainLore = "&72분 유지, 5초마다 아군 신속 I";
-	public String captainMonsterWeatherThunderLore = "&760초 유지, 3초마다 회복/신속, 낮은 확률 번개";
+	public String captainMonsterWeatherThunderLore = "&730초 유지, 3초마다 회복/신속, 5초마다 번개";
 	public String captainMonsterWeatherRemainingLoreTemplate = "&7남은 시간: &f{seconds}초";
 	public String captainMonsterWeatherPersistentLore = "&7다음 변경 전까지 유지";
 	public String captainMonsterWeatherActiveLore = "&a현재 활성화됨";
@@ -267,6 +276,11 @@ public class TextConfigFile {
 	public String commandStatLadderTemplate = "&f래더: &b{ladder} &8/ &f선호: &d{preference}";
 	public String commandStatCombatTemplate = "&f킬: &a{kills} &8/ &f데스: &c{deaths} &8/ &f점령: &6{captures}";
 	public String commandStatCurrencyTemplate = "&f에메랄드: &a{emeralds} &8/ &f금괴: &6{gold}";
+	public String commandStatActivityTemplate = "&f어시스트: &b{assists} &8/ &f전직: &d{advances} &8/ &f플레이 시간: &e{play_time}";
+	public String commandStatCombatTotalsTemplate = "&f총 피해량: &c{damage} &8/ &f총 치유량: &a{healing}";
+	public String commandServerStatTitleTemplate = "&6서버 통계";
+	public String commandServerStatFactionTemplate = "&f팩션 {faction}: &7경기 &f{games} &8/ &7승리 &a{wins} &8/ &7승률 &b{win_rate} &8/ &7사령관 스킬 &d{captain_skill_uses}";
+	public String commandServerStatUnitTemplate = "&f유닛 {unit}: &7픽 &f{picks} &8/ &7픽률 &b{pick_rate} &8/ &7킬 &a{kills} &8/ &7데스 &c{deaths}";
 	public String midMatchJoinAvailableMessage = "&7[&6!&7]&f /중참 명령어를 통해 진행중인 게임에 참여할 수 있습니다.";
 	public String midMatchJoinUnavailableMessage = "&c게임 진행 중에만 중도 참여할 수 있습니다";
 	public String midMatchJoinAlreadyJoinedMessage = "&c이미 진행 중인 게임에 참가 중입니다";
@@ -293,14 +307,22 @@ public class TextConfigFile {
 		factionSummaries.put("NETHER", java.util.List.of("&7네더 유닛을 사용합니다.", "&7유닛은 적을 처치하여 금괴를 얻고", "&7상점을 이용할 수 있습니다."));
 
 		captainSkillDescriptions.put("VILLAGER", java.util.List.of("&7다른 라인의 아군 유닛을 사령관이 있는 라인으로 소집합니다.", "&7유닛은 체력을 모두 회복하고, 재생, 신속, 성급함이 부여됩니다."));
-		captainSkillDescriptions.put("MONSTER", java.util.List.of("&7맑음 / 비 / 폭풍우 선택합니다.", "&7비와 폭풍우는 아군 유닛을 버프하며", "&7폭풍우는 적에게 낮은 확률로 피해를 입힙니다."));
-		captainSkillDescriptions.put("NETHER", java.util.List.of("&7가장 가까운 라인에 포탈을 생성합니다.", "&7해당 라인에 있는 아군은 힘을 얻고, 유닛 소환시 소모한 마나의 일부를 환급받습니다."));
+		captainSkillDescriptions.put("MONSTER", java.util.List.of("&7스킬 사용 시 즉시 폭풍우를 발생시킵니다.", "&730초 동안 3초마다 아군 유닛이 체력 1을 회복하고 신속 I를 얻습니다.", "&75초마다 하늘이 열린 적 유닛 위치에 번개를 소환합니다."));
+		captainSkillDescriptions.put("NETHER", java.util.List.of("&7가장 가까운 라인에 포탈을 생성합니다.", "&7사용 즉시 사령관 마나가 최대치로 회복됩니다.", "&7해당 라인에 있는 아군은 힘을 얻습니다.", "&7포탈이 열린 라인에 유닛을 소환하면 마나 1을 환급받습니다."));
 
 		unitDescriptions.put("villager", java.util.List.of("&7체력 3 회복", "&7기본 유지력 유닛"));
-		unitDescriptions.put("armorer_villager", java.util.List.of("&7방패와 흉갑 보유", "&7전선 유지용"));
-		unitDescriptions.put("vindicator", java.util.List.of("&7짧은 돌진 스킬", "&7근접 압박용"));
-		unitDescriptions.put("pillager", java.util.List.of("&73발 폭죽 지급", "&7원거리 견제용"));
+		unitDescriptions.put("snow_golem", java.util.List.of("&7차가운 바이옴에서 눈덩이가 추가 피해 0.5", "&7더운 지역에서는 지속 피해"));
+		unitDescriptions.put("iron_golem", java.util.List.of("&7높은 체력과 강한 넉백 저항", "&7전선 유지용"));
+		unitDescriptions.put("summoner", java.util.List.of("&7근처 아군 벡스 유무에 따라 소환 또는 송곳니 시전", "&7시전 시간 1.5초"));
+		unitDescriptions.put("witch", java.util.List.of("&7왼손 재료에 따라 주변 오라 부여", "&7가스트 눈물/설탕/화약/거미눈 지원 유닛"));
+		unitDescriptions.put("illusioner", java.util.List.of("&710초 은신", "&7시전 중 변장도 함께 투명화"));
+		unitDescriptions.put("vindicator", java.util.List.of("&7항상 공격 자세 유지", "&7근접 압박용"));
+		unitDescriptions.put("pillager", java.util.List.of("&7스킬 사용 시 쇠뇌에 폭죽 즉시 장전", "&7빠른 장전 레벨만큼 스킬 쿨다운 감소"));
 		unitDescriptions.put("zombie", java.util.List.of("&7사망 시 아군 사령관 소환 쿨 2초 감소"));
+		unitDescriptions.put("silverfish", java.util.List.of("&7공격 시 주변에 아군 실버피시 소환", "&7소환된 실버피시는 공격 대상을 추적", "&7소환된 실버피시는 체력 0.1"));
+		unitDescriptions.put("cave_spider", java.util.List.of("&7공격 시 독 부여", "&7기동형 근접 유닛"));
+		unitDescriptions.put("breeze", java.util.List.of("&7돌풍 기반 견제", "&7중거리 교란 유닛"));
+		unitDescriptions.put("guardian", java.util.List.of("&7물속에서 강화", "&7지속 견제형 유닛"));
 		unitDescriptions.put("skeleton", java.util.List.of("&74칸 내 적에게 피해 5와 넉백"));
 		unitDescriptions.put("slime", java.util.List.of("&7사망 시 사이즈 2 슬라임 3마리"));
 		unitDescriptions.put("creeper", java.util.List.of("&71초 뒤 자폭", "&7근접 폭발 특화"));
@@ -312,8 +334,11 @@ public class TextConfigFile {
 		unitDescriptions.put("giant_slime", java.util.List.of("&7사망 시 사이즈 4 슬라임 2마리"));
 		unitDescriptions.put("charged_creeper", java.util.List.of("&7천둥 조건 전직 결과"));
 		unitDescriptions.put("piglin", java.util.List.of("&750% 확률로 좀비 피글린 생성"));
-		unitDescriptions.put("zombified_piglin", java.util.List.of("&7주변 아군 강화"));
+		unitDescriptions.put("zombified_piglin", java.util.List.of("&7피격시 주변 소환 좀비 피글린이 공격자 추격", "&7낮은 확률로 주변 좀비 피글린 생성", "&7사망시 아군 사령관 마나 1 회복"));
 		unitDescriptions.put("blaze", java.util.List.of("&7작은 화염구 3연사"));
+		unitDescriptions.put("magma_cube", java.util.List.of("&7화염 공격과 넉백 저항", "&7근접 난전 특화"));
+		unitDescriptions.put("ghast", java.util.List.of("&7차징 후 화염구 발사", "&7장거리 포격 유닛"));
+		unitDescriptions.put("hoglin", java.util.List.of("&7치명상 시 체력 10 회복 후 조글린화", "&7조글린 상태에서는 초당 1 피해와 신속 II"));
 		unitDescriptions.put("enderman", java.util.List.of("&7스킬 사용 시 다음 라인 아군 소환 위치로 순간이동", "&7공격력 +8, 공격속도 -7"));
 		unitDescriptions.put("piglin_brute", java.util.List.of("&7자가 강화 폭발력"));
 	}
@@ -371,12 +396,15 @@ public class TextConfigFile {
 		advanceReadyMessage = value(advanceReadyMessage, defaults.advanceReadyMessage);
 		gameEndTitleTemplate = value(gameEndTitleTemplate, defaults.gameEndTitleTemplate);
 		gameEndDrawTitleTemplate = value(gameEndDrawTitleTemplate, defaults.gameEndDrawTitleTemplate);
+		gameEndScoreSubtitleTemplate = value(gameEndScoreSubtitleTemplate, defaults.gameEndScoreSubtitleTemplate);
+		gameEndLadderDeltaTitleTemplate = value(gameEndLadderDeltaTitleTemplate, defaults.gameEndLadderDeltaTitleTemplate);
 		captainSpawnGuiTitle = value(captainSpawnGuiTitle, defaults.captainSpawnGuiTitle);
 		captainSpawnNoFactionMessage = value(captainSpawnNoFactionMessage, defaults.captainSpawnNoFactionMessage);
 		captainSpawnBlockedLaneMessage = value(captainSpawnBlockedLaneMessage, defaults.captainSpawnBlockedLaneMessage);
 		gameStartCountdownTitle = value(gameStartCountdownTitle, defaults.gameStartCountdownTitle);
 		gameStartCountdownSubtitleTemplate = value(gameStartCountdownSubtitleTemplate, defaults.gameStartCountdownSubtitleTemplate);
 		victoryCountdownSubtitleTemplate = value(victoryCountdownSubtitleTemplate, defaults.victoryCountdownSubtitleTemplate);
+		gameEndLadderDeltaSubtitleTemplate = value(gameEndLadderDeltaSubtitleTemplate, defaults.gameEndLadderDeltaSubtitleTemplate);
 		customDeathMessage = value(customDeathMessage, defaults.customDeathMessage);
 		customDeathMessageWithAttacker = value(customDeathMessageWithAttacker, defaults.customDeathMessageWithAttacker);
 		autoStartEnabledMessage = value(autoStartEnabledMessage, defaults.autoStartEnabledMessage);
@@ -385,6 +413,8 @@ public class TextConfigFile {
 		mainLobbyCaptainPreferenceName = value(mainLobbyCaptainPreferenceName, defaults.mainLobbyCaptainPreferenceName);
 		mainLobbyCaptainPreferenceLore = listValue(mainLobbyCaptainPreferenceLore, defaults.mainLobbyCaptainPreferenceLore);
 		mainLobbyCaptainPreferenceEnabledLore = value(mainLobbyCaptainPreferenceEnabledLore, defaults.mainLobbyCaptainPreferenceEnabledLore);
+		mainLobbyCaptainPreferenceNeutralLore = value(mainLobbyCaptainPreferenceNeutralLore, defaults.mainLobbyCaptainPreferenceNeutralLore);
+		mainLobbyCaptainPreferenceAvoidedLore = value(mainLobbyCaptainPreferenceAvoidedLore, defaults.mainLobbyCaptainPreferenceAvoidedLore);
 		mainLobbyCaptainPreferenceDisabledLore = value(mainLobbyCaptainPreferenceDisabledLore, defaults.mainLobbyCaptainPreferenceDisabledLore);
 		mainLobbyStatsName = value(mainLobbyStatsName, defaults.mainLobbyStatsName);
 		mainLobbyStatsLore = listValue(mainLobbyStatsLore, defaults.mainLobbyStatsLore);
@@ -573,6 +603,11 @@ public class TextConfigFile {
 		commandStatLadderTemplate = value(commandStatLadderTemplate, defaults.commandStatLadderTemplate);
 		commandStatCombatTemplate = value(commandStatCombatTemplate, defaults.commandStatCombatTemplate);
 		commandStatCurrencyTemplate = value(commandStatCurrencyTemplate, defaults.commandStatCurrencyTemplate);
+		commandStatActivityTemplate = value(commandStatActivityTemplate, defaults.commandStatActivityTemplate);
+		commandStatCombatTotalsTemplate = value(commandStatCombatTotalsTemplate, defaults.commandStatCombatTotalsTemplate);
+		commandServerStatTitleTemplate = value(commandServerStatTitleTemplate, defaults.commandServerStatTitleTemplate);
+		commandServerStatFactionTemplate = value(commandServerStatFactionTemplate, defaults.commandServerStatFactionTemplate);
+		commandServerStatUnitTemplate = value(commandServerStatUnitTemplate, defaults.commandServerStatUnitTemplate);
 		midMatchJoinAvailableMessage = value(midMatchJoinAvailableMessage, defaults.midMatchJoinAvailableMessage);
 		midMatchJoinUnavailableMessage = value(midMatchJoinUnavailableMessage, defaults.midMatchJoinUnavailableMessage);
 		midMatchJoinAlreadyJoinedMessage = value(midMatchJoinAlreadyJoinedMessage, defaults.midMatchJoinAlreadyJoinedMessage);
@@ -638,7 +673,10 @@ public class TextConfigFile {
 		systemConfig.advance.readyMessage = advanceReadyMessage;
 		systemConfig.gameEnd.titleTemplate = gameEndTitleTemplate;
 		systemConfig.gameEnd.drawTitleTemplate = gameEndDrawTitleTemplate;
+		systemConfig.gameEnd.scoreSubtitleTemplate = gameEndScoreSubtitleTemplate;
 		systemConfig.gameEnd.victoryCountdownSubtitleTemplate = victoryCountdownSubtitleTemplate;
+		systemConfig.gameEnd.ladderDeltaTitleTemplate = gameEndLadderDeltaTitleTemplate;
+		systemConfig.gameEnd.ladderDeltaSubtitleTemplate = gameEndLadderDeltaSubtitleTemplate;
 		systemConfig.gameStart.captainSpawnGuiTitle = captainSpawnGuiTitle;
 		systemConfig.gameStart.captainSpawnNoFactionMessage = captainSpawnNoFactionMessage;
 		systemConfig.gameStart.captainSpawnBlockedLaneMessage = captainSpawnBlockedLaneMessage;

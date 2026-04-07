@@ -159,7 +159,7 @@ public class CaptainManaService {
 		if (baseAmount <= 0) {
 			return 0;
 		}
-		return captainFactions.get(captainId) == FactionId.NETHER ? baseAmount + 1 : baseAmount;
+		return baseAmount;
 	}
 
 	public static int recoverySecondsForTeamSize(int nonCaptainTeammates) {

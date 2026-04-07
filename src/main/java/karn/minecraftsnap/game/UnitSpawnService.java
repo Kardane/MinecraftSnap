@@ -8,6 +8,7 @@ import karn.minecraftsnap.integration.DisguiseSupport;
 import karn.minecraftsnap.util.TextTemplateResolver;
 import net.minecraft.entity.effect.StatusEffectInstance;
 import net.minecraft.entity.effect.StatusEffects;
+import net.minecraft.item.Items;
 import net.minecraft.particle.ParticleTypes;
 import net.minecraft.registry.RegistryKey;
 import net.minecraft.registry.RegistryKeys;
@@ -97,8 +98,8 @@ public class UnitSpawnService {
 		SystemConfig systemConfig,
 		TextTemplateResolver textTemplateResolver
 	) {
-		var captainState = matchManager.getPlayerState(captain.getUuid());
-		if (!captainState.isCaptain() || captainState.getTeamId() == null) {
+		var captainPlayerState = matchManager.getPlayerState(captain.getUuid());
+		if (!captainPlayerState.isCaptain() || captainPlayerState.getTeamId() == null) {
 			playDeny(captain);
 			return SpawnResult.error(textConfig().unitSpawnCaptainOnlyMessage);
 		}
@@ -108,17 +109,18 @@ public class UnitSpawnService {
 			playDeny(captain);
 			return SpawnResult.error(textConfig().unitSpawnUnknownUnitMessage);
 		}
-		if (captainState.getFactionId() != definition.factionId()) {
+		if (captainPlayerState.getFactionId() != definition.factionId()) {
 			playDeny(captain);
 			return SpawnResult.error(textConfig().unitSpawnWrongFactionMessage);
 		}
-		var laneId = nearestLaneForCaptain(captain, systemConfig);
+		var captainManaState = this.captainManaService.getOrCreate(captain.getUuid());
+		var laneId = resolveSpawnLane(captain, systemConfig);
 		if (!canSpawnOnLane(matchManager, laneId)) {
 			playDeny(captain);
 			return SpawnResult.error(textConfig().captainSpawnBlockedLaneMessage.replace("{lane}", laneLabel(laneId)));
 		}
 
-		var candidate = selectCandidate(unitId, matchManager, captainState.getTeamId());
+		var candidate = selectCandidate(unitId, matchManager, captainPlayerState.getTeamId());
 		if (candidate == null) {
 			playDeny(captain);
 			return SpawnResult.error(textConfig().unitSpawnNoCandidateMessage);
@@ -138,7 +140,7 @@ public class UnitSpawnService {
 		}
 
 		target.changeGameMode(GameMode.ADVENTURE);
-		teleport(target, systemConfig.world, safeUnitSpawn(systemConfig, captainState.getTeamId(), laneId));
+		teleport(target, systemConfig.world, safeUnitSpawn(systemConfig, captainPlayerState.getTeamId(), laneId));
 		var unitHookService = unitHookServiceSupplier.get();
 		if (unitHookService != null) {
 			unitHookService.assignUnit(target, definition, systemConfig);
@@ -154,10 +156,20 @@ public class UnitSpawnService {
 			.replace("{player}", target.getName().getString())
 			.replace("{unit}", definition.displayName())), false);
 		if (unitSpawnQueueService != null) {
-			unitSpawnQueueService.consume(captainState.getTeamId(), target.getUuid());
+			unitSpawnQueueService.consume(captainPlayerState.getTeamId(), target.getUuid());
+		}
+		var refundMana = portalManaRefundAmount(captainPlayerState.getFactionId(), captainManaState, laneId, matchManager.getServerTicks());
+		if (refundMana > 0) {
+			this.captainManaService.restoreMana(captain.getUuid(), refundMana);
+			captain.sendMessage(textTemplateResolver.format(textConfig().captainPortalRefundMessage.replace("{mana}", Integer.toString(refundMana))), false);
+		}
+		var mod = MinecraftSnap.getInstance();
+		if (mod != null) {
+			mod.getServerStatsRepository().recordUnitPick(definition.id());
 		}
 		playSuccess(captain);
 		playSuccess(target);
+		applyCaptainSpawnItemCooldown(captain, systemConfig);
 		return SpawnResult.success(target.getUuid(), definition.id());
 	}
 
@@ -344,6 +356,38 @@ public class UnitSpawnService {
 
 	static boolean canSpawnOnLane(MatchManager matchManager, LaneId laneId) {
 		return matchManager != null && laneId != null && matchManager.isLaneRevealed(laneId);
+	}
+
+	static LaneId resolveSpawnLane(ServerPlayerEntity captain, SystemConfig systemConfig) {
+		return nearestLaneForCaptain(captain, systemConfig);
+	}
+
+	static LaneId activeNetherPortalLane(FactionId captainFaction, CaptainState captainState, long serverTicks) {
+		if (captainFaction != FactionId.NETHER || captainState == null || captainState.getNetherPortalEndTick() <= serverTicks) {
+			return null;
+		}
+		return captainState.getNetherPortalLaneId();
+	}
+
+	static int portalManaRefundAmount(FactionId captainFaction, CaptainState captainState, LaneId spawnLaneId, long serverTicks) {
+		if (spawnLaneId == null) {
+			return 0;
+		}
+		var portalLane = activeNetherPortalLane(captainFaction, captainState, serverTicks);
+		if (portalLane != spawnLaneId) {
+			return 0;
+		}
+		return 1;
+	}
+
+	private void applyCaptainSpawnItemCooldown(ServerPlayerEntity captain, SystemConfig systemConfig) {
+		if (captain == null || systemConfig == null || systemConfig.gameStart == null) {
+			return;
+		}
+		var cooldownTicks = Math.max(0, systemConfig.gameStart.unitSpawnItemCooldownTicks);
+		if (cooldownTicks > 0) {
+			captain.getItemCooldownManager().set(Items.BELL.getDefaultStack(), cooldownTicks);
+		}
 	}
 
 	static SystemConfig.PositionConfig safeUnitSpawn(SystemConfig systemConfig, TeamId teamId, LaneId laneId) {

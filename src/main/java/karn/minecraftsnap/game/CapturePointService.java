@@ -61,9 +61,9 @@ public class CapturePointService {
 		}
 
 		var captureConfig = systemConfig.capture;
-		processLane(server, systemConfig, systemConfig.world, systemConfig.inGame.lane1Region, captureConfig.lane1, LaneId.LANE_1, captureConfig.captureStepSeconds, captureConfig.scoreIntervalTicks);
-		processLane(server, systemConfig, systemConfig.world, systemConfig.inGame.lane2Region, captureConfig.lane2, LaneId.LANE_2, captureConfig.captureStepSeconds, captureConfig.scoreIntervalTicks);
-		processLane(server, systemConfig, systemConfig.world, systemConfig.inGame.lane3Region, captureConfig.lane3, LaneId.LANE_3, captureConfig.captureStepSeconds, captureConfig.scoreIntervalTicks);
+		processLane(server, systemConfig, systemConfig.world, systemConfig.inGame.lane1Region, captureConfig.lane1, LaneId.LANE_1, captureConfig.captureStepSeconds, captureConfig.firstCaptureStepSeconds, captureConfig.scoreIntervalTicks);
+		processLane(server, systemConfig, systemConfig.world, systemConfig.inGame.lane2Region, captureConfig.lane2, LaneId.LANE_2, captureConfig.captureStepSeconds, captureConfig.firstCaptureStepSeconds, captureConfig.scoreIntervalTicks);
+		processLane(server, systemConfig, systemConfig.world, systemConfig.inGame.lane3Region, captureConfig.lane3, LaneId.LANE_3, captureConfig.captureStepSeconds, captureConfig.firstCaptureStepSeconds, captureConfig.scoreIntervalTicks);
 
 		if (matchManager.getServerTicks() % 20L == 0L) {
 			var heldBy = allPointsHeldBySingleTeam();
@@ -87,6 +87,7 @@ public class CapturePointService {
 		SystemConfig.CaptureRegionConfig pointConfig,
 		LaneId laneId,
 		int captureStepSeconds,
+		int firstCaptureStepSeconds,
 		int scoreIntervalTicks
 	) {
 		var state = states.get(laneId);
@@ -120,7 +121,7 @@ public class CapturePointService {
 		if (matchManager.getServerTicks() % 20L == 0L && isCaptureInProgress(state, occupyingTeam, contested)) {
 			playCaptureSound(occupants);
 		}
-		boolean captured = state.update(occupyingTeam, contested, captureStepSeconds);
+		boolean captured = state.update(occupyingTeam, contested, state.requiredCaptureSeconds(captureStepSeconds, firstCaptureStepSeconds));
 		if (contested && !wasContested) {
 			playContestedSound(occupants);
 		}

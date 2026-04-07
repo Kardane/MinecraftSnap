@@ -16,6 +16,7 @@ import net.minecraft.server.command.CommandManager;
 import net.minecraft.server.command.ServerCommandSource;
 import net.minecraft.server.network.ServerPlayerEntity;
 
+import java.util.Locale;
 import java.util.concurrent.CompletableFuture;
 
 public class McSnapCommandRegistrar {
@@ -48,6 +49,8 @@ public class McSnapCommandRegistrar {
 				.executes(ctx -> showStat(ctx.getSource(), ctx.getSource().getPlayer()))
 				.then(CommandManager.argument("player", EntityArgumentType.player())
 					.executes(ctx -> showStat(ctx.getSource(), EntityArgumentType.getPlayer(ctx, "player")))))
+			.then(CommandManager.literal("serverstat")
+				.executes(ctx -> showServerStat(ctx.getSource())))
 			.then(CommandManager.literal("prefer")
 				.then(CommandManager.literal("captain").executes(ctx -> setPreference(ctx.getSource(), "captain")))
 				.then(CommandManager.literal("role")
@@ -140,6 +143,52 @@ public class McSnapCommandRegistrar {
 		send(source, textConfig().commandStatCurrencyTemplate
 			.replace("{emeralds}", Integer.toString(stats.emeralds))
 			.replace("{gold}", Integer.toString(stats.goldIngots)));
+		send(source, textConfig().commandStatActivityTemplate
+			.replace("{assists}", Integer.toString(stats.assists))
+			.replace("{advances}", Integer.toString(stats.advanceCount))
+			.replace("{play_time}", durationText(stats.playTimeSeconds)));
+		send(source, textConfig().commandStatCombatTotalsTemplate
+			.replace("{damage}", decimalText(stats.totalDamageDealt))
+			.replace("{healing}", decimalText(stats.totalHealingDone)));
+		return Command.SINGLE_SUCCESS;
+	}
+
+	private int showServerStat(ServerCommandSource source) {
+		var repository = mod.getServerStatsRepository();
+		send(source, textConfig().commandServerStatTitleTemplate);
+
+		for (var factionId : FactionId.values()) {
+			var stats = repository.findFactionStats(factionId);
+			if (stats == null) {
+				stats = new karn.minecraftsnap.config.ServerStatsRepository.ServerFactionStats();
+			}
+			var winRate = stats.games <= 0 ? "0.0%" : decimalText((double) stats.wins * 100.0D / (double) stats.games) + "%";
+			send(source, textConfig().commandServerStatFactionTemplate
+				.replace("{faction}", factionId.name().toLowerCase(Locale.ROOT))
+				.replace("{games}", Integer.toString(stats.games))
+				.replace("{wins}", Integer.toString(stats.wins))
+				.replace("{win_rate}", winRate)
+				.replace("{captain_skill_uses}", Integer.toString(stats.captainSkillUses)));
+		}
+
+		int totalPicks = repository.allUnitEntries().stream()
+			.mapToInt(entry -> entry.stats().picks)
+			.sum();
+		repository.allUnitEntries().stream()
+			.sorted(java.util.Comparator
+				.comparingInt((karn.minecraftsnap.config.ServerStatsRepository.UnitStatsEntry entry) -> entry.stats().picks)
+				.reversed()
+				.thenComparing(karn.minecraftsnap.config.ServerStatsRepository.UnitStatsEntry::unitId))
+			.forEach(entry -> {
+				var stats = entry.stats();
+				var pickRate = totalPicks <= 0 ? "0.0%" : decimalText((double) stats.picks * 100.0D / (double) totalPicks) + "%";
+				send(source, textConfig().commandServerStatUnitTemplate
+					.replace("{unit}", entry.unitId())
+					.replace("{picks}", Integer.toString(stats.picks))
+					.replace("{pick_rate}", pickRate)
+					.replace("{kills}", Integer.toString(stats.kills))
+					.replace("{deaths}", Integer.toString(stats.deaths)));
+			});
 		return Command.SINGLE_SUCCESS;
 	}
 
@@ -210,7 +259,11 @@ public class McSnapCommandRegistrar {
 	}
 
 	private int setPhase(ServerCommandSource source, MatchPhase phase) {
-		mod.forcePhase(phase);
+		if (phase == MatchPhase.GAME_END) {
+			mod.forceAdminGameEnd();
+		} else {
+			mod.forcePhase(phase);
+		}
 		if (phase == MatchPhase.LOBBY) {
 			mod.getCapturePointService().resetAll();
 		}
@@ -277,6 +330,18 @@ public class McSnapCommandRegistrar {
 	private int send(ServerCommandSource source, String message) {
 		source.sendFeedback(() -> mod.getTextTemplateResolver().format(message), false);
 		return Command.SINGLE_SUCCESS;
+	}
+
+	private static String decimalText(double value) {
+		return String.format(Locale.ROOT, "%.1f", value);
+	}
+
+	private static String durationText(int totalSeconds) {
+		int seconds = Math.max(0, totalSeconds);
+		int hours = seconds / 3600;
+		int minutes = (seconds % 3600) / 60;
+		int remainingSeconds = seconds % 60;
+		return String.format(Locale.ROOT, "%02d:%02d:%02d", hours, minutes, remainingSeconds);
 	}
 
 	private void registerSurrenderAlias(com.mojang.brigadier.CommandDispatcher<ServerCommandSource> dispatcher, String literal) {

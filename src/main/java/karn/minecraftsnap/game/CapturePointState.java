@@ -4,6 +4,7 @@ public class CapturePointState {
 	private final LaneId laneId;
 	private final CaptureProgress progress = new CaptureProgress();
 	private CaptureOwner owner = CaptureOwner.NEUTRAL;
+	private boolean firstCapturePending = true;
 
 	public CapturePointState(LaneId laneId) {
 		this.laneId = laneId;
@@ -54,12 +55,21 @@ public class CapturePointState {
 
 	public void reset() {
 		owner = CaptureOwner.NEUTRAL;
+		firstCapturePending = true;
 		progress.reset();
+	}
+
+	public int requiredCaptureSeconds(int captureStepSeconds, int firstCaptureStepSeconds) {
+		if (!firstCapturePending) {
+			return captureStepSeconds;
+		}
+		return laneId == LaneId.LANE_1 ? firstCaptureStepSeconds : captureStepSeconds;
 	}
 
 	private void advanceOwner(TeamId teamId) {
 		if (owner == CaptureOwner.NEUTRAL) {
 			owner = CaptureOwner.fromTeam(teamId);
+			firstCapturePending = false;
 			return;
 		}
 

@@ -51,6 +51,7 @@ public class SystemConfig {
 
 	public static class CaptureConfig {
 		public int captureStepSeconds = 5;
+		public int firstCaptureStepSeconds = 10;
 		public int scoreIntervalTicks = 20;
 		public int allPointsHoldSeconds = 30;
 		public transient String defaultBossBarText = "&f점령";
@@ -79,6 +80,7 @@ public class SystemConfig {
 	public static class GameStartConfig {
 		public int waitSeconds = 5;
 		public boolean allowShiftF = true;
+		public int unitSpawnItemCooldownTicks = 60;
 		public transient String captainSpawnGuiTitle = "&6유닛 소환";
 		public transient String captainSpawnNoFactionMessage = "&c팩션이 정해지지 않았음";
 		public transient String captainSpawnBlockedLaneMessage = "&c{lane}은 아직 공개되지 않아 소환 불가";
@@ -131,7 +133,10 @@ public class SystemConfig {
 		public int winnerGlowSeconds = 5;
 		public transient String titleTemplate = "&6승리: &f{winner}";
 		public transient String drawTitleTemplate = "&e무승부";
+		public transient String scoreSubtitleTemplate = "&c레드 &f{red_score} &8| &9블루 &f{blue_score}";
 		public transient String victoryCountdownSubtitleTemplate = "&e{team} 팀 승리 임박 &7({seconds}초)";
+		public transient String ladderDeltaTitleTemplate = "{delta} SP";
+		public transient String ladderDeltaSubtitleTemplate = "({previous}) -> ({current})";
 	}
 
 	public static class LadderRewardConfig {
@@ -273,11 +278,20 @@ public class SystemConfig {
 		if (capture == null) {
 			capture = new CaptureConfig();
 		}
+		if (capture.captureStepSeconds <= 0) {
+			capture.captureStepSeconds = 5;
+		}
+		if (capture.firstCaptureStepSeconds <= 0) {
+			capture.firstCaptureStepSeconds = 10;
+		}
 		if (lobby == null) {
 			lobby = new LobbyConfig();
 		}
 		if (gameStart == null) {
 			gameStart = new GameStartConfig();
+		}
+		if (gameStart.unitSpawnItemCooldownTicks < 0) {
+			gameStart.unitSpawnItemCooldownTicks = 0;
 		}
 		if (biomeReveal == null) {
 			biomeReveal = new BiomeRevealConfig();

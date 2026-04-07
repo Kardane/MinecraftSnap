@@ -14,8 +14,10 @@ import karn.minecraftsnap.game.UnitRegistry;
 import karn.minecraftsnap.util.TextTemplateResolver;
 import net.minecraft.item.Item;
 import net.minecraft.item.Items;
+import net.minecraft.registry.Registries;
 import net.minecraft.screen.ScreenHandlerType;
 import net.minecraft.server.network.ServerPlayerEntity;
+import net.minecraft.util.Identifier;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -140,96 +142,16 @@ public class WikiGuiService {
 		if (itemId == null || itemId.isBlank()) {
 			return Items.AIR;
 		}
-		return switch (itemId) {
-			case "minecraft:grass_block" -> Items.GRASS_BLOCK;
-			case "minecraft:sand" -> Items.SAND;
-			case "minecraft:lily_pad" -> Items.LILY_PAD;
-			case "minecraft:red_sand" -> Items.RED_SAND;
-			case "minecraft:end_stone" -> Items.END_STONE;
-			case "minecraft:obsidian" -> Items.OBSIDIAN;
-			case "minecraft:sculk_shrieker" -> Items.SCULK_SHRIEKER;
-			case "minecraft:netherrack" -> Items.NETHERRACK;
-			case "minecraft:spruce_sapling" -> Items.SPRUCE_SAPLING;
-			case "minecraft:villager_spawn_egg" -> Items.VILLAGER_SPAWN_EGG;
-			case "minecraft:pillager_spawn_egg" -> Items.PILLAGER_SPAWN_EGG;
-			case "minecraft:vindicator_spawn_egg" -> Items.VINDICATOR_SPAWN_EGG;
-			case "minecraft:evoker_spawn_egg" -> Items.EVOKER_SPAWN_EGG;
-			case "minecraft:snow_golem_spawn_egg" -> Items.SNOW_GOLEM_SPAWN_EGG;
-			case "minecraft:iron_golem_spawn_egg" -> Items.IRON_GOLEM_SPAWN_EGG;
-			case "minecraft:zombie_spawn_egg" -> Items.ZOMBIE_SPAWN_EGG;
-			case "minecraft:skeleton_spawn_egg" -> Items.SKELETON_SPAWN_EGG;
-			case "minecraft:slime_spawn_egg" -> Items.SLIME_SPAWN_EGG;
-			case "minecraft:creeper_spawn_egg" -> Items.CREEPER_SPAWN_EGG;
-			case "minecraft:cave_spider_spawn_egg" -> Items.CAVE_SPIDER_SPAWN_EGG;
-			case "minecraft:breeze_spawn_egg" -> Items.BREEZE_SPAWN_EGG;
-			case "minecraft:guardian_spawn_egg" -> Items.GUARDIAN_SPAWN_EGG;
-			case "minecraft:husk_spawn_egg" -> Items.HUSK_SPAWN_EGG;
-			case "minecraft:drowned_spawn_egg" -> Items.DROWNED_SPAWN_EGG;
-			case "minecraft:stray_spawn_egg" -> Items.STRAY_SPAWN_EGG;
-			case "minecraft:bogged_spawn_egg" -> Items.BOGGED_SPAWN_EGG;
-			case "minecraft:wither_skeleton_spawn_egg" -> Items.WITHER_SKELETON_SPAWN_EGG;
-			case "minecraft:blaze_spawn_egg" -> Items.BLAZE_SPAWN_EGG;
-			case "minecraft:magma_cube_spawn_egg" -> Items.MAGMA_CUBE_SPAWN_EGG;
-			case "minecraft:ghast_spawn_egg" -> Items.GHAST_SPAWN_EGG;
-			case "minecraft:enderman_spawn_egg" -> Items.ENDERMAN_SPAWN_EGG;
-			case "minecraft:piglin_spawn_egg" -> Items.PIGLIN_SPAWN_EGG;
-			case "minecraft:piglin_brute_spawn_egg" -> Items.PIGLIN_BRUTE_SPAWN_EGG;
-			case "minecraft:zombified_piglin_spawn_egg" -> Items.ZOMBIFIED_PIGLIN_SPAWN_EGG;
-			case "minecraft:wind_charge" -> Items.WIND_CHARGE;
-			case "minecraft:prismarine_shard" -> Items.PRISMARINE_SHARD;
-			case "minecraft:fire_charge" -> Items.FIRE_CHARGE;
-			case "minecraft:spider_eye" -> Items.SPIDER_EYE;
-			case "minecraft:snowball" -> Items.SNOWBALL;
-			case "minecraft:iron_ingot" -> Items.IRON_INGOT;
-			default -> Items.AIR;
-		};
+		try {
+			var item = Registries.ITEM.get(Identifier.of(itemId));
+			return item == Items.AIR ? Items.AIR : item;
+		} catch (Exception ignored) {
+			return Items.AIR;
+		}
 	}
 
 	private static boolean hasKnownItemId(String itemId) {
-		return switch (itemId) {
-			case "minecraft:grass_block",
-				"minecraft:sand",
-				"minecraft:lily_pad",
-				"minecraft:red_sand",
-				"minecraft:end_stone",
-				"minecraft:obsidian",
-				"minecraft:sculk_shrieker",
-				"minecraft:netherrack",
-				"minecraft:spruce_sapling",
-				"minecraft:villager_spawn_egg",
-				"minecraft:pillager_spawn_egg",
-				"minecraft:vindicator_spawn_egg",
-				"minecraft:evoker_spawn_egg",
-				"minecraft:snow_golem_spawn_egg",
-				"minecraft:iron_golem_spawn_egg",
-				"minecraft:zombie_spawn_egg",
-				"minecraft:skeleton_spawn_egg",
-				"minecraft:slime_spawn_egg",
-				"minecraft:creeper_spawn_egg",
-				"minecraft:cave_spider_spawn_egg",
-				"minecraft:breeze_spawn_egg",
-				"minecraft:guardian_spawn_egg",
-				"minecraft:husk_spawn_egg",
-				"minecraft:drowned_spawn_egg",
-				"minecraft:stray_spawn_egg",
-				"minecraft:bogged_spawn_egg",
-				"minecraft:wither_skeleton_spawn_egg",
-				"minecraft:blaze_spawn_egg",
-				"minecraft:magma_cube_spawn_egg",
-				"minecraft:ghast_spawn_egg",
-				"minecraft:enderman_spawn_egg",
-				"minecraft:piglin_spawn_egg",
-				"minecraft:piglin_brute_spawn_egg",
-				"minecraft:zombified_piglin_spawn_egg",
-				"minecraft:wind_charge",
-				"minecraft:prismarine_shard",
-				"minecraft:fire_charge",
-				"minecraft:spider_eye",
-				"minecraft:snowball",
-				"minecraft:iron_ingot",
-				"minecraft:barrier" -> true;
-			default -> false;
-		};
+		return itemById(itemId) != Items.AIR;
 	}
 
 	private eu.pb4.sgui.api.elements.GuiElementInterface action(Item item, String name, List<String> lore, Runnable callback) {
