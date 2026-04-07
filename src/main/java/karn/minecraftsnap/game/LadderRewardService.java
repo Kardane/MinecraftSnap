@@ -1,5 +1,6 @@
 package karn.minecraftsnap.game;
 
+import karn.minecraftsnap.config.ServerStatsRepository;
 import karn.minecraftsnap.config.SystemConfig;
 import karn.minecraftsnap.config.StatsRepository;
 import net.minecraft.server.MinecraftServer;
@@ -12,6 +13,7 @@ import java.util.UUID;
  */
 public class LadderRewardService {
 	static final int MAX_MATCH_LADDER_DELTA = 100;
+	static final int EARLY_SURRENDER_THRESHOLD_SECONDS = 180;
 
 	/**
 	 * 경기 종료 시 사령관+유닛 전원의 래더 보상을 계산하여 적용한다.
@@ -35,6 +37,22 @@ public class LadderRewardService {
 		applyUnitRewards(server, matchManager, statsRepository, winnerTeam, loserTeam, ladderRewardConfig);
 	}
 
+	public void applyServerMatchStats(MatchManager matchManager, ServerStatsRepository serverStatsRepository) {
+		if (matchManager == null || serverStatsRepository == null) {
+			return;
+		}
+		var winnerTeam = matchManager.getWinnerTeam();
+		if (winnerTeam == null) {
+			return;
+		}
+		for (var teamId : TeamId.values()) {
+			var factionId = matchManager.getFactionSelection(teamId);
+			if (factionId != null) {
+				serverStatsRepository.recordFactionGame(factionId, teamId == winnerTeam);
+			}
+		}
+	}
+
 	private void applyMatchResults(MinecraftServer server, MatchManager matchManager, StatsRepository statsRepository, TeamId teamId, boolean winner) {
 		for (var entry : matchManager.getPlayerStatesSnapshot().entrySet()) {
 			var state = entry.getValue();
@@ -52,7 +70,11 @@ public class LadderRewardService {
 	}
 
 	private void applyCaptainReward(MinecraftServer server, MatchManager matchManager, StatsRepository statsRepository, TeamId winnerTeam, TeamId loserTeam, SystemConfig.LadderRewardConfig config) {
-		int amount = calculateCaptainAmount(matchManager.getRedScore(), matchManager.getBlueScore(), config);
+		int amount = adjustMatchLadderDeltaForEarlySurrender(
+			calculateCaptainAmount(matchManager.getRedScore(), matchManager.getBlueScore(), config),
+			matchManager.getElapsedSeconds(),
+			isEarlySurrender(matchManager)
+		);
 		var winnerCaptainId = matchManager.getCaptainId(winnerTeam);
 		var loserCaptainId = matchManager.getCaptainId(loserTeam);
 
@@ -78,11 +100,19 @@ public class LadderRewardService {
 				return state.getTeamId() == teamId && state.getRoleType() == RoleType.UNIT;
 			})
 			.toList();
-		
+		boolean earlySurrender = isEarlySurrender(matchManager);
+
 		for (var entry : unitEntries) {
 			var playerId = entry.getKey();
 			var state = entry.getValue();
-			int amount = calculateUnitAmount(state.getMatchKills(), state.getMatchCaptureScore(), config);
+			int baseAmount = sign > 0
+				? calculateWinningUnitAmount(state.getMatchKills(), state.getMatchCaptureScore(), config)
+				: calculateLosingUnitAmount(state.getMatchKills(), state.getMatchCaptureScore(), config);
+			int amount = adjustMatchLadderDeltaForEarlySurrender(
+				baseAmount,
+				matchManager.getElapsedSeconds(),
+				earlySurrender
+			);
 			var name = resolvePlayerName(server, statsRepository, playerId);
 			statsRepository.addLadder(playerId, name, amount * sign);
 		}
@@ -105,7 +135,7 @@ public class LadderRewardService {
 	}
 
 	static int calculateUnitAmount(int kills, int captureScore) {
-		return calculateUnitAmount(kills, captureScore, new SystemConfig.LadderRewardConfig());
+		return calculateWinningUnitAmount(kills, captureScore, new SystemConfig.LadderRewardConfig());
 	}
 
 	static int calculateCaptainAmount(int redScore, int blueScore, SystemConfig.LadderRewardConfig config) {
@@ -113,10 +143,35 @@ public class LadderRewardService {
 	}
 
 	static int calculateUnitAmount(int kills, int captureScore, SystemConfig.LadderRewardConfig config) {
-		return clampMatchLadderDelta(Math.round(kills * config.unitKillWeight + (float) captureScore / config.unitCaptureScoreDivisor + config.unitBase));
+		return calculateWinningUnitAmount(kills, captureScore, config);
+	}
+
+	static int calculateWinningUnitAmount(int kills, int captureScore, SystemConfig.LadderRewardConfig config) {
+		return clampMatchLadderDelta(Math.round(config.unitBase + calculateUnitPerformance(kills, captureScore, config)));
+	}
+
+	static int calculateLosingUnitAmount(int kills, int captureScore, SystemConfig.LadderRewardConfig config) {
+		return clampMatchLadderDelta(Math.round(Math.max(0.0f, config.unitBase - calculateUnitPerformance(kills, captureScore, config))));
+	}
+
+	private static float calculateUnitPerformance(int kills, int captureScore, SystemConfig.LadderRewardConfig config) {
+		return kills * config.unitKillWeight + (float) captureScore / config.unitCaptureScoreDivisor;
+	}
+
+	static int adjustMatchLadderDeltaForEarlySurrender(int amount, int elapsedSeconds, boolean surrendered) {
+		if (!surrendered || elapsedSeconds > EARLY_SURRENDER_THRESHOLD_SECONDS) {
+			return amount;
+		}
+		return amount / 2;
 	}
 
 	private static int clampMatchLadderDelta(int amount) {
 		return Math.min(MAX_MATCH_LADDER_DELTA, Math.max(0, amount));
+	}
+
+	private boolean isEarlySurrender(MatchManager matchManager) {
+		return matchManager != null
+			&& matchManager.getSurrenderingTeam() != null
+			&& matchManager.getElapsedSeconds() <= EARLY_SURRENDER_THRESHOLD_SECONDS;
 	}
 }

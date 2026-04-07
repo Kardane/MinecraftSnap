@@ -108,4 +108,11 @@ class McSnapCommandRegistrarTest {
 
 		assertNotNull(dispatcher.getRoot().getChild("중참"));
 	}
+	@Test
+	void registersServerStatCommand() {
+		var dispatcher = new CommandDispatcher<ServerCommandSource>();
+		new McSnapCommandRegistrar(null).register(dispatcher, null, null);
+
+		assertNotNull(dispatcher.getRoot().getChild("mcsnap").getChild("serverstat"));
+	}
 }
