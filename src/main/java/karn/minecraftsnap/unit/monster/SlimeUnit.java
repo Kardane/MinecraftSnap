@@ -21,45 +21,10 @@ import static karn.minecraftsnap.unit.UnitSpecSupport.none;
 import static karn.minecraftsnap.unit.UnitSpecSupport.unit;
 
 public class SlimeUnit extends AbstractMonsterUnit implements ConfiguredUnitClass {
-	public static final UnitDefinition DEFINITION = unit(
-		"slime",
-		"슬라임",
-		FactionId.MONSTER,
-		true,
-		1,
-		18.0,
-		1.0,
-		item("minecraft:slime_ball"),
-		none(),
-		none(),
-		none(),
-		none(),
-		none(),
-		none(),
-		"",
-		0,
-		UnitDefinition.AmmoType.NONE,
-		disguise("minecraft:slime", "{Size:3}"),
-			List.of("&f패시브 &7- 점프력이 상승합니다. 사망시 분열합니다","&f무기 &7- 슬라임 볼"),
-		List.of(advanceOption(
-			"giant_slime",
-			"거대 슬라임",
-			List.of("&7늪에서 15초 버티면 적응"),
-			List.of("minecraft:swamp", "minecraft:mangrove_swamp"),
-			List.of(),
-			300
-		))
-	);
-
-	@Override
-	public UnitDefinition definition() {
-		return DEFINITION;
-	}
-
 	@Override
 	public void buildLoadout(UnitContext context) {
 		context.baseBuildLoadout();
-		applyCombatProfile(context.player().getMainHandStack(), definition().id(), weaponAttackDamage(), weaponAttackSpeed());
+		applyCombatProfile(context.player().getMainHandStack(), context.unitDefinition().id(), weaponAttackDamage(), weaponAttackSpeed());
 	}
 
 	@Override
@@ -68,10 +33,7 @@ public class SlimeUnit extends AbstractMonsterUnit implements ConfiguredUnitClas
 		if (player == null || packet == null || !player.isOnGround()) {
 			return false;
 		}
-		if (player.getVelocity().y > 0.05D) {
-			return false;
-		}
-		return packet.getY(player.getY()) > player.getY() + 0.05D;
+		return shouldCancelUpwardMove(player.isOnGround(), player.getVelocity().y, player.getY(), packet.getY(player.getY()));
 	}
 
 	@Override
@@ -93,6 +55,12 @@ public class SlimeUnit extends AbstractMonsterUnit implements ConfiguredUnitClas
 		return true;
 	}
 
+	boolean shouldCancelUpwardMove(boolean onGround, double velocityY, double currentY, double packetY) {
+		return onGround
+			&& velocityY <= 0.05D
+			&& packetY > currentY + 1.0D;
+	}
+
 	@Override
 	public void onDeath(karn.minecraftsnap.unit.UnitContext context, DamageSource source) {
 		var world = context.world();
@@ -105,8 +73,8 @@ public class SlimeUnit extends AbstractMonsterUnit implements ConfiguredUnitClas
 			slime.setSize(spawnedSlimeSize(), true);
 			slime.refreshPositionAndAngles(player.getX() + (index - 1), player.getY(), player.getZ(), player.getYaw(), player.getPitch());
 			slime.setCustomName(player.getName().copy());
-			world.spawnEntity(slime);
 			SummonedMobSupport.applyFriendlyTeam(context, slime);
+			world.spawnEntity(slime);
 		}
 	}
 

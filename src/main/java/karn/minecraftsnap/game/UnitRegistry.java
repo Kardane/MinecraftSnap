@@ -1,8 +1,6 @@
 package karn.minecraftsnap.game;
 
 import karn.minecraftsnap.config.AdvanceOptionEntry;
-import karn.minecraftsnap.config.UnitConfigEntry;
-import karn.minecraftsnap.unit.UnitClassRegistry;
 
 import java.util.Collection;
 import java.util.EnumMap;
@@ -16,13 +14,10 @@ public class UnitRegistry {
 	private final Map<FactionId, FactionSpec> factionSpecs = new EnumMap<>(FactionId.class);
 
 	public UnitRegistry() {
-		this(true);
+		this(false);
 	}
 
 	public UnitRegistry(boolean registerDefaults) {
-		if (registerDefaults) {
-			loadFromConfiguredClasses(new UnitClassRegistry());
-		}
 	}
 
 	public UnitDefinition get(String unitId) {
@@ -49,28 +44,18 @@ public class UnitRegistry {
 		register(definition);
 	}
 
-	public void loadFromConfiguredClasses(UnitClassRegistry unitClassRegistry) {
+	public void setDefinitions(Collection<UnitDefinition> definitions) {
 		units.clear();
 		factionSpecs.clear();
 		factionSpecs.putAll(FactionSpecs.defaults());
-		if (unitClassRegistry == null) {
+		if (definitions == null) {
 			return;
 		}
-		for (var unitClass : unitClassRegistry.configuredUnits()) {
-			register(unitClass.definition());
-		}
-	}
-
-	public void applyUnitConfigs(Map<String, UnitConfigEntry> unitConfigs) {
-		if (unitConfigs == null || unitConfigs.isEmpty()) {
-			return;
-		}
-		for (var entry : new LinkedHashMap<>(units).entrySet()) {
-			var config = unitConfigs.get(entry.getKey());
-			if (config == null) {
+		for (var definition : definitions) {
+			if (definition == null) {
 				continue;
 			}
-			register(config.mergeOnto(entry.getValue()));
+			register(definition);
 		}
 	}
 

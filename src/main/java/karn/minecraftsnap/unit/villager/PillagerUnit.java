@@ -1,10 +1,11 @@
 package karn.minecraftsnap.unit.villager;
 
 import karn.minecraftsnap.game.FactionId;
-import karn.minecraftsnap.game.UnitLoadoutService;
+import karn.minecraftsnap.game.TeamId;
 import karn.minecraftsnap.game.UnitDefinition;
 import karn.minecraftsnap.unit.ConfiguredUnitClass;
 import net.minecraft.component.DataComponentTypes;
+import net.minecraft.component.type.ChargedProjectilesComponent;
 import net.minecraft.component.type.FireworkExplosionComponent;
 import net.minecraft.component.type.FireworksComponent;
 import net.minecraft.item.ItemStack;
@@ -13,7 +14,6 @@ import net.minecraft.sound.SoundCategory;
 import net.minecraft.sound.SoundEvents;
 
 import java.util.List;
-import java.util.Random;
 
 import it.unimi.dsi.fastutil.ints.IntList;
 
@@ -24,127 +24,104 @@ import static karn.minecraftsnap.unit.UnitSpecSupport.none;
 import static karn.minecraftsnap.unit.UnitSpecSupport.unit;
 
 public class PillagerUnit extends AbstractVillagerUnit implements ConfiguredUnitClass {
-	private static final int[] FIREWORK_COLORS = {
-		0xFF5555,
-		0x55FF55,
-		0x5555FF,
-		0xFFFF55,
-		0xFF55FF,
-		0x55FFFF,
-		0xFFFFFF,
-		0xFFAA00
-	};
-
-	public static final UnitDefinition DEFINITION = unit(
-		"pillager",
-		"약탈자",
-		FactionId.VILLAGER,
-		true,
-		2,
-		18.0,
-		0.9,
-		item("minecraft:crossbow"),
-		none(),
-		none(),
-		none(),
-		none(),
-		none(),
-		abilityItem("minecraft:firework_star", "폭죽 탄약 장전", 10),
-		"폭죽 탄약 장전",
-		10,
-		UnitDefinition.AmmoType.ARROW,
-		disguise("minecraft:pillager"),
-			List.of("&f무기 &7- 쇠뇌","&f폭죽 보급 &7- 폭죽을 얻습니다."),
-		List.of()
-	);
-
-	@Override
-	public UnitDefinition definition() {
-		return DEFINITION;
-	}
+	private static final String QUICK_CHARGE_LEVEL_KEY = "villager_enchant_quickcharge";
 
 	@Override
 	public void onSkillUse(karn.minecraftsnap.unit.UnitContext context) {
-		context.activateSkill(() -> {
+		var definition = context.unitDefinition();
+		var cooldownTicks = skillCooldownTicks(definition == null ? 0 : definition.abilityCooldownSeconds(), quickChargeLevel(context));
+		context.activateSkill(cooldownTicks, () -> {
 			var player = context.player();
-			var triggerStack = player.getMainHandStack();
-			if (hasUsableRocket(player, triggerStack)) {
+			if (player == null) {
+				return false;
+			}
+			var crossbow = findCrossbow(player);
+			if (crossbow == null || !loadCrossbowWithRocket(crossbow, createSkillRocket(context.state() == null ? null : context.state().getTeamId()))) {
 				player.getWorld().playSound(null, player.getBlockPos(), SoundEvents.BLOCK_NOTE_BLOCK_BASS.value(), SoundCategory.PLAYERS, 0.9f, 0.8f);
 				return false;
 			}
-			if (!player.getInventory().insertStack(createSkillRocket(new Random(context.serverTicks() ^ player.getUuid().getLeastSignificantBits())))) {
-				player.getWorld().playSound(null, player.getBlockPos(), SoundEvents.BLOCK_NOTE_BLOCK_BASS.value(), SoundCategory.PLAYERS, 0.9f, 0.8f);
-				return false;
-			}
+			player.getInventory().markDirty();
+			player.playerScreenHandler.sendContentUpdates();
 			player.getWorld().playSound(null, player.getBlockPos(), SoundEvents.ENTITY_FIREWORK_ROCKET_LAUNCH, SoundCategory.PLAYERS, 0.9f, 1.1f);
 			return true;
 		});
 	}
 
-	ItemStack createSkillRocket(Random random) {
+	long skillCooldownTicks(int baseCooldownSeconds, int quickChargeLevel) {
+		return Math.max(0, baseCooldownSeconds - Math.max(0, quickChargeLevel)) * 20L;
+	}
+
+	int quickChargeLevel(karn.minecraftsnap.unit.UnitContext context) {
+		if (context == null || context.state() == null) {
+			return 0;
+		}
+		var level = context.state().getUnitRuntimeInt(QUICK_CHARGE_LEVEL_KEY);
+		return Math.max(0, level == null ? 0 : level);
+	}
+
+	ItemStack createSkillRocket(TeamId teamId) {
 		var rocket = new ItemStack(Items.FIREWORK_ROCKET);
-		rocket.set(DataComponentTypes.FIREWORKS, skillRocketPayload(random));
+		rocket.set(DataComponentTypes.FIREWORKS, skillRocketPayload(teamId));
 		return rocket;
 	}
 
-	FireworksComponent skillRocketPayload(Random random) {
+	FireworksComponent skillRocketPayload(TeamId teamId) {
 		return new FireworksComponent(
 			1,
 			List.of(
-				createExplosion(random),
-				createExplosion(random)
+				createExplosion(teamId),
+				createExplosion(teamId)
 			)
 		);
 	}
 
-	private boolean hasUsableRocket(net.minecraft.server.network.ServerPlayerEntity player, ItemStack triggerStack) {
+	boolean shouldLoadRocketIntoCrossbow() {
+		return true;
+	}
+
+	private ItemStack findCrossbow(net.minecraft.server.network.ServerPlayerEntity player) {
+		if (player == null) {
+			return null;
+		}
 		for (int slot = 0; slot < player.getInventory().size(); slot++) {
 			var stack = player.getInventory().getStack(slot);
-			if (stack == null || stack.isEmpty() || stack == triggerStack || stack.getItem() != Items.FIREWORK_ROCKET) {
+			if (stack == null || stack.isEmpty() || stack.getItem() != Items.CROSSBOW) {
 				continue;
 			}
-			if (isAbilityTriggerRocket(stack)) {
-				continue;
-			}
-			return true;
+			return stack;
 		}
-		return false;
+		return null;
 	}
 
-	boolean hasUsableRocket(Iterable<ItemStack> stacks, ItemStack triggerStack) {
-		for (var stack : stacks) {
-			if (stack == null || stack.isEmpty() || stack == triggerStack || stack.getItem() != Items.FIREWORK_ROCKET) {
-				continue;
-			}
-			if (isAbilityTriggerRocket(stack)) {
-				continue;
-			}
-			return true;
-		}
-		return false;
-	}
-
-	private FireworkExplosionComponent createExplosion(Random random) {
+	private FireworkExplosionComponent createExplosion(TeamId teamId) {
 		return new FireworkExplosionComponent(
 			FireworkExplosionComponent.Type.SMALL_BALL,
-			IntList.of(randomColor(random)),
+			IntList.of(fireworkColor(teamId)),
 			IntList.of(),
 			false,
 			false
 		);
 	}
 
-	private int randomColor(Random random) {
-		return FIREWORK_COLORS[random.nextInt(FIREWORK_COLORS.length)];
+	int fireworkColor(TeamId teamId) {
+		if (teamId == TeamId.RED) {
+			return 0xFF3333;
+		}
+		if (teamId == TeamId.BLUE) {
+			return 0x3366FF;
+		}
+		return 0xFFFFFF;
 	}
 
-	private boolean isAbilityTriggerRocket(ItemStack stack) {
-		var customData = stack.get(DataComponentTypes.CUSTOM_DATA);
-		if (customData == null) {
+	boolean loadCrossbowWithRocket(ItemStack crossbow, ItemStack rocket) {
+		if (!shouldLoadRocketIntoCrossbow() || crossbow == null || crossbow.isEmpty() || crossbow.getItem() != Items.CROSSBOW || rocket == null || rocket.isEmpty()) {
 			return false;
 		}
-		var nbt = customData.copyNbt();
-		return UnitLoadoutService.KIND_UNIT_ABILITY.equals(nbt.getString(UnitLoadoutService.CUSTOM_DATA_KIND))
-			&& definition().id().equals(nbt.getString(UnitLoadoutService.CUSTOM_DATA_UNIT_ID));
+		var chargedProjectiles = crossbow.get(DataComponentTypes.CHARGED_PROJECTILES);
+		if (chargedProjectiles != null && !chargedProjectiles.isEmpty()) {
+			return false;
+		}
+		crossbow.set(DataComponentTypes.CHARGED_PROJECTILES, ChargedProjectilesComponent.of(rocket.copyWithCount(1)));
+		return true;
 	}
 }

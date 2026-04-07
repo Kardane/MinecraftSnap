@@ -8,6 +8,7 @@ import karn.minecraftsnap.unit.UnitContext;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EquipmentSlot;
 import net.minecraft.entity.EntityType;
+import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.SpawnReason;
 import net.minecraft.entity.damage.DamageSource;
 import net.minecraft.entity.effect.StatusEffectInstance;
@@ -25,34 +26,6 @@ import static karn.minecraftsnap.unit.UnitSpecSupport.none;
 import static karn.minecraftsnap.unit.UnitSpecSupport.unit;
 
 public class ZombifiedPiglinUnit extends AbstractNetherUnit implements ConfiguredUnitClass {
-	public static final UnitDefinition DEFINITION = unit(
-		"zombified_piglin",
-		"좀비 피글린",
-		FactionId.NETHER,
-		true,
-		1,
-		20.0,
-		0.9,
-		item("minecraft:golden_sword"),
-		none(),
-		none(),
-		none(),
-		none(),
-		none(),
-		none(),
-		"",
-		0,
-		UnitDefinition.AmmoType.NONE,
-		disguise("minecraft:zombified_piglin"),
-			List.of("&f패시브 &7- 피격시 낮은 확률로 주변에 좀비 피글린 생성","&f무기 &7- 금 검"),
-		List.of()
-	);
-
-	@Override
-	public UnitDefinition definition() {
-		return DEFINITION;
-	}
-
 	@Override
 	public void onTick(UnitContext context) {
 		context.player().addStatusEffect(new StatusEffectInstance(StatusEffects.FIRE_RESISTANCE, fireResistanceDurationTicks(), 0, true, false, false));
@@ -60,14 +33,19 @@ public class ZombifiedPiglinUnit extends AbstractNetherUnit implements Configure
 
 	@Override
 	public void onDamaged(UnitContext context, DamageSource source, float amount) {
-		if (!hasTriggeringAttacker(source)) {
-			return;
-		}
-		if (context.player().getRandom().nextDouble() >= summonChance()) {
+		var player = context.player();
+		var attacker = resolveEnemyAttacker(context, source);
+		if (player == null || attacker == null || !isRetaliationWindow(player.timeUntilRegen)) {
 			return;
 		}
 		var world = context.world();
-		var player = context.player();
+		if (world == null) {
+			return;
+		}
+		commandNearbyPiglins(context, attacker);
+		if (!shouldTriggerRetaliation(player.getRandom().nextDouble())) {
+			return;
+		}
 		var piglin = EntityType.ZOMBIFIED_PIGLIN.create(world, SpawnReason.MOB_SUMMONED);
 		if (piglin == null) {
 			return;
@@ -75,11 +53,19 @@ public class ZombifiedPiglinUnit extends AbstractNetherUnit implements Configure
 		var random = player.getRandom();
 		var x = player.getX() + random.nextBetween(-5, 5);
 		var z = player.getZ() + random.nextBetween(-5, 5);
-		piglin.refreshPositionAndAngles(x, player.getY(), z, player.getYaw(), player.getPitch());
+		if (!SummonedMobSupport.placeMobSafely(world, piglin, x, player.getY(), z, player.getYaw(), player.getPitch())) {
+			return;
+		}
 		piglin.equipStack(EquipmentSlot.MAINHAND, new ItemStack(Items.GOLDEN_SWORD));
 		piglin.setEquipmentDropChance(EquipmentSlot.MAINHAND, 0.0f);
-		world.spawnEntity(piglin);
 		SummonedMobSupport.applyFriendlyTeam(context, piglin);
+		piglin.setTarget(attacker);
+		world.spawnEntity(piglin);
+	}
+
+	@Override
+	public void onDeath(UnitContext context, DamageSource source) {
+		context.restoreCaptainMana(captainManaRestoreOnDeath());
 	}
 
 	String summonedPiglinWeaponItemId() {
@@ -90,11 +76,12 @@ public class ZombifiedPiglinUnit extends AbstractNetherUnit implements Configure
 		return 40;
 	}
 
-	boolean hasTriggeringAttacker(DamageSource source) {
-		if (source == null) {
-			return false;
-		}
-		return resolveAttacker(source.getAttacker()) != null || resolveAttacker(source.getSource()) != null;
+	boolean shouldTriggerRetaliation(double randomRoll) {
+		return randomRoll < summonChance();
+	}
+
+	boolean isRetaliationWindow(int timeUntilRegen) {
+		return timeUntilRegen <= retaliationInvulnerabilityThresholdTicks();
 	}
 
 	private Entity resolveAttacker(Entity entity) {
@@ -104,11 +91,48 @@ public class ZombifiedPiglinUnit extends AbstractNetherUnit implements Configure
 		return entity;
 	}
 
+	private LivingEntity resolveEnemyAttacker(UnitContext context, DamageSource source) {
+		var attacker = resolveAttacker(source == null ? null : source.getAttacker());
+		if (attacker instanceof LivingEntity living && context.isEnemyTarget(living)) {
+			return living;
+		}
+		attacker = resolveAttacker(source == null ? null : source.getSource());
+		if (attacker instanceof LivingEntity living && context.isEnemyTarget(living)) {
+			return living;
+		}
+		return null;
+	}
+
+	private void commandNearbyPiglins(UnitContext context, LivingEntity attacker) {
+		if (context == null || context.world() == null || context.player() == null || context.state() == null || context.state().getTeamId() == null || attacker == null) {
+			return;
+		}
+		var box = context.player().getBoundingBox().expand(summonRange());
+		for (var piglin : context.world().getEntitiesByClass(ZombifiedPiglinEntity.class, box, this::isAlive)) {
+			if (SummonedMobSupport.resolveManagedTeam(piglin) != context.state().getTeamId()) {
+				continue;
+			}
+			piglin.setTarget(attacker);
+		}
+	}
+
+	private boolean isAlive(ZombifiedPiglinEntity piglin) {
+		return piglin != null && piglin.isAlive();
+	}
+
 	double summonChance() {
-		return 0.15D;
+		return 0.3D;
+	}
+
+	int retaliationInvulnerabilityThresholdTicks() {
+		return 10;
 	}
 
 	double summonRange() {
 		return 5.0D;
+	}
+
+	int captainManaRestoreOnDeath() {
+		return 1;
 	}
 }

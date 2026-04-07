@@ -6,9 +6,11 @@ import karn.minecraftsnap.config.UnitItemEntry;
 import karn.minecraftsnap.util.TextTemplateResolver;
 import net.minecraft.component.ComponentChanges;
 import net.minecraft.component.DataComponentTypes;
+import net.minecraft.component.type.AttributeModifiersComponent;
 import net.minecraft.component.type.LoreComponent;
 import net.minecraft.component.type.NbtComponent;
 import net.minecraft.component.type.PotionContentsComponent;
+import net.minecraft.component.type.TooltipDisplayComponent;
 import net.minecraft.entity.EquipmentSlot;
 import net.minecraft.entity.attribute.EntityAttributeInstance;
 import net.minecraft.entity.attribute.EntityAttributes;
@@ -43,12 +45,12 @@ public class UnitLoadoutService {
 	public void applyBaseLoadout(ServerPlayerEntity player, UnitDefinition definition, TextTemplateResolver textTemplateResolver) {
 		player.getInventory().clear();
 		resetCombatState(player);
-		var head = createEquipment(player, definition.helmet(), textTemplateResolver);
-		var chest = createEquipment(player, definition.chest(), textTemplateResolver);
-		var legs = createEquipment(player, definition.legs(), textTemplateResolver);
-		var feet = createEquipment(player, definition.boots(), textTemplateResolver);
-		var mainHand = createEquipment(player, definition.mainHand(), textTemplateResolver);
-		var offHand = createEquipment(player, definition.offHand(), textTemplateResolver);
+		var head = createEquipment(player, definition, EquipmentSlot.HEAD, definition.helmet(), textTemplateResolver);
+		var chest = createEquipment(player, definition, EquipmentSlot.CHEST, definition.chest(), textTemplateResolver);
+		var legs = createEquipment(player, definition, EquipmentSlot.LEGS, definition.legs(), textTemplateResolver);
+		var feet = createEquipment(player, definition, EquipmentSlot.FEET, definition.boots(), textTemplateResolver);
+		var mainHand = createEquipment(player, definition, EquipmentSlot.MAINHAND, definition.mainHand(), textTemplateResolver);
+		var offHand = createEquipment(player, definition, EquipmentSlot.OFFHAND, definition.offHand(), textTemplateResolver);
 		var abilityTriggerTarget = determineAbilityTriggerTarget(definition);
 		switch (abilityTriggerTarget) {
 			case MAIN_HAND -> tagAbilityTrigger(mainHand, definition);
@@ -77,6 +79,18 @@ public class UnitLoadoutService {
 		resetPlayerAttributes(player);
 		setBaseValue(player.getAttributeInstance(EntityAttributes.MAX_HEALTH), definition.maxHealth());
 		setBaseValue(player.getAttributeInstance(EntityAttributes.MOVEMENT_SPEED), 0.1D * definition.moveSpeedScale());
+		setBaseValue(
+			player.getAttributeInstance(EntityAttributes.ENTITY_INTERACTION_RANGE),
+			definition.extraAttributes().attackRangeOrDefault(defaultAttackRange())
+		);
+		setBaseValue(
+			player.getAttributeInstance(EntityAttributes.KNOCKBACK_RESISTANCE),
+			definition.extraAttributes().knockbackResistanceOrDefault(defaultKnockbackResistance())
+		);
+		setBaseValue(
+			player.getAttributeInstance(EntityAttributes.SAFE_FALL_DISTANCE),
+			definition.extraAttributes().safeFallDistanceOrDefault(defaultSafeFallDistance())
+		);
 		player.setHealth((float) definition.maxHealth());
 	}
 
@@ -103,6 +117,9 @@ public class UnitLoadoutService {
 		setBaseValue(player.getAttributeInstance(EntityAttributes.MOVEMENT_SPEED), defaultMoveSpeed());
 		setBaseValue(player.getAttributeInstance(EntityAttributes.ATTACK_DAMAGE), defaultAttackDamage());
 		setBaseValue(player.getAttributeInstance(EntityAttributes.ATTACK_SPEED), defaultAttackSpeed());
+		setBaseValue(player.getAttributeInstance(EntityAttributes.ENTITY_INTERACTION_RANGE), defaultAttackRange());
+		setBaseValue(player.getAttributeInstance(EntityAttributes.KNOCKBACK_RESISTANCE), defaultKnockbackResistance());
+		setBaseValue(player.getAttributeInstance(EntityAttributes.SAFE_FALL_DISTANCE), defaultSafeFallDistance());
 		setBaseValue(player.getAttributeInstance(EntityAttributes.SCALE), defaultScale());
 		setBaseValue(player.getAttributeInstance(EntityAttributes.JUMP_STRENGTH), defaultJumpStrength());
 		setBaseValue(player.getAttributeInstance(EntityAttributes.STEP_HEIGHT), defaultStepHeight());
@@ -122,6 +139,18 @@ public class UnitLoadoutService {
 
 	public static double defaultAttackSpeed() {
 		return 4.0D;
+	}
+
+	public static double defaultAttackRange() {
+		return 3.0D;
+	}
+
+	public static double defaultKnockbackResistance() {
+		return 0.0D;
+	}
+
+	public static double defaultSafeFallDistance() {
+		return 3.0D;
 	}
 
 	public static double defaultScale() {
@@ -263,8 +292,20 @@ public class UnitLoadoutService {
 		return createConfiguredStack(player, spec, KIND_UNIT_ABILITY, definition.factionId(), definition.id(), abilityName, loreLines, textTemplateResolver);
 	}
 
-	private ItemStack createEquipment(ServerPlayerEntity player, UnitItemEntry spec, TextTemplateResolver textTemplateResolver) {
-		return createConfiguredStack(player, spec, null, null, null, "", List.of(), textTemplateResolver);
+	private ItemStack createEquipment(
+		ServerPlayerEntity player,
+		UnitDefinition definition,
+		EquipmentSlot slot,
+		UnitItemEntry spec,
+		TextTemplateResolver textTemplateResolver
+	) {
+		var fallbackSpec = fallbackVillagerArmorSpec(definition, slot);
+		var effectiveSpec = fallbackSpec.isEmpty() ? spec : fallbackSpec;
+		var stack = createConfiguredStack(player, effectiveSpec, null, null, null, "", List.of(), textTemplateResolver);
+		if (!fallbackSpec.isEmpty()) {
+			applyFallbackVillagerArmorProfile(stack);
+		}
+		return stack;
 	}
 
 	public ItemStack createShopItem(ServerPlayerEntity player, UnitItemEntry spec, TextTemplateResolver textTemplateResolver) {
@@ -275,6 +316,7 @@ public class UnitLoadoutService {
 		if (stack.isEmpty()) {
 			return ItemStack.EMPTY;
 		}
+		markUnbreakable(stack);
 		if (textTemplateResolver != null && spec.displayName != null && !spec.displayName.isBlank()) {
 			stack.set(DataComponentTypes.CUSTOM_NAME, textTemplateResolver.formatUi(spec.displayName));
 		}
@@ -311,9 +353,7 @@ public class UnitLoadoutService {
 		if (left == null || right == null || left.isEmpty() || right.isEmpty()) {
 			return false;
 		}
-		var leftItemId = left.resolvedItemId();
-		var rightItemId = right.resolvedItemId();
-		return leftItemId != null && !leftItemId.isBlank() && leftItemId.equals(rightItemId);
+		return left.sameSpec(right);
 	}
 
 	private ItemStack createTaggedStack(Item item, String kind, FactionId factionId, String unitId) {
@@ -367,7 +407,7 @@ public class UnitLoadoutService {
 	private ItemStack createBaseStack(ServerPlayerEntity player, UnitItemEntry spec) {
 		try {
 			if (!spec.stackNbt.isBlank()) {
-				return ItemStack.CODEC.parse(registryOps(player), StringNbtReader.readCompound(spec.stackNbt))
+				return ItemStack.CODEC.parse(registryOps(player), StringNbtReader.readCompound(normalizeLegacySnbt(spec.stackNbt)))
 					.getOrThrow(message -> new IllegalArgumentException("잘못된 ItemStack SNBT: " + message));
 			}
 			var item = spec.resolve();
@@ -376,7 +416,7 @@ public class UnitLoadoutService {
 			}
 			var stack = new ItemStack(item, spec.count);
 			if (!spec.componentsNbt.isBlank()) {
-				var changes = ComponentChanges.CODEC.parse(registryOps(player), StringNbtReader.readCompound(spec.componentsNbt))
+				var changes = ComponentChanges.CODEC.parse(registryOps(player), StringNbtReader.readCompound(normalizeLegacySnbt(spec.componentsNbt)))
 					.getOrThrow(message -> new IllegalArgumentException("잘못된 components SNBT: " + message));
 				stack.applyChanges(changes);
 			}
@@ -391,6 +431,42 @@ public class UnitLoadoutService {
 			throw new IllegalArgumentException("아이템 SNBT 파싱에는 서버 컨텍스트가 필요함");
 		}
 		return RegistryOps.of(NbtOps.INSTANCE, player.getServer().getRegistryManager());
+	}
+
+	static String normalizeLegacySnbt(String raw) {
+		if (raw == null || raw.isBlank()) {
+			return raw == null ? "" : raw;
+		}
+		var source = raw.strip();
+		if (source.startsWith("[") && source.endsWith("]")) {
+			source = "{" + source.substring(1, source.length() - 1) + "}";
+		}
+		if (source.indexOf('=') < 0) {
+			return source;
+		}
+		var builder = new StringBuilder(source.length());
+		boolean inString = false;
+		boolean escaped = false;
+		for (int index = 0; index < source.length(); index++) {
+			char current = source.charAt(index);
+			if (escaped) {
+				builder.append(current);
+				escaped = false;
+				continue;
+			}
+			if (current == '\\' && inString) {
+				builder.append(current);
+				escaped = true;
+				continue;
+			}
+			if (current == '"') {
+				builder.append(current);
+				inString = !inString;
+				continue;
+			}
+			builder.append(current == '=' && !inString ? ':' : current);
+		}
+		return builder.toString().replaceAll("(?<=[\\{,])\\s*([A-Za-z0-9_:.+-]+)\\s*:", "\"$1\":");
 	}
 
 	private void applyCustomData(ItemStack stack, String kind, FactionId factionId, String unitId) {
@@ -442,9 +518,56 @@ public class UnitLoadoutService {
 			return;
 		}
 		stack.set(DataComponentTypes.UNBREAKABLE, Unit.INSTANCE);
+		stack.set(DataComponentTypes.TOOLTIP_DISPLAY, hideTooltipComponent(stack.get(DataComponentTypes.TOOLTIP_DISPLAY), DataComponentTypes.UNBREAKABLE));
 		if (stack.isDamageable()) {
 			stack.setDamage(0);
 		}
+	}
+
+	static UnitItemEntry fallbackVillagerArmorSpec(UnitDefinition definition, EquipmentSlot slot) {
+		if (definition == null || definition.factionId() != FactionId.VILLAGER || slot == null) {
+			return new UnitItemEntry();
+		}
+		return switch (slot) {
+			case HEAD -> emptyOrFallback(definition.helmet(), "minecraft:leather_helmet");
+			case CHEST -> emptyOrFallback(definition.chest(), "minecraft:leather_chestplate");
+			case LEGS -> emptyOrFallback(definition.legs(), "minecraft:leather_leggings");
+			case FEET -> emptyOrFallback(definition.boots(), "minecraft:leather_boots");
+			default -> new UnitItemEntry();
+		};
+	}
+
+	static boolean hasEffectiveArmorSlot(UnitDefinition definition, EquipmentSlot slot) {
+		if (definition == null || slot == null) {
+			return false;
+		}
+		return switch (slot) {
+			case HEAD -> (definition.helmet() != null && !definition.helmet().isEmpty()) || !fallbackVillagerArmorSpec(definition, slot).isEmpty();
+			case CHEST -> (definition.chest() != null && !definition.chest().isEmpty()) || !fallbackVillagerArmorSpec(definition, slot).isEmpty();
+			case LEGS -> (definition.legs() != null && !definition.legs().isEmpty()) || !fallbackVillagerArmorSpec(definition, slot).isEmpty();
+			case FEET -> (definition.boots() != null && !definition.boots().isEmpty()) || !fallbackVillagerArmorSpec(definition, slot).isEmpty();
+			default -> false;
+		};
+	}
+
+	private static UnitItemEntry emptyOrFallback(UnitItemEntry configured, String fallbackItemId) {
+		if (configured != null && !configured.isEmpty()) {
+			return new UnitItemEntry();
+		}
+		return UnitItemEntry.create(fallbackItemId);
+	}
+
+	private void applyFallbackVillagerArmorProfile(ItemStack stack) {
+		if (stack.isEmpty()) {
+			return;
+		}
+		stack.set(DataComponentTypes.ATTRIBUTE_MODIFIERS, AttributeModifiersComponent.builder().build());
+		stack.set(DataComponentTypes.TOOLTIP_DISPLAY, hideTooltipComponent(stack.get(DataComponentTypes.TOOLTIP_DISPLAY), DataComponentTypes.ATTRIBUTE_MODIFIERS));
+	}
+
+	static TooltipDisplayComponent hideTooltipComponent(TooltipDisplayComponent tooltipDisplay, net.minecraft.component.ComponentType<?> componentType) {
+		var effectiveDisplay = tooltipDisplay == null ? TooltipDisplayComponent.DEFAULT : tooltipDisplay;
+		return effectiveDisplay.with(componentType, true);
 	}
 
 	private void resetDurability(ItemStack stack) {

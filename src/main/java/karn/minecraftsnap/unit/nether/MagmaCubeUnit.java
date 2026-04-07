@@ -15,47 +15,16 @@ import net.minecraft.entity.effect.StatusEffects;
 import java.util.List;
 
 import static karn.minecraftsnap.unit.UnitSpecSupport.applyCombatProfile;
-import static karn.minecraftsnap.unit.UnitSpecSupport.applyEnchantment;
 import static karn.minecraftsnap.unit.UnitSpecSupport.disguise;
 import static karn.minecraftsnap.unit.UnitSpecSupport.item;
 import static karn.minecraftsnap.unit.UnitSpecSupport.none;
 import static karn.minecraftsnap.unit.UnitSpecSupport.unit;
-import static net.minecraft.enchantment.Enchantments.FIRE_ASPECT;
 
 public class MagmaCubeUnit extends AbstractNetherUnit implements ConfiguredUnitClass {
-	public static final UnitDefinition DEFINITION = unit(
-		"magma_cube",
-		"마그마 큐브",
-		FactionId.NETHER,
-		true,
-		1,
-		18.0,
-		1.0,
-		item("minecraft:magma_cream"),
-		none(),
-		none(),
-		none(),
-		none(),
-		none(),
-		none(),
-		"",
-		0,
-		UnitDefinition.AmmoType.NONE,
-		disguise("minecraft:magma_cube", "{Size:5}"),
-			List.of("&f패시브 &7- 점프력이 상승합니다. 사망시 분열합니다","&f무기 &7- 마그마 크림"),
-		List.of()
-	);
-
-	@Override
-	public UnitDefinition definition() {
-		return DEFINITION;
-	}
-
 	@Override
 	public void buildLoadout(UnitContext context) {
 		context.baseBuildLoadout();
-		applyCombatProfile(context.player().getMainHandStack(), definition().id(), weaponAttackDamage(), weaponAttackSpeed());
-		applyEnchantment(context.world(), context.player().getMainHandStack(), FIRE_ASPECT, weaponFireAspectLevel());
+		applyCombatProfile(context.player().getMainHandStack(), context.unitDefinition().id(), weaponAttackDamage(), weaponAttackSpeed());
 	}
 
 	@Override
@@ -83,8 +52,8 @@ public class MagmaCubeUnit extends AbstractNetherUnit implements ConfiguredUnitC
 			magmaCube.setSize(spawnedMagmaCubeSize(), true);
 			magmaCube.refreshPositionAndAngles(player.getX() + (index - 1.5D), player.getY(), player.getZ(), player.getYaw(), player.getPitch());
 			magmaCube.setCustomName(player.getName().copy());
-			world.spawnEntity(magmaCube);
 			SummonedMobSupport.applyFriendlyTeam(context, magmaCube);
+			world.spawnEntity(magmaCube);
 		}
 	}
 
@@ -94,10 +63,6 @@ public class MagmaCubeUnit extends AbstractNetherUnit implements ConfiguredUnitC
 
 	double weaponAttackSpeed() {
 		return 2.0D;
-	}
-
-	int weaponFireAspectLevel() {
-		return 1;
 	}
 
 	int spawnedMagmaCubeCount() {

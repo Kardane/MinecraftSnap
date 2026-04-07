@@ -14,34 +14,6 @@ import static karn.minecraftsnap.unit.UnitSpecSupport.none;
 import static karn.minecraftsnap.unit.UnitSpecSupport.unit;
 
 public class GiantSlimeUnit extends SlimeUnit {
-	public static final UnitDefinition DEFINITION = unit(
-		"giant_slime",
-		"거대 슬라임",
-		FactionId.MONSTER,
-		false,
-		0,
-		50.0,
-		1.0,
-		item("minecraft:slime_ball"),
-		none(),
-		none(),
-		none(),
-		none(),
-		none(),
-		none(),
-		"",
-		0,
-		UnitDefinition.AmmoType.NONE,
-		disguise("minecraft:slime", "{Size:5}"),
-			List.of("&f패시브 &7- 크기가 더욱 증가하고, 사망시 분열합니다","&f무기 &7- 슬라임 볼"),
-		List.of()
-	);
-
-	@Override
-	public UnitDefinition definition() {
-		return DEFINITION;
-	}
-
 	@Override
 	public void applyAttributes(UnitContext context) {
 		super.applyAttributes(context);
@@ -68,6 +40,6 @@ public class GiantSlimeUnit extends SlimeUnit {
 
 	@Override
 	int spawnedSlimeSize() {
-		return 5;
+		return 4;
 	}
 }

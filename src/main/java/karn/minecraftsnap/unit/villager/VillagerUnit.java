@@ -15,38 +15,10 @@ import static karn.minecraftsnap.unit.UnitSpecSupport.none;
 import static karn.minecraftsnap.unit.UnitSpecSupport.unit;
 
 public class VillagerUnit extends AbstractVillagerUnit implements ConfiguredUnitClass {
-	public static final UnitDefinition DEFINITION = unit(
-		"villager",
-		"멍청이 주민",
-		FactionId.VILLAGER,
-		true,
-		1,
-		20.0,
-		0.9,
-		karn.minecraftsnap.unit.UnitSpecSupport.item("minecraft:wooden_sword"),
-		item("minecraft:bread"),
-		none(),
-		none(),
-		none(),
-		none(),
-		abilityItem("minecraft:bread", "빵 먹기", 8),
-		"빵 먹기",
-		8,
-		UnitDefinition.AmmoType.NONE,
-		disguise("minecraft:villager", "{VillagerData:{type:\"minecraft:plains\",profession:\"minecraft:nitwit\",level:1}}"),
-		List.of("&f빵 먹기 &7- 체력을 회복합니다.","&f무기 &7- 나무 검"),
-		List.of()
-	);
-
-	@Override
-	public UnitDefinition definition() {
-		return DEFINITION;
-	}
-
 	@Override
 	public void onSkillUse(karn.minecraftsnap.unit.UnitContext context) {
 		context.activateSkill(() -> {
-			context.player().heal(healAmount());
+			context.healSelf(healAmount());
 			context.player().getWorld().playSound(
 				null,
 				context.player().getBlockPos(),
@@ -55,6 +27,8 @@ public class VillagerUnit extends AbstractVillagerUnit implements ConfiguredUnit
 				0.9f,
 				1.0f
 			);
+			var player = context.player();
+			player.getWorld().playSound(null, player.getBlockPos(), SoundEvents.ENTITY_VILLAGER_YES, SoundCategory.PLAYERS, 0.9f, 1.1f);
 			return true;
 		});
 	}

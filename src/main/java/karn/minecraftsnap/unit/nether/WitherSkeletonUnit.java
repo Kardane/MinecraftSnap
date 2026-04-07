@@ -1,4 +1,4 @@
-package karn.minecraftsnap.unit.monster;
+package karn.minecraftsnap.unit.nether;
 
 import karn.minecraftsnap.game.FactionId;
 import karn.minecraftsnap.game.UnitDefinition;
@@ -19,35 +19,7 @@ import static karn.minecraftsnap.unit.UnitSpecSupport.item;
 import static karn.minecraftsnap.unit.UnitSpecSupport.none;
 import static karn.minecraftsnap.unit.UnitSpecSupport.unit;
 
-public class WitherSkeletonUnit extends AbstractMonsterUnit implements ConfiguredUnitClass {
-	public static final UnitDefinition DEFINITION = unit(
-		"wither_skeleton",
-		"위더 스켈레톤",
-		FactionId.NETHER,
-		true,
-		3,
-		28.0,
-		0.9,
-		item("minecraft:stone_sword"),
-		none(),
-		none(),
-		none(),
-		none(),
-		none(),
-		item("minecraft:stone_sword"),
-		"위더 해골",
-		10,
-		UnitDefinition.AmmoType.NONE,
-		disguise("minecraft:wither_skeleton"),
-			List.of("&f패시브 &7- 공격시 시듦을 부여합니다.","&f해골 날리기 &7- 위더 해골을 발사합니다.","&f무기 &7- 돌 검"),
-		List.of()
-	);
-
-	@Override
-	public UnitDefinition definition() {
-		return DEFINITION;
-	}
-
+public class WitherSkeletonUnit extends AbstractNetherUnit implements ConfiguredUnitClass {
 	@Override
 	public void onTick(UnitContext context) {
 		context.player().addStatusEffect(new StatusEffectInstance(StatusEffects.FIRE_RESISTANCE, fireResistanceDurationTicks(), 0, true, false, false));

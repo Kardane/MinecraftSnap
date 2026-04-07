@@ -9,6 +9,7 @@ import karn.minecraftsnap.command.McSnapCommandRegistrar;
 import karn.minecraftsnap.command.TeamChatService;
 import karn.minecraftsnap.config.MinecraftSnapConfigManager;
 import karn.minecraftsnap.config.MinecraftSnapResourcePackConfigurer;
+import karn.minecraftsnap.config.ServerStatsRepository;
 import karn.minecraftsnap.config.StatsRepository;
 import karn.minecraftsnap.config.SystemConfig;
 import karn.minecraftsnap.game.AdvanceService;
@@ -64,7 +65,9 @@ import karn.minecraftsnap.ui.UnitHudService;
 import karn.minecraftsnap.ui.WikiGuiService;
 import karn.minecraftsnap.unit.SummonedMobSupport;
 import karn.minecraftsnap.unit.UnitClassRegistry;
+import karn.minecraftsnap.unit.nether.GhastUnit;
 import karn.minecraftsnap.util.TextTemplateResolver;
+import karn.minecraftsnap.integration.DisguiseAnimationSupport;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
@@ -92,10 +95,14 @@ import net.minecraft.sound.SoundEvent;
 import net.minecraft.text.Text;
 import net.minecraft.util.Identifier;
 import net.minecraft.util.math.Vec3d;
+import net.minecraft.world.GameRules;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.HashMap;
+import java.util.Map;
 import java.nio.file.Path;
+import java.util.UUID;
 
 /**
  * 서버사이드 전용 모드 초기화 클래스
@@ -176,11 +183,13 @@ public class MinecraftSnap implements DedicatedServerModInitializer {
 	private final GameEndService gameEndService = new GameEndService(
 		matchManager,
 		textTemplateResolver,
-		msg -> titleDisplayService.showGameTitle(matchManager.getServer(), msg),
+		(title, subtitle) -> titleDisplayService.showGameTitle(matchManager.getServer(), title, subtitle),
 		this::applyWinnerGlow,
 		this::resetOnlinePlayerAttributes,
+		this::clearLaneEntities,
 		this::clearWinnerGlow,
 		this::applyTickRate,
+		this::shouldApplyGameEndRewards,
 		this::applyLadderRewardsAndRefresh,
 		this::returnPlayersToLobby,
 		() -> laneBiomeService.restoreAll(matchManager.getServer())
@@ -217,6 +226,8 @@ public class MinecraftSnap implements DedicatedServerModInitializer {
 	});
 	private MatchPhase observedPhase = MatchPhase.LOBBY;
 	private boolean captainSkillUnlockAnnounced;
+	private boolean suppressNextGameEndRewards;
+	private final Map<UUID, LadderChange> pendingGameEndLadderChanges = new HashMap<>();
 
 	@Override
 	public void onInitializeServer() {
@@ -225,8 +236,7 @@ public class MinecraftSnap implements DedicatedServerModInitializer {
 		StyledChatSupport.initialize();
 		registerOverlaySounds();
 		configManager.load();
-		unitRegistry.loadFromConfiguredClasses(unitClassRegistry);
-		unitRegistry.applyUnitConfigs(configManager.getUnitConfigs());
+		unitRegistry.setDefinitions(configManager.getUnitDefinitions().values());
 		unitRegistry.applyTextConfig(configManager.getTextConfig());
 		unitClassRegistry.validateAgainst(unitRegistry);
 		initializeServices();
@@ -272,9 +282,11 @@ public class MinecraftSnap implements DedicatedServerModInitializer {
 			LOGGER.info("[{}] 서버 시작 완료", MOD_ID);
 		});
 		ServerLifecycleEvents.SERVER_STOPPING.register(server -> configManager.getStatsRepository().save());
+		ServerLifecycleEvents.SERVER_STOPPING.register(server -> configManager.getServerStatsRepository().save());
 		ServerTickEvents.END_SERVER_TICK.register(server -> {
 			matchManager.syncOnlinePlayersFromScoreboard();
 			matchManager.tick();
+			DisguiseAnimationSupport.tick(server);
 			handlePhaseTransition();
 			factionStructureResetService.tick(server, configManager.getSystemConfig(), matchManager.getServerTicks());
 			lobbyCoordinator.tick(server, configManager.getSystemConfig());
@@ -307,12 +319,14 @@ public class MinecraftSnap implements DedicatedServerModInitializer {
 			}
 			playFactionSelectionTickSound();
 			if (matchManager.getServerTicks() % 20L == 0L) {
-					playerDisplayNameService.sync(server, matchManager, configManager.getStatsRepository(), configManager.getSystemConfig());
+				tickPlayTimeStats(server);
+				playerDisplayNameService.sync(server, matchManager, configManager.getStatsRepository(), configManager.getSystemConfig());
 			}
 			phaseMusicService.tick(server);
 			gameEndService.tick(configManager.getSystemConfig());
 			if (matchManager.getServerTicks() % 200L == 0L) {
 				configManager.getStatsRepository().saveIfDirty();
+				configManager.getServerStatsRepository().saveIfDirty();
 			}
 		});
 		ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> {
@@ -322,7 +336,7 @@ public class MinecraftSnap implements DedicatedServerModInitializer {
 			matchManager.syncPersistentState(handler.getPlayer().getUuid(), stats.emeralds, stats.goldIngots);
 			lobbyCoordinator.handleJoin(handler.getPlayer(), configManager.getSystemConfig());
 			ongoingMatchJoinService.handleJoin(handler.getPlayer(), configManager.getSystemConfig(), configManager.getTextConfig());
-				playerDisplayNameService.refreshAll(server, matchManager, configManager.getStatsRepository(), configManager.getSystemConfig());
+			playerDisplayNameService.refreshAll(server, matchManager, configManager.getStatsRepository(), configManager.getSystemConfig());
 			phaseMusicService.handleJoin(handler.getPlayer());
 		});
 		ServerPlayConnectionEvents.DISCONNECT.register((handler, server) -> {
@@ -361,9 +375,9 @@ public class MinecraftSnap implements DedicatedServerModInitializer {
 
 	public void reload() {
 		configManager.getStatsRepository().saveIfDirty();
+		configManager.getServerStatsRepository().saveIfDirty();
 		configManager.reload();
-		unitRegistry.loadFromConfiguredClasses(unitClassRegistry);
-		unitRegistry.applyUnitConfigs(configManager.getUnitConfigs());
+		unitRegistry.setDefinitions(configManager.getUnitDefinitions().values());
 		unitRegistry.applyTextConfig(configManager.getTextConfig());
 		unitClassRegistry.validateAgainst(unitRegistry);
 
@@ -423,7 +437,8 @@ public class MinecraftSnap implements DedicatedServerModInitializer {
 			unitAbilityService,
 			laneRuntimeRegistry,
 			unitHookService,
-			uiSoundService
+			uiSoundService,
+			configManager.getServerStatsRepository()
 		);
 	}
 
@@ -433,6 +448,10 @@ public class MinecraftSnap implements DedicatedServerModInitializer {
 
 	public StatsRepository getStatsRepository() {
 		return configManager.getStatsRepository();
+	}
+
+	public ServerStatsRepository getServerStatsRepository() {
+		return configManager.getServerStatsRepository();
 	}
 
 	public TextTemplateResolver getTextTemplateResolver() {
@@ -487,12 +506,20 @@ public class MinecraftSnap implements DedicatedServerModInitializer {
 	}
 
 	public void forcePhase(MatchPhase phase) {
+		if (phase != MatchPhase.GAME_END) {
+			suppressNextGameEndRewards = false;
+		}
 		var server = matchManager.getOnlinePlayers().stream().findFirst().map(player -> player.getServer()).orElse(null);
 		if (server == null) {
 			matchManager.setPhase(phase);
 			return;
 		}
 		lobbyCoordinator.forcePhase(phase, server, configManager.getSystemConfig());
+	}
+
+	public void forceAdminGameEnd() {
+		suppressNextGameEndRewards = true;
+		forcePhase(MatchPhase.GAME_END);
 	}
 
 	public void clearAllTeams() {
@@ -530,6 +557,10 @@ public class MinecraftSnap implements DedicatedServerModInitializer {
 			&& UnitHookService.canUseUnitActions(roleType, currentUnitId, spectator);
 	}
 
+	static boolean isFallDamageEnabledForPhase(MatchPhase phase) {
+		return phase == MatchPhase.GAME_START || phase == MatchPhase.GAME_RUNNING;
+	}
+
 	public void setLaneRevealState(karn.minecraftsnap.game.LaneId laneId, boolean revealed) {
 		lobbyCoordinator.setLaneRevealState(laneId, revealed);
 	}
@@ -557,9 +588,9 @@ public class MinecraftSnap implements DedicatedServerModInitializer {
 		return triggered;
 	}
 
-	public void handleLivingDamageApplied(net.minecraft.entity.LivingEntity entity, net.minecraft.entity.damage.DamageSource source, boolean damaged) {
+	public void handleLivingDamageApplied(net.minecraft.entity.LivingEntity entity, net.minecraft.entity.damage.DamageSource source, float healthBefore, float healthAfter, boolean damaged) {
 		if (inGameRuleService != null) {
-			inGameRuleService.handleDamageApplied(entity, source, damaged);
+			inGameRuleService.handleDamageApplied(entity, source, healthBefore, healthAfter, damaged);
 		}
 	}
 
@@ -567,7 +598,8 @@ public class MinecraftSnap implements DedicatedServerModInitializer {
 		if (projectile == null || target == null || unitHookService == null) {
 			return;
 		}
-		if (!(projectile.getOwner() instanceof ServerPlayerEntity player)) {
+		var player = resolveProjectileHookOwner(projectile);
+		if (player == null) {
 			return;
 		}
 		unitHookService.handleProjectileHit(player, projectile, target, configManager.getSystemConfig());
@@ -577,7 +609,8 @@ public class MinecraftSnap implements DedicatedServerModInitializer {
 		if (projectile == null || impactPos == null || unitHookService == null) {
 			return;
 		}
-		if (!(projectile.getOwner() instanceof ServerPlayerEntity player)) {
+		var player = resolveProjectileHookOwner(projectile);
+		if (player == null) {
 			return;
 		}
 		unitHookService.handleProjectileImpact(player, projectile, impactPos, configManager.getSystemConfig());
@@ -759,6 +792,19 @@ public class MinecraftSnap implements DedicatedServerModInitializer {
 		return phase == MatchPhase.GAME_START || phase == MatchPhase.GAME_RUNNING;
 	}
 
+	static boolean shouldBlockCaptainItemDrop(RoleType roleType) {
+		return roleType == RoleType.CAPTAIN;
+	}
+
+	static boolean shouldTrackPlayTime(MatchPhase phase, PlayerMatchState state, boolean spectator) {
+		return (phase == MatchPhase.GAME_START || phase == MatchPhase.GAME_RUNNING)
+			&& state != null
+			&& state.getTeamId() != null
+			&& state.getRoleType() != RoleType.NONE
+			&& state.getRoleType() != RoleType.SPECTATOR
+			&& !spectator;
+	}
+
 	static int countCaptainRecoveryTeammates(MatchManager matchManager, TeamId teamId) {
 		if (matchManager == null || teamId == null) {
 			return 0;
@@ -804,6 +850,51 @@ public class MinecraftSnap implements DedicatedServerModInitializer {
 
 	private void openAdvanceGui(net.minecraft.server.network.ServerPlayerEntity player, PlayerMatchState state) {
 		unitHookService.openAdvanceGui(player, configManager.getSystemConfig());
+	}
+
+	private void clearLaneEntities() {
+		var server = matchManager.getServer();
+		var systemConfig = configManager.getSystemConfig();
+		if (server == null || systemConfig == null) {
+			return;
+		}
+		var world = resolveConfiguredWorld(server, systemConfig.world);
+		if (world == null) {
+			return;
+		}
+		clearLaneEntities(world, systemConfig.inGame.lane1Region);
+		clearLaneEntities(world, systemConfig.inGame.lane2Region);
+		clearLaneEntities(world, systemConfig.inGame.lane3Region);
+	}
+
+	private void clearLaneEntities(net.minecraft.server.world.ServerWorld world, SystemConfig.LaneRegionConfig laneRegion) {
+		if (world == null || laneRegion == null) {
+			return;
+		}
+		var box = new net.minecraft.util.math.Box(
+			laneRegion.minX,
+			laneRegion.minY,
+			laneRegion.minZ,
+			laneRegion.maxX,
+			laneRegion.maxY,
+			laneRegion.maxZ
+		);
+		for (var entity : world.getOtherEntities(null, box, entity -> !(entity instanceof net.minecraft.server.network.ServerPlayerEntity))) {
+			entity.discard();
+		}
+	}
+
+	private net.minecraft.server.world.ServerWorld resolveConfiguredWorld(net.minecraft.server.MinecraftServer server, String worldId) {
+		if (server == null) {
+			return null;
+		}
+		try {
+			var key = net.minecraft.registry.RegistryKey.of(net.minecraft.registry.RegistryKeys.WORLD, net.minecraft.util.Identifier.of(worldId));
+			var world = server.getWorld(key);
+			return world != null ? world : server.getOverworld();
+		} catch (Exception ignored) {
+			return server.getOverworld();
+		}
 	}
 
 	private void openAdminToolsGui(ServerPlayerEntity player) {
@@ -857,6 +948,8 @@ public class MinecraftSnap implements DedicatedServerModInitializer {
 			return;
 		}
 
+		applyFallDamageGameRule(phase);
+
 		if (phase == MatchPhase.GAME_START) {
 			captainSkillUnlockAnnounced = false;
 			captainManaService.clear();
@@ -898,6 +991,14 @@ public class MinecraftSnap implements DedicatedServerModInitializer {
 		broadcastPhaseAnnouncement(phase);
 		playerDisplayNameService.refreshAll(matchManager.getServer(), matchManager, configManager.getStatsRepository(), configManager.getSystemConfig());
 		observedPhase = phase;
+	}
+
+	private void applyFallDamageGameRule(MatchPhase phase) {
+		var server = matchManager.getServer();
+		if (server == null) {
+			return;
+		}
+		server.getGameRules().get(GameRules.FALL_DAMAGE).set(isFallDamageEnabledForPhase(phase), server);
 	}
 
 	private void tickCaptainMana(net.minecraft.server.MinecraftServer server) {
@@ -990,8 +1091,38 @@ public class MinecraftSnap implements DedicatedServerModInitializer {
 		if (server == null) {
 			return;
 		}
-		ladderRewardService.applyMatchRewards(server, matchManager, configManager.getStatsRepository(), configManager.getSystemConfig());
-		playerDisplayNameService.refreshAll(server, matchManager, configManager.getStatsRepository(), configManager.getSystemConfig());
+		var statsRepository = configManager.getStatsRepository();
+		var beforeLadders = snapshotParticipantLadders(statsRepository);
+		if (!shouldSkipGameEndRewards()) {
+			ladderRewardService.applyMatchRewards(server, matchManager, statsRepository, configManager.getSystemConfig());
+			ladderRewardService.applyServerMatchStats(matchManager, configManager.getServerStatsRepository());
+		}
+		capturePendingLadderChanges(beforeLadders, statsRepository);
+		playerDisplayNameService.refreshAll(server, matchManager, statsRepository, configManager.getSystemConfig());
+	}
+
+	private boolean shouldApplyGameEndRewards() {
+		return !shouldSkipGameEndRewards();
+	}
+
+	private boolean shouldSkipGameEndRewards() {
+		if (!suppressNextGameEndRewards) {
+			return false;
+		}
+		suppressNextGameEndRewards = false;
+		return true;
+	}
+
+	private void tickPlayTimeStats(net.minecraft.server.MinecraftServer server) {
+		if (server == null) {
+			return;
+		}
+		for (var player : server.getPlayerManager().getPlayerList()) {
+			var state = matchManager.getPlayerState(player.getUuid());
+			if (shouldTrackPlayTime(matchManager.getPhase(), state, player.isSpectator())) {
+				configManager.getStatsRepository().addPlayTimeSeconds(player.getUuid(), player.getName().getString(), 1);
+			}
+		}
 	}
 
 	private void applyTickRate(int tickRate) {
@@ -1012,6 +1143,103 @@ public class MinecraftSnap implements DedicatedServerModInitializer {
 			return;
 		}
 		lobbyCoordinator.forcePhase(MatchPhase.LOBBY, server, configManager.getSystemConfig());
+		showPendingLadderChanges(server);
+	}
+
+	private ServerPlayerEntity resolveProjectileHookOwner(ProjectileEntity projectile) {
+		if (projectile == null) {
+			return null;
+		}
+		UUID currentOwnerId = projectile.getOwner() instanceof ServerPlayerEntity player ? player.getUuid() : null;
+		UUID taggedOwnerId = GhastUnit.findOriginalOwnerId(projectile.getCommandTags());
+		UUID resolvedOwnerId = resolveProjectileHookOwnerId(currentOwnerId, taggedOwnerId);
+		if (resolvedOwnerId == null || projectile.getServer() == null) {
+			return null;
+		}
+		return projectile.getServer().getPlayerManager().getPlayer(resolvedOwnerId);
+	}
+
+	static UUID resolveProjectileHookOwnerId(UUID currentOwnerId, UUID taggedOwnerId) {
+		return taggedOwnerId != null ? taggedOwnerId : currentOwnerId;
+	}
+
+	static String formatSignedLadderDelta(int delta) {
+		if (delta > 0) {
+			return "+" + delta;
+		}
+		return Integer.toString(delta);
+	}
+
+	static String formatLadderChangeSubtitle(int previous, int current) {
+		return "(" + previous + ") -> (" + current + ")";
+	}
+
+	private Map<UUID, Integer> snapshotParticipantLadders(StatsRepository statsRepository) {
+		var snapshot = new HashMap<UUID, Integer>();
+		if (statsRepository == null) {
+			return snapshot;
+		}
+		for (var entry : matchManager.getPlayerStatesSnapshot().entrySet()) {
+			var state = entry.getValue();
+			if (state.getTeamId() == null || state.getRoleType() == RoleType.NONE || state.getRoleType() == RoleType.SPECTATOR) {
+				continue;
+			}
+			var playerId = entry.getKey();
+			snapshot.put(playerId, statsRepository.getLadder(playerId, resolveStatsName(playerId, statsRepository)));
+		}
+		return snapshot;
+	}
+
+	private void capturePendingLadderChanges(Map<UUID, Integer> beforeLadders, StatsRepository statsRepository) {
+		pendingGameEndLadderChanges.clear();
+		if (statsRepository == null) {
+			return;
+		}
+		for (var entry : beforeLadders.entrySet()) {
+			var playerId = entry.getKey();
+			var previous = entry.getValue();
+			var current = statsRepository.getLadder(playerId, resolveStatsName(playerId, statsRepository));
+			pendingGameEndLadderChanges.put(playerId, new LadderChange(previous, current));
+		}
+	}
+
+	private void showPendingLadderChanges(net.minecraft.server.MinecraftServer server) {
+		if (server == null || pendingGameEndLadderChanges.isEmpty()) {
+			pendingGameEndLadderChanges.clear();
+			return;
+		}
+		var gameEndConfig = configManager.getSystemConfig().gameEnd;
+		for (var player : server.getPlayerManager().getPlayerList()) {
+			var change = pendingGameEndLadderChanges.get(player.getUuid());
+			if (change == null) {
+				continue;
+			}
+			titleDisplayService.showPersonalTitle(
+				player,
+				gameEndConfig.ladderDeltaTitleTemplate.replace("{delta}", formatSignedLadderDelta(change.delta())),
+				gameEndConfig.ladderDeltaSubtitleTemplate
+					.replace("{previous}", Integer.toString(change.previous()))
+					.replace("{current}", Integer.toString(change.current()))
+			);
+		}
+		pendingGameEndLadderChanges.clear();
+	}
+
+	private String resolveStatsName(UUID playerId, StatsRepository statsRepository) {
+		var server = matchManager.getServer();
+		if (server != null) {
+			var player = server.getPlayerManager().getPlayer(playerId);
+			if (player != null) {
+				return player.getName().getString();
+			}
+		}
+		return statsRepository.getLastKnownName(playerId, playerId.toString());
+	}
+
+	private record LadderChange(int previous, int current) {
+		int delta() {
+			return current - previous;
+		}
 	}
 
 	private void setFactionSelectionAndAnnounce(TeamId teamId, FactionId factionId) {
@@ -1033,6 +1261,13 @@ public class MinecraftSnap implements DedicatedServerModInitializer {
 		}
 		server.getPlayerManager().broadcast(textTemplateResolver.format(message), false);
 		uiSoundService.playGlobalAnnouncement(server);
+	}
+
+	public boolean shouldBlockItemDrop(ServerPlayerEntity player) {
+		if (player == null) {
+			return false;
+		}
+		return shouldBlockCaptainItemDrop(matchManager.getPlayerState(player.getUuid()).getRoleType());
 	}
 
 

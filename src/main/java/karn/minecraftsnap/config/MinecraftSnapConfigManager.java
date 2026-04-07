@@ -5,10 +5,12 @@ import com.google.gson.GsonBuilder;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import karn.minecraftsnap.game.FactionId;
-import karn.minecraftsnap.game.UnitRegistry;
+import karn.minecraftsnap.game.UnitDefinition;
+import karn.minecraftsnap.unit.UnitClassRegistry;
 import org.slf4j.Logger;
 
 import java.io.IOException;
+import java.io.InputStreamReader;
 import java.io.Reader;
 import java.io.Writer;
 import java.nio.charset.StandardCharsets;
@@ -29,6 +31,7 @@ public class MinecraftSnapConfigManager {
 	private final EnumMap<FactionId, ShopConfigFile> shopConfigs = new EnumMap<>(FactionId.class);
 	private final Map<String, UnitConfigEntry> unitConfigs = new LinkedHashMap<>();
 	private StatsRepository statsRepository;
+	private ServerStatsRepository serverStatsRepository;
 
 	public MinecraftSnapConfigManager(Path configDirectory, Logger logger) {
 		this.configDirectory = configDirectory;
@@ -53,6 +56,8 @@ public class MinecraftSnapConfigManager {
 
 			statsRepository = new StatsRepository(configDirectory.resolve("stats.json"), logger);
 			statsRepository.load();
+			serverStatsRepository = new ServerStatsRepository(configDirectory.resolve("server_stats.json"), logger);
+			serverStatsRepository.load();
 		} catch (IOException exception) {
 			logger.error("MCsnap 컨픽 디렉터리 초기화 실패", exception);
 			systemConfig = new SystemConfig();
@@ -61,15 +66,14 @@ public class MinecraftSnapConfigManager {
 			textConfig.applyTo(systemConfig);
 			biomeCatalog = mergeDefaultBiomes(createDefaultBiomeCatalog());
 			shopConfigs.clear();
-			shopConfigs.put(FactionId.VILLAGER, createDefaultShopConfig(FactionId.VILLAGER));
-			shopConfigs.put(FactionId.NETHER, createDefaultShopConfig(FactionId.NETHER));
+			shopConfigs.put(FactionId.VILLAGER, createSeparatedDefaultShopConfig(FactionId.VILLAGER));
+			shopConfigs.put(FactionId.NETHER, createSeparatedDefaultShopConfig(FactionId.NETHER));
 			unitConfigs.clear();
-			var defaultRegistry = new UnitRegistry();
-			for (var definition : defaultRegistry.all()) {
-				unitConfigs.put(definition.id(), UnitConfigEntry.from(definition));
-			}
+			loadBundledUnitConfigsFallback();
 			statsRepository = new StatsRepository(configDirectory.resolve("stats.json"), logger);
 			statsRepository.load();
+			serverStatsRepository = new ServerStatsRepository(configDirectory.resolve("server_stats.json"), logger);
+			serverStatsRepository.load();
 		}
 	}
 
@@ -85,6 +89,10 @@ public class MinecraftSnapConfigManager {
 		return statsRepository;
 	}
 
+	public ServerStatsRepository getServerStatsRepository() {
+		return serverStatsRepository;
+	}
+
 	public TextConfigFile getTextConfig() {
 		return textConfig;
 	}
@@ -95,6 +103,14 @@ public class MinecraftSnapConfigManager {
 
 	public Map<String, UnitConfigEntry> getUnitConfigs() {
 		return new LinkedHashMap<>(unitConfigs);
+	}
+
+	public Map<String, UnitDefinition> getUnitDefinitions() {
+		var definitions = new LinkedHashMap<String, UnitDefinition>();
+		for (var entry : unitConfigs.entrySet()) {
+			definitions.put(entry.getKey(), entry.getValue().toDefinition());
+		}
+		return definitions;
 	}
 
 	public ShopConfigFile getShopConfig(FactionId factionId) {
@@ -200,7 +216,8 @@ public class MinecraftSnapConfigManager {
 		}
 		if ("gamestartcountdowntitle".equals(normalized)
 			|| "gameendtitletemplate".equals(normalized)
-			|| "gameenddrawtitletemplate".equals(normalized)) {
+			|| "gameenddrawtitletemplate".equals(normalized)
+			|| "gameendladderdeltatitletemplate".equals(normalized)) {
 			return TextSection.TITLE;
 		}
 		if (normalized.contains("actionbar") || normalized.contains("hud")) {
@@ -244,66 +261,133 @@ public class MinecraftSnapConfigManager {
 		unitConfigs.clear();
 		var unitDir = configDirectory.resolve("unit");
 		Files.createDirectories(unitDir);
-		var defaultRegistry = new UnitRegistry();
-		for (var definition : defaultRegistry.all()) {
-			var path = unitConfigPath(unitDir, definition);
-			var defaults = UnitConfigEntry.from(definition);
-			UnitConfigEntry loaded;
+		for (var unitId : new UnitClassRegistry().configuredUnitIds()) {
+			var defaults = bundledUnitConfig(unitId);
+			var path = unitConfigPath(unitDir, defaults);
+			var mergedJson = gson.toJsonTree(defaults).getAsJsonObject();
 			if (Files.notExists(path)) {
-				var legacyPath = legacyUnitConfigPath(unitDir, definition);
+				var legacyPath = legacyUnitConfigPath(unitDir, unitId);
 				if (Files.exists(legacyPath)) {
-					var mergedJson = gson.toJsonTree(defaults).getAsJsonObject();
 					mergeJsonObjects(mergedJson, readJsonObject(legacyPath));
-					loaded = gson.fromJson(mergedJson, UnitConfigEntry.class);
-				} else {
-					loaded = defaults;
 				}
 			} else {
-				var mergedJson = gson.toJsonTree(defaults).getAsJsonObject();
 				mergeJsonObjects(mergedJson, readJsonObject(path));
-				loaded = gson.fromJson(mergedJson, UnitConfigEntry.class);
 			}
+			var loaded = gson.fromJson(mergedJson, UnitConfigEntry.class);
 			if (loaded == null) {
 				loaded = defaults;
 			}
 			loaded.normalize();
-			var merged = loaded.mergeOnto(definition);
-			var stored = UnitConfigEntry.from(merged);
-			writeJson(path, stored);
-			unitConfigs.put(definition.id(), stored);
+			sanitizeUnitConfigEnums(loaded, defaults);
+			writeJson(path, loaded);
+			unitConfigs.put(unitId, loaded);
 		}
 	}
 
-	private Path unitConfigPath(Path unitDir, karn.minecraftsnap.game.UnitDefinition definition) throws IOException {
-		var factionDir = unitDir.resolve(definition.factionId().name().toLowerCase(java.util.Locale.ROOT));
-		Files.createDirectories(factionDir);
-		return factionDir.resolve(definition.id() + ".json");
+	private UnitConfigEntry bundledUnitConfig(String unitId) throws IOException {
+		var resourcePath = "/default-config/unit/" + unitId + ".json";
+		try (var stream = MinecraftSnapConfigManager.class.getResourceAsStream(resourcePath)) {
+			if (stream == null) {
+				throw new IOException("기본 유닛 컨픽 리소스 누락: " + resourcePath);
+			}
+			try (Reader reader = new InputStreamReader(stream, StandardCharsets.UTF_8)) {
+				var loaded = gson.fromJson(reader, UnitConfigEntry.class);
+				if (loaded == null) {
+					throw new IOException("기본 유닛 컨픽 파싱 실패: " + resourcePath);
+				}
+				loaded.normalize();
+				return loaded;
+			}
+		}
 	}
 
-	private Path legacyUnitConfigPath(Path unitDir, karn.minecraftsnap.game.UnitDefinition definition) {
-		return unitDir.resolve(definition.id() + ".json");
+	private void loadBundledUnitConfigsFallback() {
+		for (var unitId : new UnitClassRegistry().configuredUnitIds()) {
+			try {
+				unitConfigs.put(unitId, bundledUnitConfig(unitId));
+			} catch (IOException exception) {
+				logger.error("기본 유닛 컨픽 로드 실패: {}", unitId, exception);
+			}
+		}
+	}
+
+	private void sanitizeUnitConfigEnums(UnitConfigEntry loaded, UnitConfigEntry defaults) {
+		if (loaded == null || defaults == null) {
+			return;
+		}
+		if (!isValidFactionId(loaded.factionId)) {
+			loaded.factionId = defaults.factionId;
+		}
+		if (!isValidAmmoType(loaded.ammoType)) {
+			loaded.ammoType = defaults.ammoType;
+		}
+	}
+
+	private boolean isValidFactionId(String factionId) {
+		try {
+			FactionId.valueOf(factionId);
+			return true;
+		} catch (Exception ignored) {
+			return false;
+		}
+	}
+
+	private boolean isValidAmmoType(String ammoType) {
+		try {
+			UnitDefinition.AmmoType.valueOf(ammoType);
+			return true;
+		} catch (Exception ignored) {
+			return false;
+		}
+	}
+
+	private Path unitConfigPath(Path unitDir, UnitConfigEntry config) throws IOException {
+		var factionDir = unitDir.resolve(config.factionId.toLowerCase(java.util.Locale.ROOT));
+		Files.createDirectories(factionDir);
+		return factionDir.resolve(config.id + ".json");
+	}
+
+	private Path legacyUnitConfigPath(Path unitDir, String unitId) {
+		return unitDir.resolve(unitId + ".json");
 	}
 
 	private ShopConfigFile loadShopConfig(Path path, FactionId factionId) throws IOException {
-		var defaults = createDefaultShopConfig(factionId);
+		var defaults = createSeparatedDefaultShopConfig(factionId);
 		var loaded = loadOrCreate(path, ShopConfigFile.class, defaults);
 		if (loaded == null) {
 			loaded = defaults;
 		}
 		loaded.normalize();
-		if (factionId == FactionId.VILLAGER && shouldMigrateLegacyVillagerShop(loaded)) {
-			loaded = defaults;
-		}
+		loaded = sanitizeShopConfig(loaded, defaults, factionId);
 		loaded.normalize();
 		writeJson(path, loaded);
 		return loaded;
 	}
 
-	private boolean shouldMigrateLegacyVillagerShop(ShopConfigFile config) {
-		return config != null
-			&& config.entries != null
-			&& !config.entries.isEmpty()
-			&& config.entries.stream().noneMatch(entry -> "enchant".equals(entry.type));
+	private ShopConfigFile sanitizeShopConfig(ShopConfigFile config, ShopConfigFile defaults, FactionId factionId) {
+		if (config == null) {
+			return defaults;
+		}
+		var expectedType = expectedShopType(factionId);
+		if (expectedType == null) {
+			return defaults;
+		}
+		var sanitized = new ShopConfigFile();
+		sanitized.entries = config.entries == null
+			? new java.util.ArrayList<>()
+			: config.entries.stream()
+				.filter(entry -> entry != null && expectedType.equals(entry.type))
+				.toList();
+		sanitized.normalize();
+		return sanitized.entries.isEmpty() ? defaults : sanitized;
+	}
+
+	private String expectedShopType(FactionId factionId) {
+		return switch (factionId) {
+			case VILLAGER -> "enchant";
+			case NETHER -> "item";
+			default -> null;
+		};
 	}
 
 	private void writeJson(Path path, Object value) throws IOException {
@@ -547,7 +631,7 @@ public class MinecraftSnapConfigManager {
 		entries.add(createNoOpBiome("basalt_deltas", "현무암 지대", "minecraft:basalt_deltas", "minecraft:basalt", List.of("&8====================", "&8 바이옴 공개 - 현무암 지대", "&8  별도 효과가 없습니다.", "&8====================")));
 		entries.add(createBiome("lush_cave", "무성한 동굴", "minecraft:lush_caves", "", List.of("&2====================", "&2 바이옴 공개 - 무성한 동굴", "&2  30초마다 해당 라인 모든 유닛에게 재생 II를 10초 부여합니다.", "&2====================")));
 		entries.add(createBiome("mushroom_island", "버섯섬", "minecraft:mushroom_fields", "", List.of("&d====================", "&d 바이옴 공개 - 버섯섬", "&d  해당 라인 모든 유닛이 3초마다 체력을 1 회복합니다.", "&d====================")));
-		entries.add(createBiome("cold_ocean", "차가운 바다", "minecraft:cold_ocean", "", List.of("&b====================", "&b 바이옴 공개 - 차가운 바다", "&b  물에 닿은 유닛은 1초마다 빙결 수치가 30 증가합니다.", "&b====================")));
+		entries.add(createBiome("cold_ocean", "차가운 바다", "minecraft:cold_ocean", "", List.of("&b====================", "&b 바이옴 공개 - 차가운 바다", "&b  물에 닿은 모든 생명체는 1초마다 빙결 수치가 30 증가합니다.", "&b====================")));
 		entries.add(createBiome("reverse_icicle", "역고드름", "minecraft:frozen_peaks", "", List.of("&7====================", "&7 바이옴 공개 - 역고드름", "&7  점령지를 점령해도 점수를 얻을 수 없습니다.", "&7====================")));
 		entries.add(createNoOpBiome("void", "공허", "minecraft:the_void", "minecraft:obsidian", List.of("&8====================", "&8 바이옴 공개 - 공허", "&8  별도 효과가 없는 빈 공간입니다.", "&8====================")));
 		return entries;
@@ -587,6 +671,8 @@ public class MinecraftSnapConfigManager {
 	private List<BiomeEntry> defaultBiomeEntries() {
 		return List.of(
 			createBiome("plain", "평원", "minecraft:plains", "minecraft:plain", List.of("&a====================", "&a 바이옴 공개 - 평원", "&a  기본적인 필드다.", "&a====================")),
+			createNoOpBiome("forest", "숲", "minecraft:forest", "minecraft:oak_sapling", List.of("&2====================", "&2 바이옴 공개 - 숲", "&2  별도 효과가 없습니다.", "&2====================")),
+			createNoOpBiome("flower_forest", "꽃 숲", "minecraft:flower_forest", "minecraft:oxeye_daisy", List.of("&d====================", "&d 바이옴 공개 - 꽃 숲", "&d  별도 효과가 없습니다.", "&d====================")),
 			createBiome("desert", "사막", "minecraft:desert", "minecraft:desert", List.of("&a====================", "&a 바이옴 공개 - 사막", "&a  해당 라인의 모든 유닛이 신속 2를 얻습니다.", "&a====================")),
 			createBiome("swamp", "늪", "minecraft:swamp", "minecraft:swamp", List.of("&a====================", "&a 바이옴 공개 - 늪", "&a  30초마다 점령 지역의 유닛이 상태 이상 효과를 얻습니다.", "&a====================")),
 			createBiome("badlands", "악지", "minecraft:badlands", "minecraft:badlands", List.of("&c악지 라인 공개", "&7붉은 절벽이 전장을 감쌈")),
@@ -617,6 +703,25 @@ public class MinecraftSnapConfigManager {
 		entry.displayItemId = displayItemId;
 		entry.normalize();
 		return entry;
+	}
+
+	private ShopConfigFile createSeparatedDefaultShopConfig(FactionId factionId) {
+		var config = new ShopConfigFile();
+		config.entries = switch (factionId) {
+			case VILLAGER -> List.of(
+				enchantShop("sharpness_upgrade", "날카로움 강화", "minecraft:iron_sword", "minecraft:sharpness", "weapon", 30, 50, 70),
+				enchantShop("protection_upgrade", "보호 강화", "minecraft:diamond_chestplate", "minecraft:protection", "armor", 30, 50, 70, 90, 120)
+			);
+			case NETHER -> List.of(
+				shop("golden_helmet", 1, "minecraft:golden_helmet", 1),
+				shop("golden_chestplate", 2, "minecraft:golden_chestplate", 1),
+				shop("golden_leggings", 3, "minecraft:golden_leggings", 1),
+				shop("golden_boots", 4, "minecraft:golden_boots", 1)
+			);
+			case MONSTER -> List.of();
+		};
+		config.normalize();
+		return config;
 	}
 
 	private ShopConfigFile createDefaultShopConfig(FactionId factionId) {
