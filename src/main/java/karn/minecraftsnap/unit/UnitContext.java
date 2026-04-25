@@ -117,7 +117,7 @@ public class UnitContext {
 
 	public void baseBuildLoadout() {
 		if (player != null && unitDefinition != null && unitLoadoutService != null && textTemplateResolver != null) {
-			unitLoadoutService.applyBaseLoadout(player, unitDefinition, textTemplateResolver);
+			unitLoadoutService.applyBaseLoadout(player, unitDefinition, state == null ? null : state.getTeamId(), textTemplateResolver);
 		}
 	}
 
@@ -180,6 +180,21 @@ public class UnitContext {
 		return;
 	}
 
+	public void resetCaptainSpawnCooldown() {
+		if (matchManager == null || state == null || state.getTeamId() == null || matchManager.getServer() == null) {
+			return;
+		}
+		var captainId = matchManager.getCaptainId(state.getTeamId());
+		if (captainId == null) {
+			return;
+		}
+		var captain = matchManager.getServer().getPlayerManager().getPlayer(captainId);
+		if (captain == null) {
+			return;
+		}
+		captain.getItemCooldownManager().set(Items.BELL.getDefaultStack(), 0);
+	}
+
 	public void restoreCaptainMana(int amount) {
 		if (amount <= 0 || matchManager == null || state == null || state.getTeamId() == null || captainManaService == null) {
 			return;
@@ -224,7 +239,7 @@ public class UnitContext {
 			return;
 		}
 		var wasReady = advanceService.hasReadyOption(state);
-		advanceService.updateProgress(state, currentBiomeId(), currentWeather());
+		advanceService.updateProgress(state, currentBiomeId(), currentWeather(), serverTicks());
 		if (!wasReady && advanceService.hasReadyOption(state) && player != null && textTemplateResolver != null) {
 			player.sendMessage(textTemplateResolver.format(systemConfig.advance.readyMessage), false);
 		}

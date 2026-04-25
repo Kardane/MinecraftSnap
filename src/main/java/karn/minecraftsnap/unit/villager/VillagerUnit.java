@@ -34,6 +34,6 @@ public class VillagerUnit extends AbstractVillagerUnit implements ConfiguredUnit
 	}
 
 	float healAmount() {
-		return 5.0f;
+		return 2.0f;
 	}
 }

@@ -18,6 +18,11 @@ import static karn.minecraftsnap.unit.UnitSpecSupport.unit;
 
 public class DrownedUnit extends ZombieUnit {
 	@Override
+	public void onDeath(UnitContext context, net.minecraft.entity.damage.DamageSource source) {
+		discardOwnedTridents(context);
+	}
+
+	@Override
 	public void onTick(UnitContext context) {
 		super.onTick(context);
 		var player = context.player();
@@ -47,4 +52,15 @@ public class DrownedUnit extends ZombieUnit {
 		}
 	}
 
+	private void discardOwnedTridents(UnitContext context) {
+		var world = context.world();
+		var player = context.player();
+		if (world == null || player == null) {
+			return;
+		}
+		var box = player.getBoundingBox().expand(128.0D);
+		for (var trident : world.getEntitiesByClass(TridentEntity.class, box, entity -> entity.getOwner() == player)) {
+			trident.discard();
+		}
+	}
 }

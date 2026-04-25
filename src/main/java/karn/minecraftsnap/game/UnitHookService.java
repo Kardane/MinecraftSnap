@@ -203,7 +203,7 @@ public class UnitHookService {
 			unitAbilityService.clearPlayerState(player.getUuid());
 		}
 		applyLoadout(player, definition, systemConfig);
-		DisguiseSupport.applyDisguise(player, definition.disguise());
+		DisguiseSupport.applyTeamDisguise(player, definition.disguise(), state.getTeamId());
 		player.setHealth((float) definition.maxHealth());
 	}
 

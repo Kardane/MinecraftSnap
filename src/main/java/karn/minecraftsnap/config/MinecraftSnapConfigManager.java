@@ -215,6 +215,7 @@ public class MinecraftSnapConfigManager {
 			return TextSection.SUBTITLE;
 		}
 		if ("gamestartcountdowntitle".equals(normalized)
+			|| "biomerevealcaptainwarningtitle".equals(normalized)
 			|| "gameendtitletemplate".equals(normalized)
 			|| "gameenddrawtitletemplate".equals(normalized)
 			|| "gameendladderdeltatitletemplate".equals(normalized)) {
@@ -631,8 +632,30 @@ public class MinecraftSnapConfigManager {
 		entries.add(createNoOpBiome("basalt_deltas", "현무암 지대", "minecraft:basalt_deltas", "minecraft:basalt", List.of("&8====================", "&8 바이옴 공개 - 현무암 지대", "&8  별도 효과가 없습니다.", "&8====================")));
 		entries.add(createBiome("lush_cave", "무성한 동굴", "minecraft:lush_caves", "", List.of("&2====================", "&2 바이옴 공개 - 무성한 동굴", "&2  30초마다 해당 라인 모든 유닛에게 재생 II를 10초 부여합니다.", "&2====================")));
 		entries.add(createBiome("mushroom_island", "버섯섬", "minecraft:mushroom_fields", "", List.of("&d====================", "&d 바이옴 공개 - 버섯섬", "&d  해당 라인 모든 유닛이 3초마다 체력을 1 회복합니다.", "&d====================")));
-		entries.add(createBiome("cold_ocean", "차가운 바다", "minecraft:cold_ocean", "", List.of("&b====================", "&b 바이옴 공개 - 차가운 바다", "&b  물에 닿은 모든 생명체는 1초마다 빙결 수치가 30 증가합니다.", "&b====================")));
-		entries.add(createBiome("reverse_icicle", "역고드름", "minecraft:frozen_peaks", "", List.of("&7====================", "&7 바이옴 공개 - 역고드름", "&7  점령지를 점령해도 점수를 얻을 수 없습니다.", "&7====================")));
+		entries.add(typed(createBiome("cold_ocean", "차가운 바다", "minecraft:cold_ocean", "", List.of("&b====================", "&b 바이옴 공개 - 차가운 바다", "&b  물에 닿은 모든 생명체는 1초마다 빙결 수치가 30 증가합니다.", "&b====================")), "special"));
+		entries.add(typed(createNoOpBiome("deep_ocean", "깊은 바다", "minecraft:deep_ocean", "", List.of("&3====================", "&3 바이옴 공개 - 깊은 바다", "&3  별도 효과가 없습니다.", "&3====================")), "special"));
+		entries.add(createBiome("reverse_icicle", "역고드름", "minecraft:frozen_peaks", "", List.of("&7====================", "&7 바이옴 공개 - 역고드름", "&7  점령 점수가 2초마다 들어옵니다.", "&7====================")));
+		entries.add(createNoOpBiome("jungle", "정글", "minecraft:jungle", "minecraft:jungle_sapling", List.of("&2====================", "&2 바이옴 공개 - 정글", "&2  별도 효과가 없습니다.", "&2====================")));
+		entries.add(createBiome("dripstone_caves", "점적석 동굴", "minecraft:dripstone_caves", "minecraft:pointed_dripstone", List.of("&6====================", "&6 바이옴 공개 - 점적석 동굴", "&6  종유석이 천장에서 떨어집니다.", "&6====================")));
+		entries.add(createBiome("soul_sand_valley", "영혼 골짜기", "minecraft:soul_sand_valley", "", List.of("&7====================", "&7 바이옴 공개 - 영혼 골짜기", "&7  유닛 사망 위치에 시듦 구름이 남습니다.", "&7====================")));
+		entries.add(createNoOpBiome("savanna_hills", "사바나 언덕", "minecraft:savanna_plateau", "minecraft:acacia_sapling", List.of("&6====================", "&6 바이옴 공개 - 사바나 언덕", "&6  별도 효과가 없습니다.", "&6====================")));
+		entries.add(createBiome("bamboo_jungle", "대나무 정글", "minecraft:bamboo_jungle", "", List.of("&2====================", "&2 바이옴 공개 - 대나무 정글", "&2  해당 라인의 모든 유닛 공격 피해가 99 증가합니다.", "&2====================")));
+		entries.add(createNoOpBiome("mangrove_swamp", "맹그로브 늪", "minecraft:mangrove_swamp", "minecraft:mangrove_propagule", List.of("&2====================", "&2 바이옴 공개 - 맹그로브 늪", "&2  별도 효과가 없습니다.", "&2====================")));
+		entries.add(typed(createNoOpBiome("buried_treasure_beach", "보물이 묻힌 해변", "minecraft:beach", "minecraft:chest", List.of("&e====================", "&e 구조물 공개 - 보물이 묻힌 해변", "&e  별도 효과가 없습니다.", "&e====================")), "structure"));
+		entries.get(entries.size() - 1).structureId = "minecraftsnap:buried_treasure_beach";
+		entries.add(typed(createBiome("end_city", "엔드 시티", "minecraft:end_highlands", "", List.of("&d====================", "&d 구조물 공개 - 엔드 시티", "&d  남은 게임 시간이 1분 증가합니다.", "&d====================")), "structure"));
+		entries.get(entries.size() - 1).structureId = "minecraftsnap:end_city";
+		entries.add(typed(createBiome("bastion_remnant", "보루 잔해", "minecraft:nether_wastes", "minecraft:gold_block", List.of("&4====================", "&4 구조물 공개 - 보루 잔해", "&4  전투가 더욱 거칠어집니다.", "&4====================")), "structure"));
+		entries.get(entries.size() - 1).structureId = "minecraftsnap:bastion_remnant";
+		entries.add(typed(createBiome("ocean_monument", "바다 신전", "minecraft:deep_ocean", "", List.of("&3====================", "&3 구조물 공개 - 바다 신전", "&3  가디언 외 유닛은 채굴피로 II를 유지합니다.", "&3====================")), "structure"));
+		entries.get(entries.size() - 1).structureId = "minecraftsnap:ocean_monument";
+		entries.add(typed(createBiome("jungle_temple", "정글 사원", "minecraft:jungle", "minecraft:tripwire_hook", List.of("&2====================", "&2 구조물 공개 - 정글 사원", "&2  사원 함정이 라인을 노립니다.", "&2====================")), "structure"));
+		entries.get(entries.size() - 1).structureId = "minecraftsnap:jungle_temple";
+		entries.add(typed(createBiome("ender_ruins", "엔더 유적", "minecraft:end_midlands", "minecraft:end_stone_bricks", List.of("&5====================", "&5 구조물 공개 - 엔더 유적", "&5  유적이 점점 라인을 잠식합니다.", "&5====================")), "structure"));
+		entries.get(entries.size() - 1).structureId = "minecraftsnap:ender_ruins";
+		entries.add(typed(createNoOpBiome("end_barrens", "엔드 불모지", "minecraft:end_barrens", "minecraft:end_stone", List.of("&8====================", "&8 구조물 공개 - 엔드 불모지", "&8  별도 효과가 없습니다.", "&8====================")), "structure"));
+		entries.get(entries.size() - 1).structureId = "minecraftsnap:end_barrens";
+		applyLaneWeights(entries.get(entries.size() - 1), 0, 0, 0);
 		entries.add(createNoOpBiome("void", "공허", "minecraft:the_void", "minecraft:obsidian", List.of("&8====================", "&8 바이옴 공개 - 공허", "&8  별도 효과가 없는 빈 공간입니다.", "&8====================")));
 		return entries;
 	}
@@ -649,6 +672,18 @@ public class MinecraftSnapConfigManager {
 		}
 		if (current.descriptionLines == null || current.descriptionLines.isEmpty()) {
 			current.descriptionLines = defaults.descriptionLines;
+		}
+		if (current.type == null || current.type.isBlank()) {
+			current.type = defaults.type;
+		}
+		if (current.lane1Weight == null) {
+			current.lane1Weight = defaults.lane1Weight;
+		}
+		if (current.lane2Weight == null) {
+			current.lane2Weight = defaults.lane2Weight;
+		}
+		if (current.lane3Weight == null) {
+			current.lane3Weight = defaults.lane3Weight;
 		}
 		if (current.minecraftBiomeId == null || current.minecraftBiomeId.isBlank() || "minecraft:plains".equals(current.minecraftBiomeId) && !"minecraft:plains".equals(defaults.minecraftBiomeId)) {
 			current.minecraftBiomeId = defaults.minecraftBiomeId;
@@ -672,15 +707,23 @@ public class MinecraftSnapConfigManager {
 		return List.of(
 			createBiome("plain", "평원", "minecraft:plains", "minecraft:plain", List.of("&a====================", "&a 바이옴 공개 - 평원", "&a  기본적인 필드다.", "&a====================")),
 			createNoOpBiome("forest", "숲", "minecraft:forest", "minecraft:oak_sapling", List.of("&2====================", "&2 바이옴 공개 - 숲", "&2  별도 효과가 없습니다.", "&2====================")),
-			createNoOpBiome("flower_forest", "꽃 숲", "minecraft:flower_forest", "minecraft:oxeye_daisy", List.of("&d====================", "&d 바이옴 공개 - 꽃 숲", "&d  별도 효과가 없습니다.", "&d====================")),
-			createBiome("desert", "사막", "minecraft:desert", "minecraft:desert", List.of("&a====================", "&a 바이옴 공개 - 사막", "&a  해당 라인의 모든 유닛이 신속 2를 얻습니다.", "&a====================")),
-			createBiome("swamp", "늪", "minecraft:swamp", "minecraft:swamp", List.of("&a====================", "&a 바이옴 공개 - 늪", "&a  30초마다 점령 지역의 유닛이 상태 이상 효과를 얻습니다.", "&a====================")),
-			createBiome("badlands", "악지", "minecraft:badlands", "minecraft:badlands", List.of("&c악지 라인 공개", "&7붉은 절벽이 전장을 감쌈")),
+			createNoOpBiome("birch_forest", "자작나무 숲", "minecraft:birch_forest", "minecraft:birch_sapling", List.of("&f====================", "&f 바이옴 공개 - 자작나무 숲", "&f  별도 효과가 없습니다.", "&f====================")),
+			createBiome("flower_forest", "꽃 숲", "minecraft:flower_forest", "minecraft:oxeye_daisy", List.of("&d====================", "&d 바이옴 공개 - 꽃 숲", "&d  점령 구역 안의 유닛이 흡수 1을 유지합니다.", "&d====================")),
+			typed(createBiome("desert", "사막", "minecraft:desert", "minecraft:desert", List.of("&a====================", "&a 바이옴 공개 - 사막", "&a  해당 라인의 모든 유닛이 신속 2를 얻습니다.", "&a====================")), "special"),
+			typed(createBiome("swamp", "늪", "minecraft:swamp", "minecraft:swamp", List.of("&a====================", "&a 바이옴 공개 - 늪", "&a  30초마다 점령 지역의 유닛이 상태 이상 효과를 얻습니다.", "&a====================")), "special"),
+			typed(createBiome("badlands", "악지", "minecraft:badlands", "minecraft:badlands", List.of("&c악지 라인 공개", "&7붉은 절벽이 전장을 감쌈")), "special"),
 			createBiome("end", "엔드", "minecraft:the_end", "minecraft:end", List.of("&5====================", "&5 바이옴 공개 - 엔드", "&5  남은 시간이 60초 감소합니다.", "&5====================")),
 			createBiome("deep_dark", "딥다크", "minecraft:deep_dark", "minecraft:deep_dark", List.of("&1====================", "&1 바이옴 공개 - 딥다크", "&1  고요한 어둠이 내려앉는다.", "&1====================")),
-			createBiome("nether", "네더", "minecraft:nether_wastes", "minecraft:nether", List.of("&4====================", "&4 바이옴 공개 - 네더", "&4  뜨거운 열기가 라인을 감싼다.", "&4====================")),
-			createBiome("taiga", "타이가", "minecraft:taiga", "minecraft:taiga", List.of("&b====================", "&b 바이옴 공개 - 타이가", "&b  해당 라인의 모든 유닛이 구속 1을 얻습니다.", "&b===================="))
+			createBiome("nether", "네더", "minecraft:nether_wastes", "minecraft:nether", List.of("&4====================", "&4 바이옴 공개 - 네더", "&4  해당 라인의 모든 유닛 공격 피해가 1 증가합니다.", "&4====================")),
+			typed(createNoOpBiome("taiga", "타이가", "minecraft:taiga", "minecraft:taiga", List.of("&b====================", "&b 바이옴 공개 - 타이가", "&b  별도 효과가 없습니다.", "&b====================")), "special")
 		);
+	}
+
+	private BiomeEntry typed(BiomeEntry entry, String type) {
+		entry.type = type;
+		applyDefaultLaneWeights(entry, type);
+		entry.normalize();
+		return entry;
 	}
 
 	private BiomeEntry createBiome(String id, String name, String minecraftBiomeId, String structureId, List<String> revealMessages) {
@@ -693,6 +736,7 @@ public class MinecraftSnapConfigManager {
 		entry.descriptionLines = List.of("&7대표 바이옴: &f" + minecraftBiomeId, "&7공개 후 분위기 설명 표시");
 		entry.revealMessages = revealMessages;
 		entry.revealSoundId = "minecraft:block.note_block.pling";
+		applyLaneWeights(entry, 10, 10, 10);
 		entry.normalize();
 		return entry;
 	}
@@ -703,6 +747,28 @@ public class MinecraftSnapConfigManager {
 		entry.displayItemId = displayItemId;
 		entry.normalize();
 		return entry;
+	}
+
+	private void applyDefaultLaneWeights(BiomeEntry entry, String type) {
+		if (entry == null || type == null || type.isBlank()) {
+			return;
+		}
+		if ("special".equalsIgnoreCase(type)) {
+			applyLaneWeights(entry, 8, 10, 10);
+			return;
+		}
+		if ("structure".equalsIgnoreCase(type)) {
+			applyLaneWeights(entry, 0, 10, 10);
+		}
+	}
+
+	private void applyLaneWeights(BiomeEntry entry, int lane1Weight, int lane2Weight, int lane3Weight) {
+		if (entry == null) {
+			return;
+		}
+		entry.lane1Weight = lane1Weight;
+		entry.lane2Weight = lane2Weight;
+		entry.lane3Weight = lane3Weight;
 	}
 
 	private ShopConfigFile createSeparatedDefaultShopConfig(FactionId factionId) {

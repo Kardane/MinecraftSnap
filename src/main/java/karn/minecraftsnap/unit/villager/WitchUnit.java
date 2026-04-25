@@ -61,10 +61,8 @@ public class WitchUnit extends AbstractVillagerUnit implements ConfiguredUnitCla
 		if (shouldPlayAuraSoundAtTick(context.serverTicks())) {
 			world.playSound(null, player.getBlockPos(), SoundEvents.ENTITY_WITCH_DRINK, SoundCategory.PLAYERS, 0.8f, 1.0f);
 		}
-		if (shouldSpawnAuraParticlesAtTick(context.serverTicks())) {
-			spawnAuraParticles(context, choice);
-		}
 		if (context.serverTicks() % effectIntervalTicks(choice) == 0L) {
+			spawnAuraParticles(context, choice);
 			applyAura(context, choice);
 		}
 	}
@@ -113,20 +111,12 @@ public class WitchUnit extends AbstractVillagerUnit implements ConfiguredUnitCla
 		};
 	}
 
-	long particleIntervalTicks() {
-		return 2L;
-	}
-
 	long auraSoundIntervalTicks() {
 		return 20L * 5L;
 	}
 
 	int auraParticlePoints() {
 		return 50;
-	}
-
-	boolean shouldSpawnAuraParticlesAtTick(long serverTicks) {
-		return serverTicks > 0L && serverTicks % particleIntervalTicks() == 0L;
 	}
 
 	boolean shouldPlayAuraSoundAtTick(long serverTicks) {
@@ -219,7 +209,7 @@ public class WitchUnit extends AbstractVillagerUnit implements ConfiguredUnitCla
 
 	private StatusEffectInstance effectInstance(PotionChoice choice) {
 		return switch (choice.potionId()) {
-			case "regeneration" -> new StatusEffectInstance(StatusEffects.REGENERATION, 20 * 6, 0, true, false, true);
+			case "regeneration" -> new StatusEffectInstance(StatusEffects.REGENERATION, 20 * 6, 1, true, false, true);
 			case "swiftness" -> new StatusEffectInstance(StatusEffects.SPEED, 20 * 2, 1, true, false, true);
 			case "slowness" -> new StatusEffectInstance(StatusEffects.SLOWNESS, 20 * 2, 1, true, false, true);
 			case "poison" -> new StatusEffectInstance(StatusEffects.POISON, 20 * 6, 2, true, false, true);
@@ -228,7 +218,7 @@ public class WitchUnit extends AbstractVillagerUnit implements ConfiguredUnitCla
 	}
 
 	private void spawnAuraParticles(UnitContext context, PotionChoice choice) {
-		var effect = new DustParticleEffect(particleColor(choice), 0.75F);
+		var effect = new DustParticleEffect(particleColor(choice), 2F);
 		var radius = effectRadius(choice);
 		for (int index = 0; index < auraParticlePoints(); index++) {
 			double angle = (Math.PI * 2.0D * index) / auraParticlePoints();

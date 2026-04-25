@@ -16,9 +16,11 @@ import net.minecraft.text.Text;
  */
 public class TitleDisplayService {
 	private static final int VICTORY_COUNTDOWN_STAY_TICKS = 25;
+	private final MatchManager matchManager;
 	private final TextTemplateResolver textTemplateResolver;
 
-	public TitleDisplayService(TextTemplateResolver textTemplateResolver) {
+	public TitleDisplayService(MatchManager matchManager, TextTemplateResolver textTemplateResolver) {
+		this.matchManager = matchManager;
 		this.textTemplateResolver = textTemplateResolver;
 	}
 
@@ -50,8 +52,13 @@ public class TitleDisplayService {
 		if (server == null) {
 			return;
 		}
-		var title = textTemplateResolver.format(systemConfig.gameStart.countdownTitle);
-		var subtitle = textTemplateResolver.format(systemConfig.gameStart.countdownSubtitleTemplate.replace("{seconds}", String.valueOf(remainingSeconds)));
+		var title = textTemplateResolver.format(systemConfig.gameStart.countdownTitle.replace("{seconds}", String.valueOf(remainingSeconds)));
+		var subtitle = textTemplateResolver.format(systemConfig.gameStart.countdownSubtitleTemplate
+			.replace("{seconds}", String.valueOf(remainingSeconds))
+			.replace("{red_captain}", captainName(server, TeamId.RED))
+			.replace("{red_faction}", factionName(TeamId.RED, systemConfig))
+			.replace("{blue_faction}", factionName(TeamId.BLUE, systemConfig))
+			.replace("{blue_captain}", captainName(server, TeamId.BLUE)));
 		for (var player : server.getPlayerManager().getPlayerList()) {
 			player.networkHandler.sendPacket(new ClearTitleS2CPacket(false));
 			player.networkHandler.sendPacket(new TitleFadeS2CPacket(0, 30, 0));
@@ -75,6 +82,28 @@ public class TitleDisplayService {
 		}
 	}
 
+	public void showCaptainBiomeRevealWarning(MinecraftServer server, SystemConfig systemConfig) {
+		if (server == null || systemConfig == null) {
+			return;
+		}
+		var title = textTemplateResolver.format(systemConfig.biomeReveal.captainWarningTitle);
+		var subtitle = textTemplateResolver.format(systemConfig.biomeReveal.captainWarningSubtitle);
+		for (var teamId : TeamId.values()) {
+			var captainId = matchManager == null ? null : matchManager.getCaptainId(teamId);
+			if (captainId == null) {
+				continue;
+			}
+			var player = server.getPlayerManager().getPlayer(captainId);
+			if (player == null) {
+				continue;
+			}
+			player.networkHandler.sendPacket(new ClearTitleS2CPacket(false));
+			player.networkHandler.sendPacket(new TitleFadeS2CPacket(0, 40, 10));
+			player.networkHandler.sendPacket(new TitleS2CPacket(title));
+			player.networkHandler.sendPacket(new SubtitleS2CPacket(subtitle));
+		}
+	}
+
 	public void showPersonalTitle(ServerPlayerEntity player, String titleMessage, String subtitleMessage) {
 		if (player == null) {
 			return;
@@ -85,5 +114,32 @@ public class TitleDisplayService {
 		player.networkHandler.sendPacket(new TitleFadeS2CPacket(0, 40, 10));
 		player.networkHandler.sendPacket(new TitleS2CPacket(title));
 		player.networkHandler.sendPacket(new SubtitleS2CPacket(subtitle));
+	}
+
+	private String captainName(MinecraftServer server, TeamId teamId) {
+		if (server == null || teamId == null || matchManager == null) {
+			return "미정";
+		}
+		var captainId = matchManager.getCaptainId(teamId);
+		if (captainId == null) {
+			return "미정";
+		}
+		var player = server.getPlayerManager().getPlayer(captainId);
+		return player == null ? "미정" : player.getName().getString();
+	}
+
+	private String factionName(TeamId teamId, SystemConfig systemConfig) {
+		if (teamId == null || systemConfig == null || matchManager == null) {
+			return "미정";
+		}
+		var factionId = matchManager.getFactionSelection(teamId);
+		if (factionId == null) {
+			return "미정";
+		}
+		return switch (factionId) {
+			case VILLAGER -> systemConfig.announcements.villagerFactionName;
+			case MONSTER -> systemConfig.announcements.monsterFactionName;
+			case NETHER -> systemConfig.announcements.netherFactionName;
+		};
 	}
 }

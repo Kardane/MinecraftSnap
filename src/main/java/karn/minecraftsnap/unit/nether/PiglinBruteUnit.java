@@ -6,6 +6,7 @@ import karn.minecraftsnap.unit.ConfiguredUnitClass;
 import karn.minecraftsnap.unit.UnitContext;
 import net.minecraft.entity.effect.StatusEffectInstance;
 import net.minecraft.entity.effect.StatusEffects;
+import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.sound.SoundCategory;
 import net.minecraft.sound.SoundEvent;
 import net.minecraft.util.Identifier;
@@ -38,6 +39,12 @@ public class PiglinBruteUnit extends AbstractNetherUnit implements ConfiguredUni
 			}
 			return true;
 		});
+	}
+
+	@Override
+	public void onKill(UnitContext context, ServerPlayerEntity victim) {
+		super.onKill(context, victim);
+		context.rewardGold(1);
 	}
 
 	int supportGoldCount() {

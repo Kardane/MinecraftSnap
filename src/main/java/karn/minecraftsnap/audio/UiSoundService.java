@@ -23,6 +23,10 @@ public class UiSoundService {
 		playToAll(server, SoundEvents.BLOCK_NOTE_BLOCK_BELL.value(), 0.8f, 1.0f);
 	}
 
+	public void playGlobalSnap(MinecraftServer server) {
+		playToAll(server, SoundEvent.of(MinecraftSnapAudioCatalog.SNAP.id()), 0.5f, 1.0f);
+	}
+
 	public void playCountdownTick(MinecraftServer server, boolean urgent) {
 		playToAll(server, SoundEvents.BLOCK_NOTE_BLOCK_PLING.value(), 0.8f, urgent ? 1.3f : 1.0f);
 	}

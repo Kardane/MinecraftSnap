@@ -2,7 +2,8 @@ package karn.minecraftsnap.game;
 
 public class CaptainState {
 	private int currentMana = 3;
-	private int maxMana = 3;
+	private int baseMaxMana = 3;
+	private int bonusMaxMana = 0;
 	private int secondsUntilNextMana = 10;
 	private int skillCooldownSeconds;
 	private String monsterWeatherType = "";
@@ -21,14 +22,32 @@ public class CaptainState {
 	}
 
 	public int getMaxMana() {
-		return maxMana;
+		return baseMaxMana + bonusMaxMana;
 	}
 
 	public void setMaxMana(int maxMana) {
-		this.maxMana = maxMana;
-		if (currentMana > maxMana) {
-			currentMana = maxMana;
+		this.baseMaxMana = maxMana;
+		clampCurrentMana();
+	}
+
+	public int getBaseMaxMana() {
+		return baseMaxMana;
+	}
+
+	public void setBonusMaxMana(int bonusMaxMana) {
+		this.bonusMaxMana = Math.max(0, bonusMaxMana);
+		clampCurrentMana();
+	}
+
+	public void addBonusMaxMana(int amount) {
+		if (amount <= 0) {
+			return;
 		}
+		this.bonusMaxMana += amount;
+	}
+
+	public int getBonusMaxMana() {
+		return bonusMaxMana;
 	}
 
 	public int getSecondsUntilNextMana() {
@@ -107,5 +126,11 @@ public class CaptainState {
 		netherPortalLaneId = null;
 		netherPortalEndTick = 0L;
 		netherPortalLastProcessedSecond = -1;
+	}
+
+	private void clampCurrentMana() {
+		if (currentMana > getMaxMana()) {
+			currentMana = getMaxMana();
+		}
 	}
 }

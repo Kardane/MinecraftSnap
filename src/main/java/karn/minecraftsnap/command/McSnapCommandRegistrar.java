@@ -125,6 +125,7 @@ public class McSnapCommandRegistrar {
 		registerSurrenderAlias(dispatcher, "gg");
 		registerSurrenderAlias(dispatcher, "ㅈㅈ");
 		registerSurrenderAlias(dispatcher, "ww");
+		registerSnapAlias(dispatcher, "스냅");
 		dispatcher.register(CommandManager.literal("중참")
 			.requires(ServerCommandSource::isExecutedByPlayer)
 			.executes(ctx -> send(ctx.getSource(), mod.joinOngoingMatch(ctx.getSource().getPlayer()))));
@@ -348,6 +349,15 @@ public class McSnapCommandRegistrar {
 		dispatcher.register(CommandManager.literal(literal)
 			.requires(ServerCommandSource::isExecutedByPlayer)
 			.executes(ctx -> send(ctx.getSource(), mod.voteSurrender(ctx.getSource().getPlayer()))));
+	}
+
+	private void registerSnapAlias(com.mojang.brigadier.CommandDispatcher<ServerCommandSource> dispatcher, String literal) {
+		dispatcher.register(CommandManager.literal(literal)
+			.requires(ServerCommandSource::isExecutedByPlayer)
+			.executes(ctx -> {
+				var message = mod.useSnap(ctx.getSource().getPlayer());
+				return message == null ? Command.SINGLE_SUCCESS : send(ctx.getSource(), message);
+			}));
 	}
 
 	private com.mojang.brigadier.builder.LiteralArgumentBuilder<ServerCommandSource> registerOpenGuiTree() {

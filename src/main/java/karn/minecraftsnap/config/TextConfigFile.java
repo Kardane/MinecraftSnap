@@ -22,7 +22,7 @@ public class TextConfigFile {
 	public String unitHudUnknownUnitName = "알 수 없는 유닛";
 	public String captainHudTemplate = "&b{current_mana}&7/&f{max_mana} &8({mana_cooldown}초) &8| &e{lane} &8| &d{player} &8| &c{skill_cooldown}초";
 	public String captainHudNoTargetPlayerName = "대기 중 없음";
-	public String spectatorQueueHudTemplate = "&7소환 대기열: &f{position}번";
+	public String spectatorQueueHudTemplate = "&7소환 대기열: &f{position}번 &8| &b{captain_current_mana}&7/&f{captain_max_mana} &8({captain_mana_cooldown}초) &8| &c{captain_skill_cooldown}초";
 	public String captureDefaultBossBarText = "&f점령";
 	public String captureContestedBossBarText = "&e격돌중!";
 	public String captureRedOwnerBossBarText = "레드 점령지";
@@ -55,8 +55,10 @@ public class TextConfigFile {
 	public String captainSpawnGuiTitle = "&6유닛 소환";
 	public String captainSpawnNoFactionMessage = "&c팩션이 정해지지 않았음";
 	public String captainSpawnBlockedLaneMessage = "&c{lane}은 아직 공개되지 않아 소환 불가";
-	public String gameStartCountdownTitle = "&e게임 시작";
-	public String gameStartCountdownSubtitleTemplate = "&f{seconds}초";
+	public String gameStartCountdownTitle = "&e{seconds}초 후 게임 시작";
+	public String biomeRevealCaptainWarningTitle = "⌛";
+	public String gameStartCountdownSubtitleTemplate = "&c{red_captain} &7- &c{red_faction} &8vs &9{blue_faction} &7- &9{blue_captain}";
+	public String biomeRevealCaptainWarningSubtitle = "잠시 후 다음 바이옴이 공개됩니다!";
 	public String victoryCountdownSubtitleTemplate = "&e{team} 팀 승리 임박 &7({seconds}초)";
 	public String gameEndLadderDeltaSubtitleTemplate = "({previous}) -> ({current})";
 	public String customDeathMessage = "&8[사망] &f{victim} &7사망";
@@ -180,6 +182,7 @@ public class TextConfigFile {
 	public String captainSpawnSuccessMessage = "&a유닛 소환 완료: &f{player} &7-> &f{unit}";
 	public String captainSpawnCostLoreTemplate = "&7코스트: &b{cost}";
 	public String captainSpawnCooldownLoreTemplate = "&7생성 쿨다운: &e{seconds}초";
+	public String captainSpawnCooldownMessage = "&c유닛 소환 쿨다운: &f{seconds}초";
 	public String captainSpawnHealthLoreTemplate = "&7체력: &c{health}";
 	public String captainSpawnReadyLore = "&a클릭해서 소환";
 	public String captainSpawnBlockedLore = "&c현재 소환 불가";
@@ -207,6 +210,9 @@ public class TextConfigFile {
 	public String captainMenuItemName = "&e유닛 소환";
 	public String captainMenuItemUseLore = "&7우클릭으로 소환 GUI 열기";
 	public String captainMenuItemFactionLoreTemplate = "&8현재 팩션: &f{faction}";
+	public String captainSnapItemName = "&6시련 열쇠";
+	public String captainSnapItemUseLore = "&7우클릭으로 스냅 선언";
+	public String captainSnapItemFactionLoreTemplate = "&8현재 팩션: &f{faction}";
 	public String captainSkillItemName = "&d사령관 스킬";
 	public String captainSkillItemUseLore = "&7우클릭으로 팩션 전용 사령관 능력 발동";
 	public String captainSkillItemFactionLoreTemplate = "&8현재 팩션: &f{faction}";
@@ -288,7 +294,17 @@ public class TextConfigFile {
 	public String surrenderVoteUnavailableMessage = "&c게임 진행 중에만 항복할 수 있습니다";
 	public String surrenderVoteNoTeamMessage = "&c팀 배정 후에만 항복할 수 있습니다";
 	public String surrenderVoteDuplicateMessage = "&c이미 항복 투표에 참여했습니다";
-	public String surrenderVoteProgressMessage = "&7[&6!&7]&f 팀원이 항복에 동의했습니다. (&e{current}&7/&f{required}&f)";
+	public String surrenderVoteProgressMessage = "&7[&6!&7]&f 항복 투표 진행 중. 전체 찬성 &e{current}&7/&f{required}&f, 유닛 찬성 &e{unit_current}&7/&f{unit_required}&f &8(30초)";
+	public String snapUnavailableMessage = "&c게임 진행 중에만 스냅할 수 있습니다";
+	public String snapCaptainOnlyMessage = "&c사령관만 스냅할 수 있습니다";
+	public String snapAlreadyUsedMessage = "&c우리 팀은 이미 스냅을 사용했습니다";
+	public String snapClosedMessage = "&c마지막 라인이 공개된 뒤에는 스냅할 수 없습니다";
+	public String snapBroadcastMessage = "&7[&6!&7]&f {team} 팀 사령관 &e{player}&f 님이 &d스냅&f 선언. 현재 래더 배수 &e{multiplier}배";
+	public List<String> biomeRevealFirstGuideMessages = List.of(
+		"&7[&6!&7]&f 사령관은 종을 이용하여 유닛을 소환하고, 네더의 별로 사령관 스킬을 사용할 수 있습니다.",
+		"&7[&6!&7]&f 유닛 플레이어는 Shift + F로 팩션별 고유 패시브를 이용할 수 있습니다."
+	);
+	public String biomeRevealLaterManaMessage = "&7[&6!&7]&f 패배하고 있는 팀의 최대 마나가 1 증가하고 마나를 모두 회복했습니다!";
 	public String environmentAttackerName = "환경";
 	public String creeperSelfDestructPrimedMessage = "&c자폭 준비";
 	public String runningSidebarLaneTemplate = "{icon} &f({biome})";
@@ -297,6 +313,8 @@ public class TextConfigFile {
 	public String runningSidebarContestedIcon = "&e⬛";
 	public String runningSidebarRedIcon = "&c⬛";
 	public String runningSidebarBlueIcon = "&9⬛";
+	public String runningSidebarStakeTemplate = "&7점수: &e{delta}";
+	public String runningSidebarStakeWithSnapTemplate = "&7점수: &e{delta} &7x &d{multiplier}";
 	public java.util.Map<String, java.util.List<String>> factionSummaries = new java.util.LinkedHashMap<>();
 	public java.util.Map<String, java.util.List<String>> captainSkillDescriptions = new java.util.LinkedHashMap<>();
 	public transient java.util.Map<String, java.util.List<String>> unitDescriptions = new java.util.LinkedHashMap<>();
@@ -318,7 +336,7 @@ public class TextConfigFile {
 		unitDescriptions.put("illusioner", java.util.List.of("&710초 은신", "&7시전 중 변장도 함께 투명화"));
 		unitDescriptions.put("vindicator", java.util.List.of("&7항상 공격 자세 유지", "&7근접 압박용"));
 		unitDescriptions.put("pillager", java.util.List.of("&7스킬 사용 시 쇠뇌에 폭죽 즉시 장전", "&7빠른 장전 레벨만큼 스킬 쿨다운 감소"));
-		unitDescriptions.put("zombie", java.util.List.of("&7사망 시 아군 사령관 소환 쿨 2초 감소"));
+		unitDescriptions.put("zombie", java.util.List.of("&7사망 시 아군 사령관 마나 1 회복", "&7사망 시 아군 사령관 유닛 소환 쿨다운 초기화"));
 		unitDescriptions.put("silverfish", java.util.List.of("&7공격 시 주변에 아군 실버피시 소환", "&7소환된 실버피시는 공격 대상을 추적", "&7소환된 실버피시는 체력 0.1"));
 		unitDescriptions.put("cave_spider", java.util.List.of("&7공격 시 독 부여", "&7기동형 근접 유닛"));
 		unitDescriptions.put("breeze", java.util.List.of("&7돌풍 기반 견제", "&7중거리 교란 유닛"));
@@ -330,14 +348,14 @@ public class TextConfigFile {
 		unitDescriptions.put("drowned", java.util.List.of("&7수중 호흡 무한, 물속 이동 강화"));
 		unitDescriptions.put("stray", java.util.List.of("&7공격 시 구속 II 3초"));
 		unitDescriptions.put("bogged", java.util.List.of("&7공격 시 독 III 5초"));
-		unitDescriptions.put("wither_skeleton", java.util.List.of("&7공격 시 시듦 II 4초"));
+		unitDescriptions.put("wither_skeleton", java.util.List.of("&7공격 시 시듦 II 4초", "&7스킬: 반경 0.75, 피해 5의 위더 해골"));
 		unitDescriptions.put("giant_slime", java.util.List.of("&7사망 시 사이즈 4 슬라임 2마리"));
 		unitDescriptions.put("charged_creeper", java.util.List.of("&7천둥 조건 전직 결과"));
 		unitDescriptions.put("piglin", java.util.List.of("&750% 확률로 좀비 피글린 생성"));
 		unitDescriptions.put("zombified_piglin", java.util.List.of("&7피격시 주변 소환 좀비 피글린이 공격자 추격", "&7낮은 확률로 주변 좀비 피글린 생성", "&7사망시 아군 사령관 마나 1 회복"));
 		unitDescriptions.put("blaze", java.util.List.of("&7작은 화염구 3연사"));
 		unitDescriptions.put("magma_cube", java.util.List.of("&7화염 공격과 넉백 저항", "&7근접 난전 특화"));
-		unitDescriptions.put("ghast", java.util.List.of("&7차징 후 화염구 발사", "&7장거리 포격 유닛"));
+		unitDescriptions.put("ghast", java.util.List.of("&7차징 후 화염구 발사", "&7발사한 화염구는 반사 불가"));
 		unitDescriptions.put("hoglin", java.util.List.of("&7치명상 시 체력 10 회복 후 조글린화", "&7조글린 상태에서는 초당 1 피해와 신속 II"));
 		unitDescriptions.put("enderman", java.util.List.of("&7스킬 사용 시 다음 라인 아군 소환 위치로 순간이동", "&7공격력 +8, 공격속도 -7"));
 		unitDescriptions.put("piglin_brute", java.util.List.of("&7자가 강화 폭발력"));
@@ -402,7 +420,9 @@ public class TextConfigFile {
 		captainSpawnNoFactionMessage = value(captainSpawnNoFactionMessage, defaults.captainSpawnNoFactionMessage);
 		captainSpawnBlockedLaneMessage = value(captainSpawnBlockedLaneMessage, defaults.captainSpawnBlockedLaneMessage);
 		gameStartCountdownTitle = value(gameStartCountdownTitle, defaults.gameStartCountdownTitle);
+		biomeRevealCaptainWarningTitle = value(biomeRevealCaptainWarningTitle, defaults.biomeRevealCaptainWarningTitle);
 		gameStartCountdownSubtitleTemplate = value(gameStartCountdownSubtitleTemplate, defaults.gameStartCountdownSubtitleTemplate);
+		biomeRevealCaptainWarningSubtitle = value(biomeRevealCaptainWarningSubtitle, defaults.biomeRevealCaptainWarningSubtitle);
 		victoryCountdownSubtitleTemplate = value(victoryCountdownSubtitleTemplate, defaults.victoryCountdownSubtitleTemplate);
 		gameEndLadderDeltaSubtitleTemplate = value(gameEndLadderDeltaSubtitleTemplate, defaults.gameEndLadderDeltaSubtitleTemplate);
 		customDeathMessage = value(customDeathMessage, defaults.customDeathMessage);
@@ -507,6 +527,7 @@ public class TextConfigFile {
 		captainSpawnSuccessMessage = value(captainSpawnSuccessMessage, defaults.captainSpawnSuccessMessage);
 		captainSpawnCostLoreTemplate = value(captainSpawnCostLoreTemplate, defaults.captainSpawnCostLoreTemplate);
 		captainSpawnCooldownLoreTemplate = value(captainSpawnCooldownLoreTemplate, defaults.captainSpawnCooldownLoreTemplate);
+		captainSpawnCooldownMessage = value(captainSpawnCooldownMessage, defaults.captainSpawnCooldownMessage);
 		captainSpawnHealthLoreTemplate = value(captainSpawnHealthLoreTemplate, defaults.captainSpawnHealthLoreTemplate);
 		captainSpawnReadyLore = value(captainSpawnReadyLore, defaults.captainSpawnReadyLore);
 		captainSpawnBlockedLore = value(captainSpawnBlockedLore, defaults.captainSpawnBlockedLore);
@@ -534,6 +555,9 @@ public class TextConfigFile {
 		captainMenuItemName = value(captainMenuItemName, defaults.captainMenuItemName);
 		captainMenuItemUseLore = value(captainMenuItemUseLore, defaults.captainMenuItemUseLore);
 		captainMenuItemFactionLoreTemplate = value(captainMenuItemFactionLoreTemplate, defaults.captainMenuItemFactionLoreTemplate);
+		captainSnapItemName = value(captainSnapItemName, defaults.captainSnapItemName);
+		captainSnapItemUseLore = value(captainSnapItemUseLore, defaults.captainSnapItemUseLore);
+		captainSnapItemFactionLoreTemplate = value(captainSnapItemFactionLoreTemplate, defaults.captainSnapItemFactionLoreTemplate);
 		captainSkillItemName = value(captainSkillItemName, defaults.captainSkillItemName);
 		captainSkillItemUseLore = value(captainSkillItemUseLore, defaults.captainSkillItemUseLore);
 		captainSkillItemFactionLoreTemplate = value(captainSkillItemFactionLoreTemplate, defaults.captainSkillItemFactionLoreTemplate);
@@ -616,6 +640,13 @@ public class TextConfigFile {
 		surrenderVoteNoTeamMessage = value(surrenderVoteNoTeamMessage, defaults.surrenderVoteNoTeamMessage);
 		surrenderVoteDuplicateMessage = value(surrenderVoteDuplicateMessage, defaults.surrenderVoteDuplicateMessage);
 		surrenderVoteProgressMessage = value(surrenderVoteProgressMessage, defaults.surrenderVoteProgressMessage);
+		snapUnavailableMessage = value(snapUnavailableMessage, defaults.snapUnavailableMessage);
+		snapCaptainOnlyMessage = value(snapCaptainOnlyMessage, defaults.snapCaptainOnlyMessage);
+		snapAlreadyUsedMessage = value(snapAlreadyUsedMessage, defaults.snapAlreadyUsedMessage);
+		snapClosedMessage = value(snapClosedMessage, defaults.snapClosedMessage);
+		snapBroadcastMessage = value(snapBroadcastMessage, defaults.snapBroadcastMessage);
+		biomeRevealFirstGuideMessages = listValue(biomeRevealFirstGuideMessages, defaults.biomeRevealFirstGuideMessages);
+		biomeRevealLaterManaMessage = value(biomeRevealLaterManaMessage, defaults.biomeRevealLaterManaMessage);
 		environmentAttackerName = value(environmentAttackerName, defaults.environmentAttackerName);
 		creeperSelfDestructPrimedMessage = value(creeperSelfDestructPrimedMessage, defaults.creeperSelfDestructPrimedMessage);
 		runningSidebarLaneTemplate = value(runningSidebarLaneTemplate, defaults.runningSidebarLaneTemplate);
@@ -624,6 +655,8 @@ public class TextConfigFile {
 		runningSidebarContestedIcon = value(runningSidebarContestedIcon, defaults.runningSidebarContestedIcon);
 		runningSidebarRedIcon = value(runningSidebarRedIcon, defaults.runningSidebarRedIcon);
 		runningSidebarBlueIcon = value(runningSidebarBlueIcon, defaults.runningSidebarBlueIcon);
+		runningSidebarStakeTemplate = value(runningSidebarStakeTemplate, defaults.runningSidebarStakeTemplate);
+		runningSidebarStakeWithSnapTemplate = value(runningSidebarStakeWithSnapTemplate, defaults.runningSidebarStakeWithSnapTemplate);
 		if (factionSummaries.isEmpty() && defaults.factionSummaries != null) factionSummaries.putAll(defaults.factionSummaries);
 		if (captainSkillDescriptions.isEmpty() && defaults.captainSkillDescriptions != null) captainSkillDescriptions.putAll(defaults.captainSkillDescriptions);
 		if (unitDescriptions.isEmpty() && defaults.unitDescriptions != null) unitDescriptions.putAll(defaults.unitDescriptions);
@@ -649,6 +682,10 @@ public class TextConfigFile {
 		systemConfig.display.captainHudTemplate = captainHudTemplate;
 		systemConfig.display.captainHudNoTargetPlayerName = captainHudNoTargetPlayerName;
 		systemConfig.display.spectatorQueueHudTemplate = spectatorQueueHudTemplate;
+		systemConfig.biomeReveal.firstRevealGuideMessages = biomeRevealFirstGuideMessages;
+		systemConfig.biomeReveal.laterRevealManaMessage = biomeRevealLaterManaMessage;
+		systemConfig.biomeReveal.captainWarningTitle = biomeRevealCaptainWarningTitle;
+		systemConfig.biomeReveal.captainWarningSubtitle = biomeRevealCaptainWarningSubtitle;
 		systemConfig.capture.defaultBossBarText = captureDefaultBossBarText;
 		systemConfig.capture.contestedBossBarText = captureContestedBossBarText;
 		systemConfig.capture.redOwnerBossBarText = captureRedOwnerBossBarText;
@@ -679,6 +716,7 @@ public class TextConfigFile {
 		systemConfig.gameEnd.ladderDeltaSubtitleTemplate = gameEndLadderDeltaSubtitleTemplate;
 		systemConfig.gameStart.captainSpawnGuiTitle = captainSpawnGuiTitle;
 		systemConfig.gameStart.captainSpawnNoFactionMessage = captainSpawnNoFactionMessage;
+		systemConfig.gameStart.captainSpawnCooldownMessage = captainSpawnCooldownMessage;
 		systemConfig.gameStart.captainSpawnBlockedLaneMessage = captainSpawnBlockedLaneMessage;
 		systemConfig.gameStart.countdownTitle = gameStartCountdownTitle;
 		systemConfig.gameStart.countdownSubtitleTemplate = gameStartCountdownSubtitleTemplate;

@@ -84,7 +84,10 @@ public class LaneStructureService {
 			if (template == null) {
 				return false;
 			}
-			return template.place(world, originPos, originPos, new StructurePlacementData(), world.getRandom(), Block.NOTIFY_LISTENERS);
+			var placementData = new StructurePlacementData()
+				.setIgnoreEntities(false)
+				.setInitializeMobs(true);
+			return template.place(world, originPos, originPos, placementData, world.getRandom(), Block.NOTIFY_LISTENERS);
 		}
 
 		private ServerWorld resolveWorld(MinecraftServer server, String worldId) {

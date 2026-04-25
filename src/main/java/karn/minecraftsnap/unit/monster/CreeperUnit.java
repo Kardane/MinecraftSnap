@@ -32,8 +32,8 @@ public class CreeperUnit extends AbstractMonsterUnit implements ConfiguredUnitCl
 	private static final String ORIGINAL_JUMP_STRENGTH_KEY = "creeper_original_jump_strength";
 	private static final long SELF_DESTRUCT_DELAY_TICKS = 30L;
 	private static final long BLAST_CENTER_CAPTURE_TICKS = 30L;
-	private static final double DEFAULT_BLAST_RADIUS = 5D;
-	private static final float DEFAULT_BLAST_DAMAGE = 36.0f;
+	private static final double DEFAULT_BLAST_RADIUS = 5.5D;
+	private static final float DEFAULT_BLAST_DAMAGE = 40.0f;
 	private static final EntitySpecEntry BASE_DISGUISE = disguise("minecraft:creeper");
 	private static final EntitySpecEntry IGNITED_DISGUISE = disguise("minecraft:creeper", "{ignited:1b}");
 

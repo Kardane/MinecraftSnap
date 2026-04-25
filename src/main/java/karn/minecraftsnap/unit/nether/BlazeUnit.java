@@ -4,8 +4,11 @@ import karn.minecraftsnap.game.FactionId;
 import karn.minecraftsnap.game.UnitDefinition;
 import karn.minecraftsnap.unit.ConfiguredUnitClass;
 import karn.minecraftsnap.unit.UnitContext;
+import net.minecraft.entity.Entity;
+import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.effect.StatusEffectInstance;
 import net.minecraft.entity.effect.StatusEffects;
+import net.minecraft.entity.projectile.ProjectileEntity;
 import net.minecraft.entity.projectile.SmallFireballEntity;
 import net.minecraft.sound.SoundCategory;
 import net.minecraft.sound.SoundEvents;
@@ -32,9 +35,17 @@ public class BlazeUnit extends AbstractNetherUnit implements ConfiguredUnitClass
 
 	@Override
 	public void onTick(UnitContext context) {
-		context.player().addStatusEffect(new StatusEffectInstance(StatusEffects.FIRE_RESISTANCE, fireResistanceDurationTicks(), 0, true, false, false));
-		if (shouldTakeWaterDamage(context.player().isTouchingWater(), context.serverTicks())) {
-			context.player().damage(context.world(), context.player().getDamageSources().generic(), waterDamageAmount());
+		var player = context.player();
+		var world = context.world();
+		if (player == null || world == null) {
+			return;
+		}
+		player.addStatusEffect(new StatusEffectInstance(StatusEffects.FIRE_RESISTANCE, fireResistanceDurationTicks(), 0, true, false, false));
+		if (shouldTakeWaterDamage(player.isTouchingWater(), context.serverTicks())) {
+			player.damage(world, player.getDamageSources().generic(), waterDamageAmount());
+		}
+		if (shouldTakeRainDamage(world.hasRain(player.getBlockPos()), context.serverTicks())) {
+			player.damage(world, player.getDamageSources().generic(), rainDamageAmount());
 		}
 		var remaining = context.getUnitRuntimeLong(SHOTS_REMAINING_KEY);
 		var nextShotTick = context.getUnitRuntimeLong(NEXT_SHOT_TICK_KEY);
@@ -53,11 +64,30 @@ public class BlazeUnit extends AbstractNetherUnit implements ConfiguredUnitClass
 
 	@Override
 	public void onSkillUse(UnitContext context) {
-		context.activateSkill(() -> {
+		context.activateSkill(skillCooldownTicks(context), () -> {
 			context.setUnitRuntimeLong(SHOTS_REMAINING_KEY, (long) shotCount());
 			context.setUnitRuntimeLong(NEXT_SHOT_TICK_KEY, context.serverTicks());
 			return true;
 		});
+	}
+
+	@Override
+	public void onAttack(UnitContext context, LivingEntity victim, float amount) {
+		if (!context.isEnemyTarget(victim) || !isNetherWastesBiome(context.currentBiomeId())) {
+			return;
+		}
+		context.dealMobDamage(victim, netherWastesBonusDamageAmount());
+	}
+
+	@Override
+	public void onProjectileHit(UnitContext context, ProjectileEntity projectile, Entity target) {
+		if (!(projectile instanceof SmallFireballEntity) || !(target instanceof LivingEntity living) || !context.isEnemyTarget(living)) {
+			return;
+		}
+		if (!isNetherWastesBiome(context.currentBiomeId())) {
+			return;
+		}
+		context.dealMobDamage(living, netherWastesBonusDamageAmount());
 	}
 
 	private void fireSingleShot(UnitContext context) {
@@ -73,19 +103,32 @@ public class BlazeUnit extends AbstractNetherUnit implements ConfiguredUnitClass
 	}
 
 	double weaponAttackDamage() {
-		return 2.0D;
+		return 3.0D;
 	}
 
 	double weaponAttackSpeed() {
-		return 1.0D;
+		return 2.0D;
 	}
 
 	int shotCount() {
 		return 3;
 	}
 
+	long skillCooldownTicks(UnitContext context) {
+		var definition = context == null ? null : context.unitDefinition();
+		long baseCooldownTicks = definition == null ? 0L : definition.abilityCooldownSeconds() * 20L;
+		if (isNetherWastesBiome(context == null ? null : context.currentBiomeId())) {
+			return Math.max(0L, baseCooldownTicks - netherWastesCooldownReductionTicks());
+		}
+		return baseCooldownTicks;
+	}
+
 	long shotIntervalTicks() {
 		return 8L;
+	}
+
+	long netherWastesCooldownReductionTicks() {
+		return 20L;
 	}
 
 	int fireResistanceDurationTicks() {
@@ -98,6 +141,22 @@ public class BlazeUnit extends AbstractNetherUnit implements ConfiguredUnitClass
 
 	float waterDamageAmount() {
 		return 2.0F;
+	}
+
+	boolean shouldTakeRainDamage(boolean beingRainedOn, long serverTicks) {
+		return beingRainedOn && serverTicks > 0L && serverTicks % 20L == 0L;
+	}
+
+	float rainDamageAmount() {
+		return 1.0F;
+	}
+
+	boolean isNetherWastesBiome(String biomeId) {
+		return biomeId != null && biomeId.contains("nether_wastes");
+	}
+
+	float netherWastesBonusDamageAmount() {
+		return 1.0F;
 	}
 
 	float fireballDirectDamageAmount() {

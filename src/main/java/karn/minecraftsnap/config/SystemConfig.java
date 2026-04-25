@@ -83,9 +83,10 @@ public class SystemConfig {
 		public int unitSpawnItemCooldownTicks = 60;
 		public transient String captainSpawnGuiTitle = "&6유닛 소환";
 		public transient String captainSpawnNoFactionMessage = "&c팩션이 정해지지 않았음";
+		public transient String captainSpawnCooldownMessage = "&c유닛 소환 쿨다운: &f{seconds}초";
 		public transient String captainSpawnBlockedLaneMessage = "&c{lane}은 아직 공개되지 않아 소환 불가";
-		public transient String countdownTitle = "&e게임 시작";
-		public transient String countdownSubtitleTemplate = "&f{seconds}초";
+		public transient String countdownTitle = "&e{seconds}초 후 게임 시작";
+		public transient String countdownSubtitleTemplate = "&c{red_captain} &7- &c{red_faction} &8vs &9{blue_faction} &7- &9{blue_captain}";
 		public PositionConfig redCaptainSpawn = PositionConfig.create(-10.0, 64.0, 10.0);
 		public PositionConfig blueCaptainSpawn = PositionConfig.create(10.0, 64.0, 10.0);
 		public PositionConfig redLane1UnitSpawn = PositionConfig.create(-10.0, 64.0, -10.0);
@@ -119,11 +120,19 @@ public class SystemConfig {
 		public int lane1RevealSecond = 0;
 		public int lane2RevealSecond = 180;
 		public int lane3RevealSecond = 360;
+		public int captainWarningLeadSeconds = 30;
 		public String messageTemplate = "&a{lane}&f 라인 바이옴 공개";
 		public String hiddenWorldKey = "minecraft:the_void";
 		public String assignmentPolicy = "unique_random";
 		public boolean applyHiddenVoidBiome = true;
 		public boolean restoreOriginalBiomesOnEnd = true;
+		public transient java.util.List<String> firstRevealGuideMessages = java.util.List.of(
+			"&7[&6!&7]&f 사령관은 종을 이용하여 유닛을 소환하고, 네더의 별로 사령관 스킬을 사용할 수 있습니다.",
+			"&7[&6!&7]&f 유닛 플레이어는 Shift + F로 팩션별 고유 패시브를 이용할 수 있습니다."
+		);
+		public transient String laterRevealManaMessage = "&7[&6!&7]&f 패배하고 있는 팀의 최대 마나가 1 증가하고 마나를 모두 회복했습니다!";
+		public transient String captainWarningTitle = "⌛";
+		public transient String captainWarningSubtitle = "잠시 후 다음 바이옴이 공개됩니다!";
 	}
 
 	public static class GameEndConfig {
@@ -140,11 +149,19 @@ public class SystemConfig {
 	}
 
 	public static class LadderRewardConfig {
-		public int captainBase = 30;
-		public float captainScoreGapMultiplier = 1.0f;
-		public float unitBase = 5.0f;
+		public int captainBase = 12;
+		public int captainScoreGapDivisor = 30;
+		public int captainMax = 24;
+		public float unitPoolPerPlayer = 10.0f;
+		public float unitEqualShareRatio = 0.5f;
 		public float unitKillWeight = 1.0f;
-		public float unitCaptureScoreDivisor = 12.0f;
+		public float unitCaptureScoreDivisor = 20.0f;
+		public float lossWeightBase = 5.0f;
+		public float lossWeightMin = 1.0f;
+		public int laneRevealBonus = 10;
+		public float firstSnapMultiplier = 1.5f;
+		public float doubleSnapMultiplier = 2.0f;
+		public int snapUseLimitPerTeam = 1;
 	}
 
 	public static class PositionConfig {
@@ -296,6 +313,9 @@ public class SystemConfig {
 		if (biomeReveal == null) {
 			biomeReveal = new BiomeRevealConfig();
 		}
+		if (biomeReveal.captainWarningLeadSeconds < 0) {
+			biomeReveal.captainWarningLeadSeconds = 30;
+		}
 		if (inGame == null) {
 			inGame = new InGameConfig();
 		}
@@ -307,6 +327,24 @@ public class SystemConfig {
 		}
 		if (ladderReward == null) {
 			ladderReward = new LadderRewardConfig();
+		}
+		if (ladderReward.captainBase < 0) {
+			ladderReward.captainBase = 12;
+		}
+		if (ladderReward.captainScoreGapDivisor <= 0) {
+			ladderReward.captainScoreGapDivisor = 30;
+		}
+		if (ladderReward.captainMax < ladderReward.captainBase) {
+			ladderReward.captainMax = ladderReward.captainBase;
+		}
+		if (ladderReward.unitPoolPerPlayer < 0.0f) {
+			ladderReward.unitPoolPerPlayer = 10.0f;
+		}
+		if (ladderReward.unitEqualShareRatio < 0.0f || ladderReward.unitEqualShareRatio > 1.0f) {
+			ladderReward.unitEqualShareRatio = 0.5f;
+		}
+		if (ladderReward.unitKillWeight < 0.0f) {
+			ladderReward.unitKillWeight = 1.0f;
 		}
 		if (display == null) {
 			display = new DisplayConfig();
@@ -351,7 +389,28 @@ public class SystemConfig {
 			inGame.captainManaRecoverySeconds = 10;
 		}
 		if (ladderReward.unitCaptureScoreDivisor <= 0.0f) {
-			ladderReward.unitCaptureScoreDivisor = 12.0f;
+			ladderReward.unitCaptureScoreDivisor = 20.0f;
+		}
+		if (ladderReward.lossWeightBase < 0.0f) {
+			ladderReward.lossWeightBase = 5.0f;
+		}
+		if (ladderReward.lossWeightMin <= 0.0f) {
+			ladderReward.lossWeightMin = 1.0f;
+		}
+		if (ladderReward.lossWeightBase < ladderReward.lossWeightMin) {
+			ladderReward.lossWeightBase = ladderReward.lossWeightMin;
+		}
+		if (ladderReward.laneRevealBonus < 0) {
+			ladderReward.laneRevealBonus = 10;
+		}
+		if (ladderReward.firstSnapMultiplier < 1.0f) {
+			ladderReward.firstSnapMultiplier = 1.5f;
+		}
+		if (ladderReward.doubleSnapMultiplier < ladderReward.firstSnapMultiplier) {
+			ladderReward.doubleSnapMultiplier = Math.max(2.0f, ladderReward.firstSnapMultiplier);
+		}
+		if (ladderReward.snapUseLimitPerTeam <= 0) {
+			ladderReward.snapUseLimitPerTeam = 1;
 		}
 		if (capture.lane1 == null) {
 			capture.lane1 = CaptureRegionConfig.create("1번 라인", -4.0, 60.0, -4.0, 4.0, 68.0, 4.0);

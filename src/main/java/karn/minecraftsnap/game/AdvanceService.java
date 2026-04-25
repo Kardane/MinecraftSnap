@@ -15,6 +15,10 @@ public class AdvanceService {
 	}
 
 	public void updateProgress(PlayerMatchState state, String biomeId, String weather) {
+		updateProgress(state, biomeId, weather, 0L);
+	}
+
+	public void updateProgress(PlayerMatchState state, String biomeId, String weather, long serverTicks) {
 		var options = findOptions(state == null ? null : state.getCurrentUnitId());
 		if (state == null || options.isEmpty()) {
 			if (state != null) {
@@ -24,16 +28,25 @@ public class AdvanceService {
 		}
 
 		Set<String> validResultIds = new LinkedHashSet<>();
+		var progressIncrement = progressIncrement(state == null ? null : state.getCurrentUnitId(), serverTicks);
 		for (var option : options) {
 			validResultIds.add(option.resultUnitId);
 			if (matches(option, biomeId, weather)) {
-				var nextTicks = Math.min(option.requiredTicks, state.getAdvanceOptionTicks(option.resultUnitId) + 1);
+				var nextTicks = Math.min(option.requiredTicks, state.getAdvanceOptionTicks(option.resultUnitId) + progressIncrement);
 				state.setAdvanceOptionTicks(option.resultUnitId, nextTicks);
 			} else {
 				state.setAdvanceOptionTicks(option.resultUnitId, 0);
 			}
 		}
 		state.clearAdvanceOptionTicksExcept(validResultIds);
+	}
+
+	private int progressIncrement(String unitId, long serverTicks) {
+		var definition = unitRegistry.get(unitId);
+		if (definition == null || definition.factionId() != FactionId.MONSTER) {
+			return 1;
+		}
+		return serverTicks > 0L && serverTicks % 20L == 0L ? 1 : 0;
 	}
 
 	public boolean forceAdvance(PlayerMatchState state) {

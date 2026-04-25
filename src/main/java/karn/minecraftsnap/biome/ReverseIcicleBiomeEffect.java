@@ -5,6 +5,9 @@ import karn.minecraftsnap.game.TeamId;
 public class ReverseIcicleBiomeEffect extends NoOpBiomeEffect {
 	@Override
 	public int captureScoreAmount(BiomeRuntimeContext context, TeamId ownerTeam) {
-		return 0;
+		if (context == null) {
+			return 0;
+		}
+		return context.serverTicks() % 40L == 0L ? 1 : 0;
 	}
 }

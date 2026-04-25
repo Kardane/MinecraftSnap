@@ -121,7 +121,7 @@ public class ZombifiedPiglinUnit extends AbstractNetherUnit implements Configure
 	}
 
 	double summonChance() {
-		return 0.3D;
+		return 0.25D;
 	}
 
 	int retaliationInvulnerabilityThresholdTicks() {
@@ -129,7 +129,7 @@ public class ZombifiedPiglinUnit extends AbstractNetherUnit implements Configure
 	}
 
 	double summonRange() {
-		return 5.0D;
+		return 12.0D;
 	}
 
 	int captainManaRestoreOnDeath() {

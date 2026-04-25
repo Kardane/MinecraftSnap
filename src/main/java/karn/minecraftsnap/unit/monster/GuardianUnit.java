@@ -46,7 +46,7 @@ public class GuardianUnit extends AbstractMonsterUnit implements ConfiguredUnitC
 
 	@Override
 	public void onSkillUse(UnitContext context) {
-		context.activateSkill(() -> {
+		context.activateSkill(skillCooldownTicks(context), () -> {
 			var target = closestEnemyUnit(context);
 			if (target == null || context.player().squaredDistanceTo(target) > linkRange() * linkRange()) {
 				return false;
@@ -87,6 +87,19 @@ public class GuardianUnit extends AbstractMonsterUnit implements ConfiguredUnitC
 
 	boolean shouldApplyWaterBuff(boolean touchingWater) {
 		return touchingWater;
+	}
+
+	long skillCooldownTicks(UnitContext context) {
+		var definition = context == null ? null : context.unitDefinition();
+		long baseCooldownTicks = definition == null ? 0L : definition.abilityCooldownSeconds() * 20L;
+		if (context == null || context.player() == null || context.player().isTouchingWater()) {
+			return baseCooldownTicks;
+		}
+		return baseCooldownTicks + outOfWaterCooldownPenaltyTicks();
+	}
+
+	long outOfWaterCooldownPenaltyTicks() {
+		return 20L * 7L;
 	}
 
 	@Override
@@ -145,7 +158,7 @@ public class GuardianUnit extends AbstractMonsterUnit implements ConfiguredUnitC
 	}
 
 	long linkDurationTicks() {
-		return 30L;
+		return 40L;
 	}
 
 	double linkRange() {

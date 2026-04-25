@@ -108,11 +108,11 @@ public class IronGolemUnit extends AbstractVillagerUnit implements ConfiguredUni
 	}
 
 	double weaponAttackDamage() {
-		return 7.0D;
+		return 6.0D;
 	}
 
 	double weaponAttackSpeed() {
-		return 2D;
+		return 2;
 	}
 
 	long repairCooldownTicks(int cooldownSeconds) {
@@ -120,7 +120,7 @@ public class IronGolemUnit extends AbstractVillagerUnit implements ConfiguredUni
 	}
 
 	double repairHealAmount(double maxHealth) {
-		return maxHealth * 0.25D;
+		return maxHealth * 0.33D;
 	}
 
 	double disguiseHealthForPlayerHealth(double playerHealth, double playerMaxHealth, double disguiseMaxHealth) {

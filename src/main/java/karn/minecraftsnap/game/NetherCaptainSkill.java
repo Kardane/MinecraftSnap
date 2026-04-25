@@ -15,7 +15,7 @@ import net.minecraft.sound.SoundEvents;
 import java.util.Random;
 
 final class NetherCaptainSkill extends AbstractCaptainFactionSkillStrategy {
-	static final int COOLDOWN_SECONDS = 90;
+	static final int COOLDOWN_SECONDS = 100;
 	static final long PORTAL_DURATION_TICKS = 20L * 30L;
 
 	NetherCaptainSkill(

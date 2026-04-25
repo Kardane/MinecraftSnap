@@ -108,7 +108,8 @@ public class LobbyScoreboardService {
 		updateLine(scoreboard, objective, 0, formatRunningLane(matchManager, LaneId.LANE_1));
 		updateLine(scoreboard, objective, 1, formatRunningLane(matchManager, LaneId.LANE_2));
 		updateLine(scoreboard, objective, 2, formatRunningLane(matchManager, LaneId.LANE_3));
-		for (int i = 3; i < LINE_HOLDERS.length; i++) {
+		updateLine(scoreboard, objective, LINE_HOLDERS.length - 1, formatRunningStake(matchManager));
+		for (int i = 3; i < LINE_HOLDERS.length - 1; i++) {
 			scoreboard.removeScore(ScoreHolder.fromName(LINE_HOLDERS[i]), objective);
 		}
 	}
@@ -149,6 +150,40 @@ public class LobbyScoreboardService {
 			case BLUE -> textConfig().runningSidebarBlueIcon;
 			case NEUTRAL -> textConfig().runningSidebarNeutralIcon;
 		};
+	}
+
+	private Text formatRunningStake(MatchManager matchManager) {
+		var mod = MinecraftSnap.getInstance();
+		if (mod == null) {
+			return textTemplateResolver.format(textConfig().runningSidebarStakeTemplate.replace("{delta}", "0"));
+		}
+		var config = mod.getSystemConfig().ladderReward;
+		int revealedExtraLaneCount = 0;
+		if (matchManager.isLaneRevealed(LaneId.LANE_2)) {
+			revealedExtraLaneCount++;
+		}
+		if (matchManager.isLaneRevealed(LaneId.LANE_3)) {
+			revealedExtraLaneCount++;
+		}
+		int redUnits = countUnits(matchManager, karn.minecraftsnap.game.TeamId.RED);
+		int blueUnits = countUnits(matchManager, karn.minecraftsnap.game.TeamId.BLUE);
+		int averageUnitCount = Math.max(0, Math.round((redUnits + blueUnits) / 2.0f));
+		int baseDelta = Math.max(0, Math.round(averageUnitCount * config.unitPoolPerPlayer) + (revealedExtraLaneCount * config.laneRevealBonus));
+		int snapCount = matchManager.getSnapCount();
+		if (snapCount <= 0) {
+			return textTemplateResolver.format(textConfig().runningSidebarStakeTemplate.replace("{delta}", Integer.toString(baseDelta)));
+		}
+		float multiplier = snapCount == 1 ? config.firstSnapMultiplier : config.doubleSnapMultiplier;
+		return textTemplateResolver.format(textConfig().runningSidebarStakeWithSnapTemplate
+			.replace("{delta}", Integer.toString(baseDelta))
+			.replace("{multiplier}", String.format(Locale.ROOT, "%.1f", multiplier)));
+	}
+
+	private int countUnits(MatchManager matchManager, karn.minecraftsnap.game.TeamId teamId) {
+		return (int) matchManager.getPlayerStatesSnapshot().values().stream()
+			.filter(state -> state.getTeamId() == teamId)
+			.filter(state -> state.getRoleType() == karn.minecraftsnap.game.RoleType.UNIT)
+			.count();
 	}
 
 	private void clearPlayerTeams(Scoreboard scoreboard, MinecraftServer server) {

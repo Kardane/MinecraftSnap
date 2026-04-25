@@ -27,12 +27,12 @@ public class ChargedCreeperUnit extends CreeperUnit {
 
 	@Override
 	double blastRadius() {
-		return 8.0D;
+		return 9.0D;
 	}
 
 	@Override
 	float blastDamage() {
-		return 80.0f;
+		return 120.0f;
 	}
 
 	@Override

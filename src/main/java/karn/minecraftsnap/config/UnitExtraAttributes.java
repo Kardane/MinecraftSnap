@@ -7,6 +7,8 @@ public class UnitExtraAttributes {
 	public Double attackRange;
 	public Double knockbackResistance;
 	public Double safeFallDistance;
+	public Double abilityRadius;
+	public Double abilityDamage;
 
 	public void normalize() {
 		if (jumpStrength != null && jumpStrength.isNaN()) {
@@ -26,6 +28,12 @@ public class UnitExtraAttributes {
 		}
 		if (safeFallDistance != null && safeFallDistance.isNaN()) {
 			safeFallDistance = null;
+		}
+		if (abilityRadius != null && abilityRadius.isNaN()) {
+			abilityRadius = null;
+		}
+		if (abilityDamage != null && abilityDamage.isNaN()) {
+			abilityDamage = null;
 		}
 	}
 
@@ -51,5 +59,13 @@ public class UnitExtraAttributes {
 
 	public double safeFallDistanceOrDefault(double fallback) {
 		return safeFallDistance == null ? fallback : safeFallDistance;
+	}
+
+	public double abilityRadiusOrDefault(double fallback) {
+		return abilityRadius == null ? fallback : abilityRadius;
+	}
+
+	public double abilityDamageOrDefault(double fallback) {
+		return abilityDamage == null ? fallback : abilityDamage;
 	}
 }

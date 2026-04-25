@@ -18,6 +18,7 @@ public class MatchManager {
 	private final Map<LaneId, Boolean> laneRevealOverrides = new EnumMap<>(LaneId.class);
 	private final Map<LaneId, String> laneAssignedBiomeIds = new EnumMap<>(LaneId.class);
 	private final Map<TeamId, FactionId> factionSelections = new EnumMap<>(TeamId.class);
+	private final Map<TeamId, Integer> teamSnapUses = new EnumMap<>(TeamId.class);
 	private MatchPhase phase = MatchPhase.LOBBY;
 	private MatchClock clock = new MatchClock(9 * 60);
 	private int redScore;
@@ -35,6 +36,9 @@ public class MatchManager {
 		for (var laneId : LaneId.values()) {
 			laneActiveStates.put(laneId, false);
 			laneRevealedStates.put(laneId, false);
+		}
+		for (var teamId : TeamId.values()) {
+			teamSnapUses.put(teamId, 0);
 		}
 	}
 
@@ -79,6 +83,7 @@ public class MatchManager {
 	}
 
 	public void setPhase(MatchPhase phase) {
+		var previousPhase = this.phase;
 		this.phase = phase;
 		this.phaseTicks = 0L;
 		if (phase == MatchPhase.GAME_START) {
@@ -86,6 +91,7 @@ public class MatchManager {
 			blueScore = 0;
 			winnerTeam = null;
 			surrenderingTeam = null;
+			clearTeamSnaps();
 			allPointsHeldTeam = null;
 			allPointsHeldSeconds = 0;
 			clock.reset(clock.getTotalSeconds());
@@ -98,6 +104,7 @@ public class MatchManager {
 			blueScore = 0;
 			winnerTeam = null;
 			surrenderingTeam = null;
+			clearTeamSnaps();
 			allPointsHeldTeam = null;
 			allPointsHeldSeconds = 0;
 			clock.reset(clock.getTotalSeconds());
@@ -111,6 +118,7 @@ public class MatchManager {
 			blueScore = 0;
 			winnerTeam = null;
 			surrenderingTeam = null;
+			clearTeamSnaps();
 			allPointsHeldTeam = null;
 			allPointsHeldSeconds = 0;
 			hideAllLanes();
@@ -120,9 +128,12 @@ public class MatchManager {
 			playerStates.values().forEach(PlayerMatchState::clear);
 		} else if (phase == MatchPhase.TEAM_SELECT) {
 			surrenderingTeam = null;
+			clearTeamSnaps();
 			factionSelections.clear();
 			hideAllLanes();
-			clearAssignedBiomes();
+			if (previousPhase != MatchPhase.LOBBY) {
+				clearAssignedBiomes();
+			}
 			playerStates.values().forEach(state -> {
 				state.setFactionId(null);
 				state.resetMatchPerformance();
@@ -321,6 +332,36 @@ public class MatchManager {
 
 	public TeamId getSurrenderingTeam() {
 		return surrenderingTeam;
+	}
+
+	public boolean hasTeamSnapped(TeamId teamId) {
+		return getTeamSnapUses(teamId) > 0;
+	}
+
+	public int getTeamSnapUses(TeamId teamId) {
+		return teamId == null ? 0 : teamSnapUses.getOrDefault(teamId, 0);
+	}
+
+	public int getSnapCount() {
+		int count = 0;
+		for (var teamId : TeamId.values()) {
+			if (hasTeamSnapped(teamId)) {
+				count++;
+			}
+		}
+		return count;
+	}
+
+	public boolean useTeamSnap(TeamId teamId, int limit) {
+		if (teamId == null || limit <= 0) {
+			return false;
+		}
+		int currentUses = getTeamSnapUses(teamId);
+		if (currentUses >= limit) {
+			return false;
+		}
+		teamSnapUses.put(teamId, currentUses + 1);
+		return true;
 	}
 
 	public TeamId getAllPointsHeldTeam() {
@@ -557,6 +598,12 @@ public class MatchManager {
 
 	private void clearAssignedBiomes() {
 		laneAssignedBiomeIds.clear();
+	}
+
+	private void clearTeamSnaps() {
+		for (var teamId : TeamId.values()) {
+			teamSnapUses.put(teamId, 0);
+		}
 	}
 
 	private void fillMissingRoles() {

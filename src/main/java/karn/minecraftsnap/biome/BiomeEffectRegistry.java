@@ -16,6 +16,15 @@ public class BiomeEffectRegistry {
 		register("desert", DesertBiomeEffect::new);
 		register("swamp", SwampBiomeEffect::new);
 		register("badlands", BadlandsBiomeEffect::new);
+		register("bamboo_jungle", BambooJungleBiomeEffect::new);
+		register("bastion_remnant", BastionRemnantBiomeEffect::new);
+		register("dripstone_caves", DripstoneCavesBiomeEffect::new);
+		register("end_city", EndCityBiomeEffect::new);
+		register("ender_ruins", EnderRuinsBiomeEffect::new);
+		register("flower_forest", FlowerForestBiomeEffect::new);
+		register("jungle_temple", JungleTempleBiomeEffect::new);
+		register("ocean_monument", OceanMonumentBiomeEffect::new);
+		register("soul_sand_valley", SoulSandValleyBiomeEffect::new);
 		register("taiga", TaigaBiomeEffect::new);
 		register("end", EndBiomeEffect::new);
 		register("deep_dark", DeepDarkBiomeEffect::new);
@@ -23,6 +32,7 @@ public class BiomeEffectRegistry {
 		register("lush_cave", LushCaveBiomeEffect::new);
 		register("mushroom_island", MushroomIslandBiomeEffect::new);
 		register("cold_ocean", ColdOceanBiomeEffect::new);
+		register("deep_ocean", DeepOceanBiomeEffect::new);
 		register("reverse_icicle", ReverseIcicleBiomeEffect::new);
 	}
 

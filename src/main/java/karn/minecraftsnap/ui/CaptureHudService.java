@@ -36,7 +36,7 @@ public class CaptureHudService {
 
 		var activePlayers = new java.util.HashSet<UUID>();
 		for (var player : server.getPlayerManager().getPlayerList()) {
-			var laneId = findCaptureLane(player, systemConfig.capture);
+			var laneId = findCaptureLane(player, systemConfig);
 			if (laneId == null) {
 				remove(player.getUuid());
 				continue;
@@ -117,26 +117,34 @@ public class CaptureHudService {
 	}
 
 	private boolean shouldShow(CapturePointState state) {
-		if (state == null) {
-			return false;
-		}
-		return state.getProgress().isContested() || state.getProgress().getTeamId() != null;
+		return state != null;
 	}
 
-	private LaneId findCaptureLane(ServerPlayerEntity player, SystemConfig.CaptureConfig captureConfig) {
-		if (player == null || captureConfig == null) {
+	private LaneId findCaptureLane(ServerPlayerEntity player, SystemConfig systemConfig) {
+		if (player == null || systemConfig == null) {
 			return null;
 		}
-		if (CapturePointService.contains(captureConfig.lane1, player.getPos())) {
+		if (contains(systemConfig.inGame.lane1Region, player.getPos())) {
 			return LaneId.LANE_1;
 		}
-		if (CapturePointService.contains(captureConfig.lane2, player.getPos())) {
+		if (contains(systemConfig.inGame.lane2Region, player.getPos())) {
 			return LaneId.LANE_2;
 		}
-		if (CapturePointService.contains(captureConfig.lane3, player.getPos())) {
+		if (contains(systemConfig.inGame.lane3Region, player.getPos())) {
 			return LaneId.LANE_3;
 		}
 		return null;
+	}
+
+	private boolean contains(SystemConfig.LaneRegionConfig region, net.minecraft.util.math.Vec3d pos) {
+		return region != null
+			&& pos != null
+			&& pos.x >= Math.min(region.minX, region.maxX)
+			&& pos.x <= Math.max(region.minX, region.maxX)
+			&& pos.y >= Math.min(region.minY, region.maxY)
+			&& pos.y <= Math.max(region.minY, region.maxY)
+			&& pos.z >= Math.min(region.minZ, region.maxZ)
+			&& pos.z <= Math.max(region.minZ, region.maxZ);
 	}
 
 	private void remove(UUID playerId) {

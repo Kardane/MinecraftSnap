@@ -5,6 +5,7 @@
 	"compatibilityLevel": "JAVA_21",
 	"mixins": [
 		"ArrowEntityMixin",
+		"DisplayEntityAccessor",
 		"FireballEntityMixin",
 		"LivingEntityMixin",
 		"PlayerEntityMixin",
@@ -12,7 +13,9 @@
 		"SmallFireballEntityMixin",
 		"SnowballEntityMixin",
 		"ServerPlayNetworkHandlerMixin",
-		"ServerPlayerEntityMixin"
+		"ServerPlayerEntityMixin",
+		"TextDisplayEntityAccessor",
+		"WitherSkullEntityMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1

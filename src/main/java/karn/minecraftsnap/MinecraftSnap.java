@@ -11,6 +11,7 @@ import karn.minecraftsnap.config.MinecraftSnapConfigManager;
 import karn.minecraftsnap.config.MinecraftSnapResourcePackConfigurer;
 import karn.minecraftsnap.config.ServerStatsRepository;
 import karn.minecraftsnap.config.StatsRepository;
+import karn.minecraftsnap.config.BiomeEntry;
 import karn.minecraftsnap.config.SystemConfig;
 import karn.minecraftsnap.game.AdvanceService;
 import karn.minecraftsnap.game.AnnouncementFormatter;
@@ -87,6 +88,7 @@ import net.minecraft.entity.effect.StatusEffectInstance;
 import net.minecraft.entity.effect.StatusEffects;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.projectile.ProjectileEntity;
+import net.minecraft.item.Items;
 import net.minecraft.registry.Registries;
 import net.minecraft.registry.Registry;
 import net.minecraft.util.ActionResult;
@@ -100,6 +102,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.nio.file.Path;
 import java.util.UUID;
@@ -171,7 +174,7 @@ public class MinecraftSnap implements DedicatedServerModInitializer {
 	private final AdvanceGuiService advanceGuiService = new AdvanceGuiService(textTemplateResolver, uiSoundService);
 	private final PlayerDisplayNameService playerDisplayNameService = new PlayerDisplayNameService();
 	private final LadderRewardService ladderRewardService = new LadderRewardService();
-	private final TitleDisplayService titleDisplayService = new TitleDisplayService(textTemplateResolver);
+	private final TitleDisplayService titleDisplayService = new TitleDisplayService(matchManager, textTemplateResolver);
 	private final AdminCommandService adminCommandService = new AdminCommandService();
 	private final CaptureHudService captureHudService = new CaptureHudService(matchManager, textTemplateResolver);
 	private final GameStartCountdownService gameStartCountdownService = new GameStartCountdownService(matchManager, seconds -> titleDisplayService.showGameStartCountdown(matchManager.getServer(), configManager.getSystemConfig(), seconds), this::playCountdownSound);
@@ -228,6 +231,7 @@ public class MinecraftSnap implements DedicatedServerModInitializer {
 	private boolean captainSkillUnlockAnnounced;
 	private boolean suppressNextGameEndRewards;
 	private final Map<UUID, LadderChange> pendingGameEndLadderChanges = new HashMap<>();
+	private int lastCaptainRevealWarningElapsedSeconds = -1;
 
 	@Override
 	public void onInitializeServer() {
@@ -278,6 +282,7 @@ public class MinecraftSnap implements DedicatedServerModInitializer {
 	private void registerEvents() {
 		ServerLifecycleEvents.SERVER_STARTED.register(server -> {
 			matchManager.bindServer(server);
+			prepareLobbyLaneBiomes();
 			new MinecraftSnapResourcePackConfigurer(server, LOGGER).applyDefaults();
 			LOGGER.info("[{}] 서버 시작 완료", MOD_ID);
 		});
@@ -300,8 +305,10 @@ public class MinecraftSnap implements DedicatedServerModInitializer {
 			var revealed = biomeRevealService.tick(server, configManager.getSystemConfig(), configManager.getBiomeCatalog(), laneBiomeService);
 			laneBiomeService.tick(server);
 			if (!revealed.isEmpty()) {
-				refillCaptainMana();
+				refillCaptainMana(revealed.size());
+				handleBiomeRevealFollowUp(revealed);
 			}
+			maybeWarnCaptainsBeforeNextReveal(server, configManager.getSystemConfig());
 			tickCaptainMana(server);
 			if (captainSkillService != null) {
 				captainSkillService.tick(server, configManager.getSystemConfig());
@@ -468,6 +475,49 @@ public class MinecraftSnap implements DedicatedServerModInitializer {
 
 	public BiomeRevealService getBiomeRevealService() {
 		return biomeRevealService;
+	}
+
+	public boolean replaceAllAssignedBiomes(String biomeId) {
+		if (biomeId == null || biomeId.isBlank()) {
+			return false;
+		}
+		var server = matchManager.getServer();
+		var systemConfig = configManager.getSystemConfig();
+		var biomeEntry = findBiomeEntry(biomeId);
+		if (server == null || systemConfig == null || biomeEntry == null) {
+			return false;
+		}
+		for (var laneId : LaneId.values()) {
+			matchManager.setAssignedBiomeId(laneId, biomeEntry.id);
+			if (!matchManager.isLaneRevealed(laneId)) {
+				continue;
+			}
+			laneBiomeService.applyAssignedBiome(server, laneId, systemConfig, biomeEntry.minecraftBiomeId);
+			var runtime = laneRuntimeRegistry.get(laneId);
+			if (runtime == null) {
+				continue;
+			}
+			runtime.revealBiome(biomeEntry, biomeEffectRegistry.create(biomeEntry), matchManager.getElapsedSeconds());
+			runtime.markRevealEffectApplied();
+			var laneRegion = runtime.laneRegion();
+			if (laneRegion != null && biomeEntry.structureId != null && !biomeEntry.structureId.isBlank()) {
+				laneStructureService.forcePlaceStructure(
+					server,
+					systemConfig.world,
+					laneId,
+					"minecraft:default",
+					laneStructureService.originFor(laneRegion)
+				);
+				laneStructureService.forcePlaceStructure(
+					server,
+					systemConfig.world,
+					laneId,
+					biomeEntry.structureId,
+					laneStructureService.originFor(laneRegion)
+				);
+			}
+		}
+		return true;
 	}
 
 	public void startTeamSelection() {
@@ -648,11 +698,43 @@ public class MinecraftSnap implements DedicatedServerModInitializer {
 		}
 		var message = configManager.getTextConfig().surrenderVoteProgressMessage
 			.replace("{current}", Integer.toString(result.currentVotes()))
-			.replace("{required}", Integer.toString(result.requiredVotes()));
+			.replace("{required}", Integer.toString(result.requiredVotes()))
+			.replace("{unit_current}", Integer.toString(result.unitVotes()))
+			.replace("{unit_required}", Integer.toString(result.totalUnits()));
 		for (var member : matchManager.getOnlineTeamPlayers(state.getTeamId())) {
 			member.sendMessage(textTemplateResolver.format(message), false);
 		}
 		return message;
+	}
+
+	public String useSnap(ServerPlayerEntity player) {
+		if (player == null) {
+			return configManager.getTextConfig().commandPlayerNotFoundMessage;
+		}
+		if (matchManager.getPhase() != MatchPhase.GAME_RUNNING) {
+			return configManager.getTextConfig().snapUnavailableMessage;
+		}
+		var state = matchManager.getPlayerState(player.getUuid());
+		if (state.getRoleType() != RoleType.CAPTAIN || state.getTeamId() == null) {
+			return configManager.getTextConfig().snapCaptainOnlyMessage;
+		}
+		if (matchManager.isLaneRevealed(LaneId.LANE_3)) {
+			return configManager.getTextConfig().snapClosedMessage;
+		}
+		int limit = Math.max(1, configManager.getSystemConfig().ladderReward.snapUseLimitPerTeam);
+		if (!matchManager.useTeamSnap(state.getTeamId(), limit)) {
+			return configManager.getTextConfig().snapAlreadyUsedMessage;
+		}
+		var message = configManager.getTextConfig().snapBroadcastMessage
+			.replace("{team}", state.getTeamId().getDisplayName())
+			.replace("{player}", player.getName().getString())
+			.replace("{multiplier}", currentSnapMultiplierText());
+		var server = matchManager.getServer();
+		if (server != null) {
+			server.getPlayerManager().broadcast(textTemplateResolver.format(message), false);
+		}
+		uiSoundService.playGlobalSnap(matchManager.getServer());
+		return null;
 	}
 
 	public String joinOngoingMatch(ServerPlayerEntity player) {
@@ -775,6 +857,14 @@ public class MinecraftSnap implements DedicatedServerModInitializer {
 				openCaptainSpawnGui(player);
 				return true;
 			}
+			if (unitLoadoutService.matchesCaptainSnapTrigger(stack)) {
+				var message = useSnap(player);
+				if (message != null) {
+					uiSoundService.playUiDeny(player);
+					player.sendMessage(textTemplateResolver.format(message), false);
+				}
+				return true;
+			}
 			if (unitLoadoutService.matchesCaptainSkillTrigger(stack)) {
 				return unitAbilityService.useCaptainSkill(player, matchManager, captainManaService);
 			}
@@ -793,7 +883,7 @@ public class MinecraftSnap implements DedicatedServerModInitializer {
 	}
 
 	static boolean shouldBlockCaptainItemDrop(RoleType roleType) {
-		return roleType == RoleType.CAPTAIN;
+		return roleType == RoleType.CAPTAIN || roleType == RoleType.UNIT;
 	}
 
 	static boolean shouldTrackPlayTime(MatchPhase phase, PlayerMatchState state, boolean spectator) {
@@ -831,6 +921,19 @@ public class MinecraftSnap implements DedicatedServerModInitializer {
 		if (state.getFactionId() == null) {
 			uiSoundService.playUiDeny(player);
 			player.sendMessage(textTemplateResolver.format(configManager.getSystemConfig().gameStart.captainSpawnNoFactionMessage), false);
+			return;
+		}
+		if (player.getItemCooldownManager().isCoolingDown(Items.BELL.getDefaultStack())) {
+			uiSoundService.playUiDeny(player);
+			var cooldownTicks = Math.max(0, configManager.getSystemConfig().gameStart.unitSpawnItemCooldownTicks);
+			var cooldownProgress = player.getItemCooldownManager().getCooldownProgress(Items.BELL.getDefaultStack(), 0.0F);
+			var remainingSeconds = Math.max(1, (int) Math.ceil((cooldownTicks * cooldownProgress) / 20.0D));
+			player.sendMessage(
+				textTemplateResolver.format(
+					configManager.getSystemConfig().gameStart.captainSpawnCooldownMessage.replace("{seconds}", Integer.toString(remainingSeconds))
+				),
+				false
+			);
 			return;
 		}
 
@@ -880,6 +983,10 @@ public class MinecraftSnap implements DedicatedServerModInitializer {
 			laneRegion.maxZ
 		);
 		for (var entity : world.getOtherEntities(null, box, entity -> !(entity instanceof net.minecraft.server.network.ServerPlayerEntity))) {
+			if (entity instanceof net.minecraft.entity.LivingEntity livingEntity) {
+				livingEntity.kill(world);
+				continue;
+			}
 			entity.discard();
 		}
 	}
@@ -952,8 +1059,10 @@ public class MinecraftSnap implements DedicatedServerModInitializer {
 
 		if (phase == MatchPhase.GAME_START) {
 			captainSkillUnlockAnnounced = false;
+			lastCaptainRevealWarningElapsedSeconds = -1;
 			captainManaService.clear();
 			laneStructureService.reset();
+			laneBiomeService.restoreAll(matchManager.getServer());
 			laneRuntimeRegistry.reset();
 			capturePointService.resetAll();
 			surrenderVoteService.clear();
@@ -963,24 +1072,36 @@ public class MinecraftSnap implements DedicatedServerModInitializer {
 				var factionId = matchManager.getPlayerState(captainId).getFactionId();
 				captainManaService.initializeCaptain(captainId, factionId, captainManaRecoverySeconds(matchManager, matchManager.getCaptainTeam(captainId)));
 			}
-			biomeRevealService.prepareForMatch(matchManager.getServer(), configManager.getSystemConfig(), configManager.getBiomeCatalog(), laneBiomeService);
+			biomeRevealService.prepareForMatch(
+				matchManager.getServer(),
+				configManager.getSystemConfig(),
+				configManager.getBiomeCatalog(),
+				laneBiomeService
+			);
+			if (configManager.getSystemConfig().biomeReveal.lane1RevealSecond == 0) {
+				handleBiomeRevealFollowUp(List.of(LaneId.LANE_1));
+			}
 			titleDisplayService.showGameStartCountdown(matchManager.getServer(), configManager.getSystemConfig(), configManager.getSystemConfig().gameStart.waitSeconds);
 		}
 		if (phase == MatchPhase.FACTION_SELECT) {
 			factionStructureResetService.start(matchManager.getServerTicks());
+			clearLaneEntities();
 		} else {
 			factionStructureResetService.cancel();
 		}
 		if (phase == MatchPhase.LOBBY) {
 			captainSkillUnlockAnnounced = false;
+			lastCaptainRevealWarningElapsedSeconds = -1;
 			captainManaService.clear();
 			laneStructureService.reset();
 			laneRuntimeRegistry.reset();
 			capturePointService.resetAll();
 			surrenderVoteService.clear();
 			unitSpawnQueueService.clear();
+			prepareLobbyLaneBiomes();
 		}
 		if (phase != MatchPhase.GAME_RUNNING) {
+			lastCaptainRevealWarningElapsedSeconds = -1;
 			surrenderVoteService.clear();
 		}
 		if (phase == MatchPhase.TEAM_SELECT || phase == MatchPhase.FACTION_SELECT || phase == MatchPhase.GAME_END) {
@@ -991,6 +1112,26 @@ public class MinecraftSnap implements DedicatedServerModInitializer {
 		broadcastPhaseAnnouncement(phase);
 		playerDisplayNameService.refreshAll(matchManager.getServer(), matchManager, configManager.getStatsRepository(), configManager.getSystemConfig());
 		observedPhase = phase;
+	}
+
+	private void prepareLobbyLaneBiomes() {
+		biomeRevealService.prepareForLobby(
+			matchManager.getServer(),
+			configManager.getSystemConfig(),
+			configManager.getBiomeCatalog(),
+			laneBiomeService
+		);
+	}
+
+	private BiomeEntry findBiomeEntry(String biomeId) {
+		var biomeCatalog = configManager.getBiomeCatalog();
+		if (biomeCatalog == null || biomeCatalog.biomes == null) {
+			return null;
+		}
+		return biomeCatalog.biomes.stream()
+			.filter(entry -> entry != null && biomeId.equals(entry.id))
+			.findFirst()
+			.orElse(null);
 	}
 
 	private void applyFallDamageGameRule(MatchPhase phase) {
@@ -1028,7 +1169,8 @@ public class MinecraftSnap implements DedicatedServerModInitializer {
 		}
 	}
 
-	private void refillCaptainMana() {
+	private void refillCaptainMana(int revealCount) {
+		var losingTeam = losingTeam();
 		for (var teamId : TeamId.values()) {
 			if (!CaptainManaService.shouldRefillOnReveal(teamId, matchManager.getRedScore(), matchManager.getBlueScore())) {
 				continue;
@@ -1037,8 +1179,67 @@ public class MinecraftSnap implements DedicatedServerModInitializer {
 			if (captainId == null) {
 				continue;
 			}
+			if (losingTeam == teamId && revealCount > 0) {
+				var state = captainManaService.getOrCreate(captainId);
+				state.addBonusMaxMana(1);
+			}
 			captainManaService.refillMana(captainId, captainManaRecoverySeconds(matchManager, teamId));
 		}
+	}
+
+	private TeamId losingTeam() {
+		if (matchManager.getRedScore() == matchManager.getBlueScore()) {
+			return null;
+		}
+		return matchManager.getRedScore() < matchManager.getBlueScore() ? TeamId.RED : TeamId.BLUE;
+	}
+
+	private void handleBiomeRevealFollowUp(List<LaneId> revealed) {
+		if (revealed == null || revealed.isEmpty()) {
+			return;
+		}
+		for (var laneId : revealed) {
+			if (laneId == LaneId.LANE_1) {
+				broadcastLines(configManager.getSystemConfig().biomeReveal.firstRevealGuideMessages);
+				continue;
+			}
+			if (losingTeam() == null) {
+				continue;
+			}
+			broadcastLine(configManager.getSystemConfig().biomeReveal.laterRevealManaMessage);
+		}
+	}
+
+	private void maybeWarnCaptainsBeforeNextReveal(net.minecraft.server.MinecraftServer server, SystemConfig systemConfig) {
+		if (server == null || systemConfig == null || matchManager.getPhase() != MatchPhase.GAME_RUNNING || matchManager.getServerTicks() % 20L != 0L) {
+			return;
+		}
+		var leadSeconds = Math.max(0, systemConfig.biomeReveal.captainWarningLeadSeconds);
+		if (leadSeconds <= 0) {
+			return;
+		}
+		var remainingSeconds = biomeRevealService.nextRevealRemainingSeconds(systemConfig);
+		var elapsedSeconds = matchManager.getElapsedSeconds();
+		if (remainingSeconds == leadSeconds && elapsedSeconds != lastCaptainRevealWarningElapsedSeconds) {
+			lastCaptainRevealWarningElapsedSeconds = elapsedSeconds;
+			titleDisplayService.showCaptainBiomeRevealWarning(server, systemConfig);
+		}
+	}
+
+	private void broadcastLines(List<String> lines) {
+		if (lines == null || lines.isEmpty() || matchManager.getServer() == null) {
+			return;
+		}
+		for (var line : lines) {
+			broadcastLine(line);
+		}
+	}
+
+	private void broadcastLine(String line) {
+		if (line == null || line.isBlank() || matchManager.getServer() == null) {
+			return;
+		}
+		matchManager.getServer().getPlayerManager().broadcast(textTemplateResolver.format(line), false);
 	}
 
 	private Path getConfigDirectory() {
@@ -1172,6 +1373,18 @@ public class MinecraftSnap implements DedicatedServerModInitializer {
 
 	static String formatLadderChangeSubtitle(int previous, int current) {
 		return "(" + previous + ") -> (" + current + ")";
+	}
+
+	private String currentSnapMultiplierText() {
+		var ladderRewardConfig = configManager.getSystemConfig().ladderReward;
+		float multiplier = 1.0f;
+		int snapCount = matchManager.getSnapCount();
+		if (snapCount == 1) {
+			multiplier = ladderRewardConfig.firstSnapMultiplier;
+		} else if (snapCount >= 2) {
+			multiplier = ladderRewardConfig.doubleSnapMultiplier;
+		}
+		return String.format(java.util.Locale.ROOT, "%.1f", multiplier);
 	}
 
 	private Map<UUID, Integer> snapshotParticipantLadders(StatsRepository statsRepository) {

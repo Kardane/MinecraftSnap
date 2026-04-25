@@ -73,16 +73,31 @@ public class WikiGuiService {
 	}
 
 	public void openBiomeIndex(ServerPlayerEntity player) {
-		var gui = new SimpleGui(ScreenHandlerType.GENERIC_9X3, player, false);
+		var biomes = biomeCatalogSupplier.get() == null || biomeCatalogSupplier.get().biomes == null
+			? List.<BiomeEntry>of()
+			: biomeCatalogSupplier.get().biomes;
+		var gui = new SimpleGui(screenTypeForBiomeCount(biomes.size()), player, false);
 		gui.setTitle(textTemplateResolver.formatUi(textConfig().wikiBiomeIndexTitle));
 		int slot = 0;
-		for (var biome : biomeCatalogSupplier.get().biomes) {
-			if (slot >= 27) {
+		for (var biome : biomes) {
+			if (slot >= gui.getSize()) {
 				break;
 			}
 			gui.setSlot(slot++, item(displayItem(biome), "&a" + biome.displayName, biomeDetailLore(biome)));
 		}
 		gui.open();
+	}
+
+	private ScreenHandlerType<?> screenTypeForBiomeCount(int biomeCount) {
+		var rows = Math.max(1, Math.min(6, (Math.max(0, biomeCount) + 8) / 9));
+		return switch (rows) {
+			case 1 -> ScreenHandlerType.GENERIC_9X1;
+			case 2 -> ScreenHandlerType.GENERIC_9X2;
+			case 3 -> ScreenHandlerType.GENERIC_9X3;
+			case 4 -> ScreenHandlerType.GENERIC_9X4;
+			case 5 -> ScreenHandlerType.GENERIC_9X5;
+			default -> ScreenHandlerType.GENERIC_9X6;
+		};
 	}
 
 	static Item displayItem(UnitDefinition unit) {

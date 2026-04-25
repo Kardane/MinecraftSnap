@@ -77,8 +77,8 @@ public class AdvanceGuiService {
 			lines.add(conditionLine);
 		}
 		lines.add(textConfig.advanceProgressLoreTemplate
-			.replace("{current}", Integer.toString(option.currentTicks()))
-			.replace("{required}", Integer.toString(option.requiredTicks())));
+			.replace("{current}", Integer.toString(displayProgress(option, option.currentTicks())))
+			.replace("{required}", Integer.toString(displayProgress(option, option.requiredTicks()))));
 		if (!option.conditionsMet()) {
 			lines.add(textConfig.advanceConditionUnmetLore);
 		} else if (!option.ready()) {
@@ -97,8 +97,8 @@ public class AdvanceGuiService {
 			lines.add(conditionLine);
 		}
 		lines.add(textTemplateResolver.formatUi(textConfig.advanceProgressLoreTemplate
-			.replace("{current}", Integer.toString(option.currentTicks()))
-			.replace("{required}", Integer.toString(option.requiredTicks()))));
+			.replace("{current}", Integer.toString(displayProgress(option, option.currentTicks())))
+			.replace("{required}", Integer.toString(displayProgress(option, option.requiredTicks())))));
 		if (!option.conditionsMet()) {
 			lines.add(textTemplateResolver.formatUi(textConfig.advanceConditionUnmetLore));
 		} else if (!option.ready()) {
@@ -110,7 +110,7 @@ public class AdvanceGuiService {
 	}
 
 	private static String buildConditionLineString(AdvanceOptionView option, TextConfigFile textConfig) {
-		var seconds = Integer.toString(Math.max(1, option.requiredTicks() / 20));
+		var seconds = Integer.toString(conditionSeconds(option));
 		var biomes = formatBiomeNames(option.biomes());
 		var weather = formatWeatherNames(option.weathers());
 		if (!biomes.isBlank() && !weather.isBlank()) {
@@ -133,7 +133,7 @@ public class AdvanceGuiService {
 	}
 
 	private Text buildConditionLineText(AdvanceOptionView option, TextConfigFile textConfig) {
-		var seconds = Integer.toString(Math.max(1, option.requiredTicks() / 20));
+		var seconds = Integer.toString(conditionSeconds(option));
 		var weather = formatWeatherNames(option.weathers());
 		var biomeTexts = biomeTexts(option.biomes());
 		if (!biomeTexts.isEmpty() && !weather.isBlank()) {
@@ -250,6 +250,20 @@ public class AdvanceGuiService {
 		return java.util.Arrays.stream(values)
 			.map(textTemplateResolver::formatUi)
 			.toList();
+	}
+
+	private static int conditionSeconds(AdvanceOptionView option) {
+		if (option != null && option.definition() != null && option.definition().factionId() == karn.minecraftsnap.game.FactionId.MONSTER) {
+			return Math.max(1, option.requiredTicks());
+		}
+		return Math.max(1, option.requiredTicks() / 20);
+	}
+
+	private static int displayProgress(AdvanceOptionView option, int progress) {
+		if (option != null && option.definition() != null && option.definition().factionId() == karn.minecraftsnap.game.FactionId.MONSTER) {
+			return Math.max(0, progress);
+		}
+		return Math.max(0, progress / 20);
 	}
 
 	private TextConfigFile textConfig() {

@@ -1,6 +1,8 @@
 package karn.minecraftsnap.integration;
 
 import karn.minecraftsnap.config.EntitySpecEntry;
+import karn.minecraftsnap.game.TeamId;
+import karn.minecraftsnap.game.VanillaPlayerTeamService;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityType;
 import net.minecraft.entity.SpawnReason;
@@ -25,6 +27,10 @@ public final class DisguiseSupport {
 		applyDisguise(player, disguise, null);
 	}
 
+	public static void applyTeamDisguise(ServerPlayerEntity player, EntitySpecEntry disguise, TeamId teamId) {
+		applyDisguise(player, disguise, entity -> assignEntityTeam(player, entity, teamId));
+	}
+
 	public static void applyDisguise(ServerPlayerEntity player, EntitySpecEntry disguise, Consumer<Entity> entityCustomizer) {
 		if (disguise == null || disguise.isEmpty()) {
 			clearDisguise(player);
@@ -45,6 +51,9 @@ public final class DisguiseSupport {
 			}
 			var disguiseEntity = createDisguiseEntity(player, disguise, entityType, entityCustomizer);
 			if (disguiseEntity != null && invokeDisguiseAsEntity(player, disguiseClass, disguiseEntity)) {
+				if (entityCustomizer != null) {
+					entityCustomizer.accept(disguiseEntity);
+				}
 				return;
 			}
 			if (invokeDisguiseAsType(player, disguiseClass, entityType)) {
@@ -55,6 +64,18 @@ public final class DisguiseSupport {
 			}
 		} catch (Exception ignored) {
 		}
+	}
+
+	private static void assignEntityTeam(ServerPlayerEntity player, Entity entity, TeamId teamId) {
+		if (player == null || player.getServer() == null || entity == null || teamId == null) {
+			return;
+		}
+		var teamService = new VanillaPlayerTeamService();
+		var scoreboard = player.getServer().getScoreboard();
+		teamService.assignScoreHolder(scoreboard, entity.getNameForScoreboard(), teamId);
+		teamService.assignScoreHolder(scoreboard, entity.getUuidAsString(), teamId);
+		teamService.assignScoreHolder(scoreboard, entity.getUuid().toString(), teamId);
+		teamService.assignScoreHolder(scoreboard, player.getNameForScoreboard(), teamId);
 	}
 
 	static boolean shouldCreateDisguiseEntity(EntitySpecEntry disguise, boolean hasEntityCustomizer) {

@@ -57,8 +57,16 @@ public class EndermanUnit extends AbstractMonsterUnit implements ConfiguredUnitC
 	@Override
 	public void onTick(UnitContext context) {
 		super.onTick(context);
-		if (shouldTakeWaterDamage(context.player().isTouchingWater(), context.serverTicks())) {
-			context.player().damage(context.world(), context.player().getDamageSources().generic(), waterDamageAmount());
+		var player = context.player();
+		var world = context.world();
+		if (player == null || world == null) {
+			return;
+		}
+		if (shouldTakeWaterDamage(player.isTouchingWater(), context.serverTicks())) {
+			player.damage(world, player.getDamageSources().generic(), waterDamageAmount());
+		}
+		if (shouldTakeRainDamage(world.hasRain(player.getBlockPos()), context.serverTicks())) {
+			player.damage(world, player.getDamageSources().generic(), rainDamageAmount());
 		}
 	}
 
@@ -98,9 +106,13 @@ public class EndermanUnit extends AbstractMonsterUnit implements ConfiguredUnitC
 
 	long skillCooldownTicksForBiome(String biomeId, int defaultCooldownSeconds) {
 		if (isEndBiome(biomeId)) {
-			return 20L;
+			return endBiomeCooldownSeconds() * 20L;
 		}
 		return defaultCooldownSeconds * 20L;
+	}
+
+	int endBiomeCooldownSeconds() {
+		return 1;
 	}
 
 	boolean isEndBiome(String biomeId) {
@@ -113,6 +125,14 @@ public class EndermanUnit extends AbstractMonsterUnit implements ConfiguredUnitC
 
 	float waterDamageAmount() {
 		return 2.0F;
+	}
+
+	boolean shouldTakeRainDamage(boolean beingRainedOn, long serverTicks) {
+		return beingRainedOn && serverTicks > 0L && serverTicks % 20L == 0L;
+	}
+
+	float rainDamageAmount() {
+		return 1.0F;
 	}
 
 	BlockPos teleportSoundPosition(Vec3d position) {

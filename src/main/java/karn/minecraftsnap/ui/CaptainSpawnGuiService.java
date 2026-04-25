@@ -55,6 +55,14 @@ public class CaptainSpawnGuiService {
 				});
 			} else {
 				builder.setCallback((index, clickType, action, slotGui) -> {
+					if (captainState.getCurrentMana() >= definition.cost()) {
+						if (uiSoundService != null) {
+							uiSoundService.playUiConfirm(gui.getPlayer());
+						}
+						onSelect.accept(definition);
+						gui.close();
+						return;
+					}
 					if (uiSoundService != null) {
 						uiSoundService.playUiDeny(gui.getPlayer());
 					}

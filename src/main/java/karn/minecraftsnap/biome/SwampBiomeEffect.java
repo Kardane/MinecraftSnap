@@ -32,6 +32,7 @@ public class SwampBiomeEffect extends NoOpBiomeEffect {
 			return;
 		}
 		lastAppliedSecond = secondsSinceReveal;
+		context.playSound("minecraft:entity.frog.ambient", 0.8f, 0.9f);
 		for (var player : context.aliveCaptureUnitPlayers()) {
 			var unitId = context.matchManager().getPlayerState(player.getUuid()).getCurrentUnitId();
 			if (isImmune(unitId)) {

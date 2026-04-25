@@ -44,5 +44,12 @@
         "name": "minecraftsnap:music/end"
       }
     ]
+  },
+  "music.snap": {
+    "sounds": [
+      {
+        "name": "minecraftsnap:music/snap"
+      }
+    ]
   }
 }

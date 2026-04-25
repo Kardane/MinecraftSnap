@@ -17,6 +17,10 @@ import static karn.minecraftsnap.unit.UnitSpecSupport.unit;
 
 public class HuskUnit extends ZombieUnit {
 	@Override
+	public void onDeath(UnitContext context, net.minecraft.entity.damage.DamageSource source) {
+	}
+
+	@Override
 	public void onAttack(UnitContext context, LivingEntity victim, float amount) {
 		if (!context.isEnemyTarget(victim)) {
 			return;

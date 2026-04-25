@@ -30,7 +30,7 @@ public class CaveSpiderUnit extends AbstractMonsterUnit implements ConfiguredUni
 	}
 
 	double poisonChance() {
-		return 0.75D;
+		return 1;
 	}
 
 	int poisonDurationTicks() {

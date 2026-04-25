@@ -20,6 +20,7 @@ import net.minecraft.item.Items;
 import net.minecraft.nbt.NbtCompound;
 import net.minecraft.nbt.NbtOps;
 import net.minecraft.nbt.StringNbtReader;
+import net.minecraft.network.packet.s2c.play.UpdateSelectedSlotS2CPacket;
 import net.minecraft.registry.Registries;
 import net.minecraft.registry.RegistryOps;
 import net.minecraft.server.network.ServerPlayerEntity;
@@ -36,15 +37,26 @@ public class UnitLoadoutService {
 	public static final String KIND_UNIT_ABILITY = "unit_ability";
 	public static final String KIND_CAPTAIN_MENU = "captain_menu";
 	public static final String KIND_CAPTAIN_SKILL = "captain_skill";
+	public static final String KIND_CAPTAIN_SNAP = "captain_snap";
+	private static final int FIRST_HOTBAR_SLOT = 0;
 
 	public void applyUnitLoadout(ServerPlayerEntity player, UnitDefinition definition, TextTemplateResolver textTemplateResolver) {
-		applyBaseLoadout(player, definition, textTemplateResolver);
+		applyUnitLoadout(player, definition, null, textTemplateResolver);
+	}
+
+	public void applyUnitLoadout(ServerPlayerEntity player, UnitDefinition definition, TeamId teamId, TextTemplateResolver textTemplateResolver) {
+		applyBaseLoadout(player, definition, teamId, textTemplateResolver);
 		applyBaseAttributes(player, definition);
 	}
 
 	public void applyBaseLoadout(ServerPlayerEntity player, UnitDefinition definition, TextTemplateResolver textTemplateResolver) {
+		applyBaseLoadout(player, definition, null, textTemplateResolver);
+	}
+
+	public void applyBaseLoadout(ServerPlayerEntity player, UnitDefinition definition, TeamId teamId, TextTemplateResolver textTemplateResolver) {
 		player.getInventory().clear();
 		resetCombatState(player);
+		prepareUnitHotbar(player, teamId);
 		var head = createEquipment(player, definition, EquipmentSlot.HEAD, definition.helmet(), textTemplateResolver);
 		var chest = createEquipment(player, definition, EquipmentSlot.CHEST, definition.chest(), textTemplateResolver);
 		var legs = createEquipment(player, definition, EquipmentSlot.LEGS, definition.legs(), textTemplateResolver);
@@ -75,6 +87,17 @@ public class UnitLoadoutService {
 		player.getHungerManager().setSaturationLevel(20.0f);
 	}
 
+	private void prepareUnitHotbar(ServerPlayerEntity player, TeamId teamId) {
+		player.getInventory().setSelectedSlot(FIRST_HOTBAR_SLOT);
+		player.networkHandler.sendPacket(new UpdateSelectedSlotS2CPacket(FIRST_HOTBAR_SLOT));
+		var wool = teamId == TeamId.RED ? Items.RED_WOOL : teamId == TeamId.BLUE ? Items.BLUE_WOOL : null;
+		if (wool != null) {
+			player.getInventory().setStack(6, new ItemStack(wool));
+			player.getInventory().setStack(7, new ItemStack(wool));
+			player.getInventory().setStack(8, new ItemStack(wool));
+		}
+	}
+
 	public void applyBaseAttributes(ServerPlayerEntity player, UnitDefinition definition) {
 		resetPlayerAttributes(player);
 		setBaseValue(player.getAttributeInstance(EntityAttributes.MAX_HEALTH), definition.maxHealth());
@@ -99,6 +122,7 @@ public class UnitLoadoutService {
 		resetCombatState(player);
 		player.getInventory().insertStack(createCaptainMenuItem(factionId, textTemplateResolver));
 		player.getInventory().insertStack(createCaptainSkillItem(factionId, textTemplateResolver));
+		player.getInventory().insertStack(createCaptainSnapItem(factionId, textTemplateResolver));
 		player.getInventory().setSelectedSlot(0);
 	}
 
@@ -182,6 +206,10 @@ public class UnitLoadoutService {
 		return hasKind(stack, KIND_CAPTAIN_SKILL);
 	}
 
+	public boolean isCaptainSnapItem(ItemStack stack) {
+		return hasKind(stack, KIND_CAPTAIN_SNAP);
+	}
+
 	public boolean matchesCaptainMenuTrigger(ItemStack stack) {
 		if (stack == null || stack.isEmpty()) {
 			return false;
@@ -194,6 +222,13 @@ public class UnitLoadoutService {
 			return false;
 		}
 		return isCaptainSkillItem(stack) || matchesCaptainSkillTriggerItemId(Registries.ITEM.getId(stack.getItem()).toString());
+	}
+
+	public boolean matchesCaptainSnapTrigger(ItemStack stack) {
+		if (stack == null || stack.isEmpty()) {
+			return false;
+		}
+		return isCaptainSnapItem(stack) || matchesCaptainSnapTriggerItemId(Registries.ITEM.getId(stack.getItem()).toString());
 	}
 
 	public boolean isUnitAbilityItem(ItemStack stack, String unitId) {
@@ -232,6 +267,10 @@ public class UnitLoadoutService {
 
 	boolean matchesCaptainSkillTriggerItemId(String itemId) {
 		return "minecraft:nether_star".equals(itemId);
+	}
+
+	boolean matchesCaptainSnapTriggerItemId(String itemId) {
+		return "minecraft:trial_key".equals(itemId);
 	}
 
 	private void restockAmmo(ServerPlayerEntity player, UnitDefinition definition) {
@@ -278,6 +317,16 @@ public class UnitLoadoutService {
 				.toList());
 		}
 		stack.set(DataComponentTypes.LORE, new LoreComponent(lore));
+		return stack;
+	}
+
+	ItemStack createCaptainSnapItem(FactionId factionId, TextTemplateResolver textTemplateResolver) {
+		var stack = createTaggedStack(Items.TRIAL_KEY, KIND_CAPTAIN_SNAP, factionId, null);
+		stack.set(DataComponentTypes.CUSTOM_NAME, textTemplateResolver.formatUi(textConfig().captainSnapItemName));
+		stack.set(DataComponentTypes.LORE, new LoreComponent(List.of(
+			textTemplateResolver.formatUi(textConfig().captainSnapItemUseLore),
+			textTemplateResolver.formatUi(textConfig().captainSnapItemFactionLoreTemplate.replace("{faction}", factionLabel(factionId)))
+		)));
 		return stack;
 	}
 

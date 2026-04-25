@@ -47,6 +47,7 @@ public class InGameRuleService {
 	private final Set<UUID> pendingSpectators = new HashSet<>();
 	private final Map<UUID, Long> laneWarningTicks = new HashMap<>();
 	private final Map<UUID, Map<UUID, Long>> recentDamageTicksByVictim = new HashMap<>();
+	private final Map<UUID, Set<net.minecraft.registry.entry.RegistryEntry<net.minecraft.entity.effect.StatusEffect>>> pendingLongRangeStatusClears = new HashMap<>();
 
 	public InGameRuleService(MatchManager matchManager, StatsRepository statsRepository, TextTemplateResolver textTemplateResolver) {
 		this(matchManager, statsRepository, textTemplateResolver, null, null, null, null, null, null, null, null, null);
@@ -102,6 +103,7 @@ public class InGameRuleService {
 		server.getGameRules().get(GameRules.NATURAL_REGENERATION).set(phase != MatchPhase.GAME_RUNNING, server);
 
 		for (var player : server.getPlayerManager().getPlayerList()) {
+			applyPendingLongRangeStatusClears(player);
 			var state = matchManager.getPlayerState(player.getUuid());
 			if (phase == MatchPhase.GAME_RUNNING
 				&& shouldForceUnitVoidDeath(state, player.getY())
@@ -194,14 +196,18 @@ public class InGameRuleService {
 	}
 
 	public boolean allowDamage(LivingEntity entity, DamageSource source, float amount) {
+		if (matchManager.getPhase() == MatchPhase.GAME_END) {
+			return false;
+		}
 		var attacker = resolvePlayerAttacker(source);
+		var suppressLongRangeProjectileEffects = shouldSuppressLongRangeProjectileEffects(entity, source);
 		if (attacker != null) {
 			var attackerState = matchManager.getPlayerState(attacker.getUuid());
 			if (attackerState.isCaptain()) {
 				return false;
 			}
 		}
-		if (attacker != null && unitHookService != null && shouldApplyAttackEffects(entity.timeUntilRegen)) {
+		if (attacker != null && unitHookService != null && !suppressLongRangeProjectileEffects && shouldApplyAttackEffects(entity.timeUntilRegen)) {
 			unitHookService.handleAttack(attacker, entity, amount, nullSafeSystemConfig());
 		}
 		if (!(entity instanceof ServerPlayerEntity victim)) {
@@ -214,7 +220,7 @@ public class InGameRuleService {
 			unitHookService.handleDamaged(victim, source, amount, nullSafeSystemConfig());
 		}
 		notifyDamagedHook(victim, source, amount);
-		if (attacker != null && shouldApplyAttackEffects(victim.timeUntilRegen)) {
+		if (attacker != null && !suppressLongRangeProjectileEffects && shouldApplyAttackEffects(victim.timeUntilRegen)) {
 			notifyAttackHook(attacker, victim, amount);
 		}
 		if (matchManager.getPlayerState(victim.getUuid()).isCaptain()) {
@@ -241,6 +247,9 @@ public class InGameRuleService {
 	public void handleDamageApplied(LivingEntity entity, DamageSource source, float healthBefore, float healthAfter, boolean damaged) {
 		if (!damaged || entity == null || source == null) {
 			return;
+		}
+		if (entity instanceof ServerPlayerEntity victim && shouldSuppressLongRangeProjectileEffects(entity, source)) {
+			queueLongRangeStatusClears(victim, source);
 		}
 		if (source.getAttacker() instanceof ProjectileEntity || source.getSource() instanceof ProjectileEntity) {
 			entity.timeUntilRegen = 0;
@@ -276,6 +285,10 @@ public class InGameRuleService {
 	public boolean handlePotentialDeath(LivingEntity entity, DamageSource source, float damageAmount) {
 		if (!(entity instanceof ServerPlayerEntity player)) {
 			return true;
+		}
+		if (matchManager.getPhase() == MatchPhase.GAME_END) {
+			player.setHealth(player.getMaxHealth());
+			return false;
 		}
 
 		if (matchManager.getPhase() != MatchPhase.GAME_RUNNING) {
@@ -645,6 +658,10 @@ public class InGameRuleService {
 		return amount * longRangeProjectileDamageMultiplier();
 	}
 
+	static boolean shouldSuppressLongRangeProjectileEffects(LivingEntity victim, DamageSource source) {
+		return isLongRangeProjectileDamage(victim, source);
+	}
+
 	static boolean isLongRangeProjectileDamage(LivingEntity victim, DamageSource source) {
 		if (victim == null || source == null) {
 			return false;
@@ -736,6 +753,48 @@ public class InGameRuleService {
 		);
 		if (uiSoundService != null) {
 			uiSoundService.playEventWarning(server);
+		}
+	}
+
+	private void queueLongRangeStatusClears(ServerPlayerEntity victim, DamageSource source) {
+		if (victim == null || source == null) {
+			return;
+		}
+		var effects = longRangeStatusEffectsToClear(source);
+		if (effects.isEmpty()) {
+			return;
+		}
+		pendingLongRangeStatusClears.computeIfAbsent(victim.getUuid(), ignored -> new HashSet<>()).addAll(effects);
+	}
+
+	private Set<net.minecraft.registry.entry.RegistryEntry<net.minecraft.entity.effect.StatusEffect>> longRangeStatusEffectsToClear(DamageSource source) {
+		var attacker = resolvePlayerAttacker(source);
+		if (attacker == null) {
+			return Set.of();
+		}
+		var unitId = matchManager.getPlayerState(attacker.getUuid()).getCurrentUnitId();
+		if ("wither_skeleton".equals(unitId)) {
+			return Set.of(StatusEffects.WITHER);
+		}
+		if ("stray".equals(unitId)) {
+			return Set.of(StatusEffects.SLOWNESS);
+		}
+		if ("bogged".equals(unitId)) {
+			return Set.of(StatusEffects.POISON);
+		}
+		return Set.of();
+	}
+
+	private void applyPendingLongRangeStatusClears(ServerPlayerEntity player) {
+		if (player == null) {
+			return;
+		}
+		var effects = pendingLongRangeStatusClears.remove(player.getUuid());
+		if (effects == null || effects.isEmpty()) {
+			return;
+		}
+		for (var effect : effects) {
+			player.removeStatusEffect(effect);
 		}
 	}
 

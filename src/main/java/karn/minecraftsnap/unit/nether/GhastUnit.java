@@ -157,7 +157,7 @@ public class GhastUnit extends AbstractNetherUnit implements ConfiguredUnitClass
 	}
 
 	float explosionDamageAmount() {
-		return 16.0f;
+		return 20.0f;
 	}
 
 	private double groundDistance(UnitContext context) {
@@ -318,7 +318,7 @@ public class GhastUnit extends AbstractNetherUnit implements ConfiguredUnitClass
 		return false;
 	}
 
-	public static boolean shouldAllowFireballDeflection(Iterable<String> commandTags) {
+	public static boolean shouldAllowFireballDeflection(Iterable<String> commandTags, Entity deflector) {
 		return !isTaggedGhastFireball(commandTags);
 	}
 

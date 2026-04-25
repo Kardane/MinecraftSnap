@@ -20,7 +20,7 @@ public abstract class ProjectileEntityMixin {
 		boolean fromAttack,
 		CallbackInfoReturnable<Boolean> cir
 	) {
-		if ((Object) this instanceof FireballEntity fireball && !GhastUnit.shouldAllowFireballDeflection(fireball.getCommandTags())) {
+		if ((Object) this instanceof FireballEntity fireball && !GhastUnit.shouldAllowFireballDeflection(fireball.getCommandTags(), deflector)) {
 			cir.setReturnValue(false);
 		}
 	}

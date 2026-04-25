@@ -6,6 +6,8 @@ import karn.minecraftsnap.unit.ConfiguredUnitClass;
 import karn.minecraftsnap.unit.UnitContext;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.LivingEntity;
+import net.minecraft.entity.damage.DamageSource;
+import net.minecraft.entity.damage.DamageTypes;
 import net.minecraft.entity.projectile.ProjectileEntity;
 import net.minecraft.entity.projectile.thrown.SnowballEntity;
 import net.minecraft.entity.effect.StatusEffectInstance;
@@ -34,7 +36,8 @@ public class SnowGolemUnit extends AbstractVillagerUnit implements ConfiguredUni
 	@Override
 	public void onTick(UnitContext context) {
 		var player = context.player();
-		if (player == null) {
+		var world = context.world();
+		if (player == null || world == null) {
 			return;
 		}
 		restockSnowball(context);
@@ -45,10 +48,10 @@ public class SnowGolemUnit extends AbstractVillagerUnit implements ConfiguredUni
 		if (context.serverTicks() % environmentDamageIntervalTicks() != 0L) {
 			return;
 		}
-		if (!shouldTakeEnvironmentDamage(context.currentBiomeId(), player.isTouchingWater())) {
+		if (!shouldTakeEnvironmentDamage(context.currentBiomeId(), player.isTouchingWater(), world.hasRain(player.getBlockPos()))) {
 			return;
 		}
-		player.damage(context.world(), player.getDamageSources().generic(), environmentDamageAmount());
+		player.damage(world, player.getDamageSources().generic(), environmentDamageAmount());
 	}
 
 	@Override
@@ -77,9 +80,11 @@ public class SnowGolemUnit extends AbstractVillagerUnit implements ConfiguredUni
 			return;
 		}
 		living.setFrozenTicks(nextFrozenTicks(context.currentBiomeId(), living.getFrozenTicks()));
+		var damageAmount = snowballDamageAmount();
 		if (shouldDealColdBiomeBonusDamage(context.currentBiomeId())) {
-			living.damage(context.world(), living.getDamageSources().thrown(projectile, context.player()), coldBiomeBonusDamageAmount());
+			damageAmount += coldBiomeBonusDamageAmount();
 		}
+		living.damage(context.world(), snowballDamageSource(context, projectile), damageAmount);
 	}
 
 	int throwCooldownTicks() {
@@ -91,11 +96,11 @@ public class SnowGolemUnit extends AbstractVillagerUnit implements ConfiguredUni
 	}
 
 	float environmentDamageAmount() {
-		return 2.0f;
+		return 1.0f;
 	}
 
-	boolean shouldTakeEnvironmentDamage(String biomeId, boolean touchingWater) {
-		return touchingWater || isMeltingBiome(biomeId);
+	boolean shouldTakeEnvironmentDamage(String biomeId, boolean touchingWater, boolean beingRainedOn) {
+		return touchingWater || beingRainedOn || isMeltingBiome(biomeId);
 	}
 
 	boolean isMeltingBiome(String biomeId) {
@@ -119,6 +124,14 @@ public class SnowGolemUnit extends AbstractVillagerUnit implements ConfiguredUni
 
 	float coldBiomeBonusDamageAmount() {
 		return 0.5F;
+	}
+
+	float snowballDamageAmount() {
+		return 0.01F;
+	}
+
+	private DamageSource snowballDamageSource(UnitContext context, ProjectileEntity projectile) {
+		return context.world().getDamageSources().create(DamageTypes.THROWN, projectile, context.player());
 	}
 
 	boolean isColdBiome(String biomeId) {

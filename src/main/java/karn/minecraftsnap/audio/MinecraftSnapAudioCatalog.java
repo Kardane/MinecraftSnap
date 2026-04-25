@@ -14,6 +14,7 @@ public final class MinecraftSnapAudioCatalog {
 	public static final ManagedLoopSound GAME = loop("music.game", fallback("minecraft:music.dragon"), 4561);
 	public static final ManagedCueSound START = cue("music.start", fallback("minecraft:ui.toast.challenge_complete"));
 	public static final ManagedCueSound END = cue("music.end", fallback("minecraft:entity.player.levelup"));
+	public static final ManagedCueSound SNAP = cue("music.snap", fallback("minecraft:block.note_block.bell"));
 
 	public static final List<ManagedLoopSound> LOBBY_TRACKS = List.of(LOBBY, LOBBY2);
 	public static final List<OverlaySound> ALL_OVERLAY_SOUNDS;
@@ -25,6 +26,7 @@ public final class MinecraftSnapAudioCatalog {
 		all.add(GAME);
 		all.add(START);
 		all.add(END);
+		all.add(SNAP);
 		ALL_OVERLAY_SOUNDS = List.copyOf(all);
 	}
 

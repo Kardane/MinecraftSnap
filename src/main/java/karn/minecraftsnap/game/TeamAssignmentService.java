@@ -86,6 +86,8 @@ public class TeamAssignmentService {
 		String playerName,
 		int ladder,
 		String preference,
+		int totalGames,
+		boolean recentCaptain,
 		TeamId lockedTeam,
 		boolean lockedCaptain
 	) {

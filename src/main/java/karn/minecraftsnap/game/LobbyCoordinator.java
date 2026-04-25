@@ -177,11 +177,14 @@ public class LobbyCoordinator {
 			.map(player -> {
 				var stats = statsRepository.getOrCreate(player.getUuid(), player.getName().getString());
 				var state = matchManager.getPlayerState(player.getUuid());
+				var totalGames = totalGames(stats);
 				return new TeamAssignmentService.PlayerCandidate(
 					player.getUuid(),
 					player.getName().getString(),
 					stats.ladder,
 					stats.preference,
+					totalGames,
+					recentCaptain(stats, totalGames),
 					state.getTeamId(),
 					state.getRoleType() == RoleType.CAPTAIN
 				);
@@ -206,6 +209,21 @@ public class LobbyCoordinator {
 		}
 
 		lobbyScoreboardService.sync(server, matchManager, statsRepository);
+	}
+
+	private int totalGames(karn.minecraftsnap.config.PlayerStats stats) {
+		if (stats == null) {
+			return 0;
+		}
+		return Math.max(0, stats.wins) + Math.max(0, stats.losses);
+	}
+
+	private boolean recentCaptain(karn.minecraftsnap.config.PlayerStats stats, int totalGames) {
+		if (stats == null || stats.lastCaptainGameNumber <= 0) {
+			return false;
+		}
+		var gap = totalGames - stats.lastCaptainGameNumber;
+		return gap >= 0 && gap < 2;
 	}
 
 	public void forceStartGame(MinecraftServer server, SystemConfig config) {

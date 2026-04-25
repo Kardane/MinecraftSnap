@@ -18,10 +18,10 @@ import java.util.UUID;
 final class MonsterCaptainSkill extends AbstractCaptainFactionSkillStrategy {
 	static final int COOLDOWN_SECONDS = 120;
 	static final long RAIN_DURATION_TICKS = 20L * 120L;
-	static final long THUNDER_DURATION_TICKS = 20L * 40L;
+	static final long THUNDER_DURATION_TICKS = 20L * 42L;
 	static final float THUNDER_HEAL_AMOUNT = 1.0F;
 	static final int THUNDER_SPEED_AMPLIFIER = 0;
-	static final int THUNDER_LIGHTNING_INTERVAL_SECONDS = 5;
+	static final int THUNDER_LIGHTNING_INTERVAL_SECONDS = 6;
 
 	MonsterCaptainSkill(
 		MatchManager matchManager,

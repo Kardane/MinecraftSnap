@@ -27,7 +27,7 @@ public class UnitSpawnService {
 	static final String SPAWN_PROTECTION_UNTIL_TICK_KEY = "spawn_protection_until_tick";
 	static final String DELAYED_AMMO_RESTOCK_TICK_KEY = "delayed_ammo_restock_tick";
 	static final int SPAWN_PROTECTION_TICKS = 60;
-	static final long DELAYED_AMMO_RESTOCK_TICKS = 20L;
+	static final long DELAYED_AMMO_RESTOCK_TICKS = 15L;
 	private final CaptainManaService captainManaService;
 	private final UnitRegistry unitRegistry;
 	private final UnitLoadoutService unitLoadoutService;
@@ -147,8 +147,8 @@ public class UnitSpawnService {
 		} else {
 			matchManager.setCurrentUnit(target.getUuid(), definition.id());
 			unitAbilityService.clearPlayerState(target.getUuid());
-			unitLoadoutService.applyUnitLoadout(target, definition, textTemplateResolver);
-			DisguiseSupport.applyDisguise(target, definition.disguise());
+			unitLoadoutService.applyUnitLoadout(target, definition, captainPlayerState.getTeamId(), textTemplateResolver);
+			DisguiseSupport.applyTeamDisguise(target, definition.disguise(), captainPlayerState.getTeamId());
 		}
 		applySpawnProtection(target, matchManager);
 		target.sendMessage(textTemplateResolver.format(textConfig().unitSpawnedMessage.replace("{unit}", definition.displayName())), false);

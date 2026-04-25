@@ -147,8 +147,12 @@ public class StatsRepository {
 	}
 
 	public void addCaptainGame(UUID playerId, String name, int amount) {
+		if (amount <= 0) {
+			return;
+		}
 		var stats = getOrCreate(playerId, name);
 		stats.captainGames += amount;
+		stats.lastCaptainGameNumber = stats.wins + stats.losses + 1;
 		dirty = true;
 	}
 

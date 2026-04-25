@@ -8,8 +8,8 @@ import java.util.Random;
 import java.util.UUID;
 
 public class CaptainSelectionService {
-	private static final int RANDOM_TIE_THRESHOLD = 100;
-	private static final int CAPTAIN_LADDER_GAP_LIMIT = 100;
+	private static final int RANDOM_TIE_THRESHOLD = 10;
+	private static final int MIN_TOTAL_GAMES_FOR_AUTO_CAPTAIN = 6;
 	private final Random random;
 
 	public CaptainSelectionService() {
@@ -45,7 +45,7 @@ public class CaptainSelectionService {
 				.filter(candidate -> assignments.get(candidate.playerId()) == teamId)
 				.sorted(comparator)
 				.toList();
-			selectCaptain(teamCandidates).ifPresent(candidate -> captains.put(teamId, candidate.playerId()));
+			selectCaptain(eligibleCaptainCandidates(teamCandidates)).ifPresent(candidate -> captains.put(teamId, candidate.playerId()));
 		}
 
 		return captains;
@@ -57,8 +57,8 @@ public class CaptainSelectionService {
 		Map<TeamId, UUID> captains,
 		Comparator<TeamAssignmentService.PlayerCandidate> comparator
 	) {
-		var redCandidates = teamCandidates(candidates, assignments, TeamId.RED, comparator);
-		var blueCandidates = teamCandidates(candidates, assignments, TeamId.BLUE, comparator);
+		var redCandidates = eligibleCaptainCandidates(teamCandidates(candidates, assignments, TeamId.RED, comparator));
+		var blueCandidates = eligibleCaptainCandidates(teamCandidates(candidates, assignments, TeamId.BLUE, comparator));
 		var pair = selectBalancedPair(redCandidates, blueCandidates);
 		if (pair == null) {
 			return;
@@ -73,8 +73,8 @@ public class CaptainSelectionService {
 		}
 		var best = teamCandidates.getFirst();
 		var eligible = teamCandidates.stream()
-			.filter(candidate -> preferenceRank(candidate.preference()) == preferenceRank(best.preference()))
-			.filter(candidate -> Math.abs(best.ladder() - candidate.ladder()) <= RANDOM_TIE_THRESHOLD)
+			.filter(candidate -> captainPriorityRank(candidate) == captainPriorityRank(best))
+			.filter(candidate -> Math.abs(best.totalGames() - candidate.totalGames()) <= RANDOM_TIE_THRESHOLD)
 			.toList();
 		if (eligible.size() <= 1) {
 			return java.util.Optional.of(best);
@@ -84,9 +84,16 @@ public class CaptainSelectionService {
 
 	private Comparator<TeamAssignmentService.PlayerCandidate> comparator() {
 		return Comparator
-			.comparingInt((TeamAssignmentService.PlayerCandidate candidate) -> preferenceRank(candidate.preference()))
-			.thenComparing(Comparator.comparingInt(TeamAssignmentService.PlayerCandidate::ladder).reversed())
+			.comparingInt(this::captainPriorityRank)
+			.thenComparing(Comparator.comparingInt(TeamAssignmentService.PlayerCandidate::totalGames).reversed())
 			.thenComparing(TeamAssignmentService.PlayerCandidate::playerName);
+	}
+
+	private List<TeamAssignmentService.PlayerCandidate> eligibleCaptainCandidates(List<TeamAssignmentService.PlayerCandidate> teamCandidates) {
+		var eligible = teamCandidates.stream()
+			.filter(this::isEligibleAutoCaptain)
+			.toList();
+		return eligible.isEmpty() ? teamCandidates : eligible;
 	}
 
 	private List<TeamAssignmentService.PlayerCandidate> teamCandidates(
@@ -108,42 +115,55 @@ public class CaptainSelectionService {
 		if (redCandidates.isEmpty() || blueCandidates.isEmpty()) {
 			return null;
 		}
-		int redBestPreference = preferenceRank(redCandidates.getFirst().preference());
-		int blueBestPreference = preferenceRank(blueCandidates.getFirst().preference());
 		CaptainPair bestPair = null;
+		int bestPrioritySum = Integer.MAX_VALUE;
+		int bestWorstPriority = Integer.MAX_VALUE;
 		int bestGap = Integer.MAX_VALUE;
-		int bestCombinedLadder = Integer.MIN_VALUE;
+		int bestCombinedGames = Integer.MIN_VALUE;
 		for (var red : redCandidates) {
-			if (preferenceRank(red.preference()) != redBestPreference) {
-				break;
-			}
+			var redPriority = captainPriorityRank(red);
 			for (var blue : blueCandidates) {
-				if (preferenceRank(blue.preference()) != blueBestPreference) {
-					break;
-				}
-				var gap = Math.abs(red.ladder() - blue.ladder());
-				if (gap > CAPTAIN_LADDER_GAP_LIMIT) {
-					continue;
-				}
-				var combinedLadder = red.ladder() + blue.ladder();
-				if (gap < bestGap || (gap == bestGap && combinedLadder > bestCombinedLadder)) {
+				var bluePriority = captainPriorityRank(blue);
+				var gap = Math.abs(red.totalGames() - blue.totalGames());
+				var prioritySum = redPriority + bluePriority;
+				var worstPriority = Math.max(redPriority, bluePriority);
+				var combinedGames = red.totalGames() + blue.totalGames();
+				if (prioritySum < bestPrioritySum
+					|| (prioritySum == bestPrioritySum && worstPriority < bestWorstPriority)
+					|| (prioritySum == bestPrioritySum && worstPriority == bestWorstPriority && gap < bestGap)
+					|| (prioritySum == bestPrioritySum && worstPriority == bestWorstPriority && gap == bestGap && combinedGames > bestCombinedGames)) {
 					bestPair = new CaptainPair(red, blue);
+					bestPrioritySum = prioritySum;
+					bestWorstPriority = worstPriority;
 					bestGap = gap;
-					bestCombinedLadder = combinedLadder;
+					bestCombinedGames = combinedGames;
 				}
 			}
 		}
 		return bestPair;
 	}
 
-	private int preferenceRank(String preference) {
-		if ("captain".equalsIgnoreCase(preference)) {
+	private boolean isEligibleAutoCaptain(TeamAssignmentService.PlayerCandidate candidate) {
+		return candidate != null && candidate.totalGames() >= MIN_TOTAL_GAMES_FOR_AUTO_CAPTAIN;
+	}
+
+	private int captainPriorityRank(TeamAssignmentService.PlayerCandidate candidate) {
+		if (candidate == null) {
+			return Integer.MAX_VALUE;
+		}
+		if ("avoid_captain".equalsIgnoreCase(candidate.preference())) {
+			return 4;
+		}
+		if ("captain".equalsIgnoreCase(candidate.preference()) && !candidate.recentCaptain()) {
 			return 0;
 		}
-		if ("avoid_captain".equalsIgnoreCase(preference)) {
+		if (!candidate.recentCaptain()) {
+			return "captain".equalsIgnoreCase(candidate.preference()) ? 0 : 1;
+		}
+		if ("captain".equalsIgnoreCase(candidate.preference())) {
 			return 2;
 		}
-		return 1;
+		return 3;
 	}
 
 	private record CaptainPair(

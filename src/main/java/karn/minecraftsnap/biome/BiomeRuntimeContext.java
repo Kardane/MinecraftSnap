@@ -71,6 +71,10 @@ public record BiomeRuntimeContext(
 	}
 
 	public void playSound(String soundId) {
+		playSound(soundId, 1.0f, 1.0f);
+	}
+
+	public void playSound(String soundId, float volume, float pitch) {
 		if (server == null || soundId == null || soundId.isBlank()) {
 			return;
 		}
@@ -80,7 +84,7 @@ public record BiomeRuntimeContext(
 		}
 		var soundEvent = SoundEvent.of(identifier);
 		for (var player : server.getPlayerManager().getPlayerList()) {
-			player.playSoundToPlayer(soundEvent, SoundCategory.MASTER, 1.0f, 1.0f);
+			player.playSoundToPlayer(soundEvent, SoundCategory.MASTER, volume, pitch);
 		}
 	}
 }

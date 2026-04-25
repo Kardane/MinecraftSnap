@@ -17,6 +17,7 @@ public class ZombieUnit extends AbstractMonsterUnit implements ConfiguredUnitCla
 	@Override
 	public void onDeath(karn.minecraftsnap.unit.UnitContext context, DamageSource source) {
 		context.restoreCaptainMana(captainManaRestoreOnDeath());
+		context.resetCaptainSpawnCooldown();
 	}
 
 	int captainManaRestoreOnDeath() {

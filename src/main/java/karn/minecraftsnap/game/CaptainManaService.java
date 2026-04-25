@@ -42,8 +42,8 @@ public class CaptainManaService {
 			var state = entry.getValue();
 			var normalizedRecoverySeconds = Math.max(1, recoverySecondsResolver == null ? DEFAULT_MANA_RECOVERY_SECONDS : recoverySecondsResolver.applyAsInt(captainId));
 			var expectedMax = baseMaxMana + elapsedSeconds / 60;
-			if (expectedMax > state.getMaxMana()) {
-				var gainedMana = expectedMax - state.getMaxMana();
+			if (expectedMax > state.getBaseMaxMana()) {
+				var gainedMana = expectedMax - state.getBaseMaxMana();
 				state.setMaxMana(expectedMax);
 				state.setCurrentMana(Math.min(state.getMaxMana(), state.getCurrentMana() + gainedMana));
 			}
@@ -80,6 +80,7 @@ public class CaptainManaService {
 		var state = getOrCreate(captainId);
 		setCaptainFaction(captainId, factionId);
 		state.setMaxMana(STARTING_MANA);
+		state.setBonusMaxMana(0);
 		state.setCurrentMana(STARTING_MANA);
 		state.setSecondsUntilNextMana(Math.max(1, recoverySeconds));
 		state.setSkillCooldownSeconds(0);

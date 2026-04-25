@@ -22,6 +22,7 @@ public class UnitHudService {
 	private final TextTemplateResolver textTemplateResolver;
 	private final UnitSpawnQueueService unitSpawnQueueService;
 	private final java.util.Map<java.util.UUID, String> lastRenderedActionBars = new java.util.HashMap<>();
+	private final UnitHealthBarService unitHealthBarService = new UnitHealthBarService();
 
 	public UnitHudService(
 		MatchManager matchManager,
@@ -46,22 +47,27 @@ public class UnitHudService {
 		for (var player : server.getPlayerManager().getPlayerList()) {
 			var state = matchManager.getPlayerState(player.getUuid());
 			if (state.isCaptain()) {
+				unitHealthBarService.remove(player);
 				renderActionBar(player, formatCaptainActionBar(player, state.getTeamId(), systemConfig), true);
 				continue;
 			}
 			if (state.getRoleType() == RoleType.UNIT && state.getCurrentUnitId() == null) {
+				unitHealthBarService.remove(player);
 				renderActionBar(player, formatSpectatorQueueActionBar(player.getUuid(), state.getTeamId(), systemConfig), true);
 				continue;
 			}
 			if (state.getRoleType() != RoleType.UNIT || state.getCurrentUnitId() == null || player.isSpectator()) {
+				unitHealthBarService.remove(player);
 				clearActionBar(player);
 				continue;
 			}
 			var definition = unitRegistry.get(state.getCurrentUnitId());
 			if (definition == null) {
+				unitHealthBarService.remove(player);
 				clearActionBar(player);
 				continue;
 			}
+			unitHealthBarService.tick(player, matchManager, definition);
 			var cooldown = unitAbilityService.remainingUnitCooldownSeconds(player.getUuid(), matchManager.getServerTicks());
 			renderActionBar(player, formatActionBar(definition, cooldown, systemConfig), false);
 		}
@@ -135,11 +141,27 @@ public class UnitHudService {
 	}
 
 	static String formatSpectatorQueueActionBar(int position, SystemConfig systemConfig) {
+		return formatSpectatorQueueActionBar(position, 0, 0, 0, 0, systemConfig);
+	}
+
+	static String formatSpectatorQueueActionBar(
+		int position,
+		int currentMana,
+		int maxMana,
+		int manaCooldownSeconds,
+		int skillCooldownSeconds,
+		SystemConfig systemConfig
+	) {
 		if (position <= 0) {
 			return "";
 		}
 		var displayConfig = systemConfig == null ? new SystemConfig.DisplayConfig() : systemConfig.display;
-		return displayConfig.spectatorQueueHudTemplate.replace("{position}", Integer.toString(position));
+		return displayConfig.spectatorQueueHudTemplate
+			.replace("{position}", Integer.toString(position))
+			.replace("{captain_current_mana}", Integer.toString(Math.max(0, currentMana)))
+			.replace("{captain_max_mana}", Integer.toString(Math.max(0, maxMana)))
+			.replace("{captain_mana_cooldown}", Integer.toString(Math.max(0, manaCooldownSeconds)))
+			.replace("{captain_skill_cooldown}", Integer.toString(Math.max(0, skillCooldownSeconds)));
 	}
 
 	static boolean shouldSendActionBar(String previous, String current) {
@@ -179,7 +201,17 @@ public class UnitHudService {
 		if (unitSpawnQueueService == null || teamId == null) {
 			return "";
 		}
-		return formatSpectatorQueueActionBar(unitSpawnQueueService.queueDisplayPosition(matchManager, teamId, playerId), systemConfig);
+		var position = unitSpawnQueueService.queueDisplayPosition(matchManager, teamId, playerId);
+		var captainId = matchManager.getCaptainId(teamId);
+		var captainState = captainId == null || captainManaService == null ? null : captainManaService.getOrCreate(captainId);
+		return formatSpectatorQueueActionBar(
+			position,
+			captainState == null ? 0 : captainState.getCurrentMana(),
+			captainState == null ? 0 : captainState.getMaxMana(),
+			captainState == null ? 0 : captainState.getSecondsUntilNextMana(),
+			captainState == null ? 0 : captainState.getSkillCooldownSeconds(),
+			systemConfig
+		);
 	}
 
 	private String nextSpawnPlayerName(TeamId teamId) {

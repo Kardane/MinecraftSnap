@@ -1,10 +1,8 @@
 package karn.minecraftsnap.mixin;
 
 import karn.minecraftsnap.MinecraftSnap;
-import net.minecraft.entity.ItemEntity;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.damage.DamageSource;
-import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.server.world.ServerWorld;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
@@ -48,11 +46,4 @@ public abstract class LivingEntityMixin {
 		return karn.minecraftsnap.game.InGameRuleService.adjustLongRangeProjectileDamage((LivingEntity) (Object) this, minecraftsnap$pendingDamageSource, amount);
 	}
 
-	@Inject(method = "dropItem(Lnet/minecraft/item/ItemStack;ZZ)Lnet/minecraft/entity/ItemEntity;", at = @At("HEAD"), cancellable = true)
-	private void minecraftsnap$blockCaptainDrop(net.minecraft.item.ItemStack stack, boolean dropAtSelf, boolean retainOwnership, CallbackInfoReturnable<ItemEntity> cir) {
-		var mod = MinecraftSnap.getInstance();
-		if (mod != null && (Object) this instanceof ServerPlayerEntity serverPlayer && mod.shouldBlockItemDrop(serverPlayer)) {
-			cir.setReturnValue(null);
-		}
-	}
 }

@@ -51,12 +51,10 @@ public class BiomeRevealService {
 	}
 
 	public void prepareForMatch(MinecraftServer server, SystemConfig systemConfig, BiomeCatalog biomeCatalog, LaneBiomeService laneBiomeService) {
-		var assignments = assignBiomes(biomeCatalog);
+		var assignments = assignBiomes(biomeCatalog, systemConfig);
 		for (var entry : assignments.entrySet()) {
 			matchManager.setAssignedBiomeId(entry.getKey(), entry.getValue().id);
 		}
-
-		laneBiomeService.prepareHiddenBiomes(server, systemConfig.world, laneRegions(systemConfig), systemConfig.biomeReveal.hiddenWorldKey);
 
 		if (systemConfig.biomeReveal.lane1RevealSecond == 0) {
 			var lane1 = assignments.get(LaneId.LANE_1);
@@ -64,6 +62,21 @@ public class BiomeRevealService {
 				activateBiomeForLane(server, systemConfig, laneBiomeService, LaneId.LANE_1, lane1, 0, true, false);
 			}
 		}
+	}
+
+	public Map<LaneId, BiomeEntry> prepareForLobby(
+		MinecraftServer server,
+		SystemConfig systemConfig,
+		BiomeCatalog biomeCatalog,
+		LaneBiomeService laneBiomeService
+	) {
+		var assignments = assignBiomes(biomeCatalog, systemConfig);
+		for (var entry : assignments.entrySet()) {
+			matchManager.setAssignedBiomeId(entry.getKey(), entry.getValue().id);
+		}
+
+		laneBiomeService.prepareHiddenBiomes(server, systemConfig.world, laneRegions(systemConfig), systemConfig.biomeReveal.hiddenWorldKey);
+		return assignments;
 	}
 
 	public List<LaneId> tick(MinecraftServer server, SystemConfig systemConfig, BiomeCatalog biomeCatalog, LaneBiomeService laneBiomeService) {
@@ -98,8 +111,17 @@ public class BiomeRevealService {
 	}
 
 	Map<LaneId, BiomeEntry> assignBiomes(BiomeCatalog catalog) {
+		return assignBiomes(catalog, null);
+	}
+
+	Map<LaneId, BiomeEntry> assignBiomes(BiomeCatalog catalog, SystemConfig systemConfig) {
 		var result = new EnumMap<LaneId, BiomeEntry>(LaneId.class);
-		var pool = new ArrayList<>(catalog.biomes);
+		if (catalog == null || catalog.biomes == null) {
+			return result;
+		}
+		var pool = new ArrayList<>(catalog.biomes.stream()
+			.filter(entry -> entry != null && !isReservedRevealOnlyBiome(entry))
+			.toList());
 		for (var laneId : LaneId.values()) {
 			if (pool.isEmpty()) {
 				break;
@@ -111,17 +133,38 @@ public class BiomeRevealService {
 	}
 
 	private BiomeEntry selectBiomeForLane(LaneId laneId, List<BiomeEntry> pool) {
-		if (laneId == LaneId.LANE_1) {
-			var eligible = pool.stream()
-				.filter(entry -> entry != null && !"reverse_icicle".equals(entry.id))
-				.toList();
-			if (!eligible.isEmpty()) {
-				var selected = eligible.get(random.nextInt(eligible.size()));
-				pool.remove(selected);
-				return selected;
+		int totalWeight = 0;
+		for (var biome : pool) {
+			totalWeight += laneWeight(biome, laneId);
+		}
+		if (totalWeight <= 0) {
+			return pool.remove(random.nextInt(pool.size()));
+		}
+		var roll = random.nextInt(totalWeight);
+		var cursor = 0;
+		for (int i = 0; i < pool.size(); i++) {
+			var candidate = pool.get(i);
+			cursor += laneWeight(candidate, laneId);
+			if (roll < cursor) {
+				return pool.remove(i);
 			}
 		}
 		return pool.remove(random.nextInt(pool.size()));
+	}
+
+	private int laneWeight(BiomeEntry biomeEntry, LaneId laneId) {
+		if (biomeEntry == null) {
+			return 0;
+		}
+		return switch (laneId) {
+			case LANE_1 -> biomeEntry.lane1Weight == null ? 0 : biomeEntry.lane1Weight;
+			case LANE_2 -> biomeEntry.lane2Weight == null ? 0 : biomeEntry.lane2Weight;
+			case LANE_3 -> biomeEntry.lane3Weight == null ? 0 : biomeEntry.lane3Weight;
+		};
+	}
+
+	private boolean isReservedRevealOnlyBiome(BiomeEntry biomeEntry) {
+		return biomeEntry != null && "end_barrens".equals(biomeEntry.id);
 	}
 
 	public List<LaneId> syncRevealState(

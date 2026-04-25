@@ -107,8 +107,15 @@ public class UnitConfigEntry {
 		if (advanceOptions == null) {
 			advanceOptions = new ArrayList<>();
 		} else {
-			advanceOptions = new ArrayList<>(advanceOptions);
-			advanceOptions.forEach(AdvanceOptionEntry::normalize);
+			var normalizedOptions = new ArrayList<AdvanceOptionEntry>();
+			for (var option : advanceOptions) {
+				if (option == null) {
+					continue;
+				}
+				option.normalize();
+				normalizedOptions.add(option);
+			}
+			advanceOptions = normalizedOptions;
 		}
 		if (attributes == null) {
 			attributes = new UnitExtraAttributes();
@@ -277,6 +284,8 @@ public class UnitConfigEntry {
 		copy.attackRange = source.attackRange;
 		copy.knockbackResistance = source.knockbackResistance;
 		copy.safeFallDistance = source.safeFallDistance;
+		copy.abilityRadius = source.abilityRadius;
+		copy.abilityDamage = source.abilityDamage;
 		copy.normalize();
 		return copy;
 	}
