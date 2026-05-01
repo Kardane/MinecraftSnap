@@ -5,6 +5,8 @@ import karn.minecraftsnap.game.LaneId;
 import karn.minecraftsnap.game.TeamId;
 import karn.minecraftsnap.unit.ConfiguredUnitClass;
 import karn.minecraftsnap.unit.UnitContext;
+import net.minecraft.entity.LivingEntity;
+import net.minecraft.entity.damage.DamageSource;
 import net.minecraft.particle.DustParticleEffect;
 import net.minecraft.particle.ParticleTypes;
 import net.minecraft.sound.SoundCategory;
@@ -22,6 +24,21 @@ public class EndermanUnit extends AbstractMonsterUnit implements ConfiguredUnitC
 	public void buildLoadout(UnitContext context) {
 		context.baseBuildLoadout();
 		applyCombatProfile(context.player().getMainHandStack(), context.unitDefinition().id(), weaponAttackDamage(), weaponAttackSpeed());
+		context.increaseSkillCooldownIfRemainingAtMost(initialSpawnCooldownThresholdTicks(), initialSpawnCooldownTicks());
+	}
+
+	@Override
+	public void onAttack(UnitContext context, LivingEntity victim, float amount) {
+		if (amount > 0.0F) {
+			increaseCooldownOnCombat(context);
+		}
+	}
+
+	@Override
+	public void onDamaged(UnitContext context, DamageSource source, float amount) {
+		if (amount > 0.0F) {
+			increaseCooldownOnCombat(context);
+		}
 	}
 
 	@Override
@@ -133,6 +150,26 @@ public class EndermanUnit extends AbstractMonsterUnit implements ConfiguredUnitC
 
 	float rainDamageAmount() {
 		return 1.0F;
+	}
+
+	private void increaseCooldownOnCombat(UnitContext context) {
+		context.increaseSkillCooldownIfRemainingAtMost(combatCooldownIncreaseThresholdTicks(), combatCooldownIncreaseTicks());
+	}
+
+	long combatCooldownIncreaseThresholdTicks() {
+		return 3L * 20L;
+	}
+
+	long combatCooldownIncreaseTicks() {
+		return 3L * 20L;
+	}
+
+	long initialSpawnCooldownThresholdTicks() {
+		return 0L;
+	}
+
+	long initialSpawnCooldownTicks() {
+		return 3L * 20L;
 	}
 
 	BlockPos teleportSoundPosition(Vec3d position) {

@@ -5,6 +5,7 @@ import karn.minecraftsnap.config.SystemConfig;
 import karn.minecraftsnap.lane.LaneRuntimeRegistry;
 import karn.minecraftsnap.ui.CaptainWeatherGuiService;
 import karn.minecraftsnap.util.TextTemplateResolver;
+import net.minecraft.item.ItemStack;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.network.ServerPlayerEntity;
 
@@ -91,6 +92,12 @@ public class CaptainSkillService {
 		}
 		var strategy = strategyRegistry.strategyFor(state.getFactionId());
 		return strategy != null && strategy.use(captain, state, systemConfig);
+	}
+
+	public boolean handleVillagerRecallResponse(ServerPlayerEntity player, ItemStack stack, SystemConfig systemConfig) {
+		var strategy = strategyRegistry.strategyFor(FactionId.VILLAGER);
+		return strategy instanceof VillagerCaptainSkill villagerSkill
+			&& villagerSkill.handleRecallResponse(player, stack, systemConfig);
 	}
 
 	public void tick(MinecraftServer server, SystemConfig systemConfig) {

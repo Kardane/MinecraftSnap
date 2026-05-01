@@ -221,6 +221,14 @@ public class TextConfigFile {
 	public String captainSkillInsufficientManaMessage = "&c사령관 마나가 부족함";
 	public String captainVillagerSuccessMessage = "&a습격 소집 발동: &f{lane}";
 	public String captainVillagerNoTargetMessage = "&c소집할 다른 라인 아군 유닛이 없음";
+	public String captainVillagerRequestStartedMessage = "&a소집 요청 전송: &f{lane}";
+	public String captainVillagerRecallTitle = "&e소집 요청";
+	public String captainVillagerRecallSubtitle = "&f염소뿔을 사용하여 소집에 응하세요!";
+	public String captainVillagerRecallItemNameTemplate = "&e{lane}으로 소집 응하기";
+	public String captainVillagerRecallItemLore = "&7우클릭시 잠시후 해당 라인으로 이동합니다";
+	public String captainVillagerRecallProgressMessage = "&e[!] 소집 인원이 증가했습니다: &f{count}&7/&f{total}";
+	public String captainVillagerRecallNoResponseMessage = "&c소집 응답자가 없어 사령관 스킬 쿨다운을 돌려받았습니다.";
+	public String captainVillagerRecallExpiredMessage = "&c이미 만료된 소집 요청입니다.";
 	public String captainMonsterWeatherGuiTitle = "&5날씨 변화";
 	public String captainMonsterWeatherClearName = "맑음";
 	public String captainMonsterWeatherRainName = "비";
@@ -280,6 +288,7 @@ public class TextConfigFile {
 	public String commandTimeAdjustedMessage = "&a경기 시간 조정: &f{ticks}틱 &7(남은 시간 {time}, {remaining_ticks}틱)";
 	public String commandStatPlayerTemplate = "&f플레이어: &e{player}";
 	public String commandStatLadderTemplate = "&f래더: &b{ladder} &8/ &f선호: &d{preference}";
+	public String commandStatMatchTemplate = "&f게임: &e{games} &8/ &f승리: &a{wins} &8/ &f승률: &b{win_rate}";
 	public String commandStatCombatTemplate = "&f킬: &a{kills} &8/ &f데스: &c{deaths} &8/ &f점령: &6{captures}";
 	public String commandStatCurrencyTemplate = "&f에메랄드: &a{emeralds} &8/ &f금괴: &6{gold}";
 	public String commandStatActivityTemplate = "&f어시스트: &b{assists} &8/ &f전직: &d{advances} &8/ &f플레이 시간: &e{play_time}";
@@ -566,6 +575,14 @@ public class TextConfigFile {
 		captainSkillInsufficientManaMessage = value(captainSkillInsufficientManaMessage, defaults.captainSkillInsufficientManaMessage);
 		captainVillagerSuccessMessage = value(captainVillagerSuccessMessage, defaults.captainVillagerSuccessMessage);
 		captainVillagerNoTargetMessage = value(captainVillagerNoTargetMessage, defaults.captainVillagerNoTargetMessage);
+		captainVillagerRequestStartedMessage = value(captainVillagerRequestStartedMessage, defaults.captainVillagerRequestStartedMessage);
+		captainVillagerRecallTitle = value(captainVillagerRecallTitle, defaults.captainVillagerRecallTitle);
+		captainVillagerRecallSubtitle = value(captainVillagerRecallSubtitle, defaults.captainVillagerRecallSubtitle);
+		captainVillagerRecallItemNameTemplate = value(captainVillagerRecallItemNameTemplate, defaults.captainVillagerRecallItemNameTemplate);
+		captainVillagerRecallItemLore = value(captainVillagerRecallItemLore, defaults.captainVillagerRecallItemLore);
+		captainVillagerRecallProgressMessage = value(captainVillagerRecallProgressMessage, defaults.captainVillagerRecallProgressMessage);
+		captainVillagerRecallNoResponseMessage = value(captainVillagerRecallNoResponseMessage, defaults.captainVillagerRecallNoResponseMessage);
+		captainVillagerRecallExpiredMessage = value(captainVillagerRecallExpiredMessage, defaults.captainVillagerRecallExpiredMessage);
 		captainMonsterWeatherGuiTitle = value(captainMonsterWeatherGuiTitle, defaults.captainMonsterWeatherGuiTitle);
 		captainMonsterWeatherClearName = value(captainMonsterWeatherClearName, defaults.captainMonsterWeatherClearName);
 		captainMonsterWeatherRainName = value(captainMonsterWeatherRainName, defaults.captainMonsterWeatherRainName);
@@ -625,6 +642,7 @@ public class TextConfigFile {
 		commandTimeAdjustedMessage = value(commandTimeAdjustedMessage, defaults.commandTimeAdjustedMessage);
 		commandStatPlayerTemplate = value(commandStatPlayerTemplate, defaults.commandStatPlayerTemplate);
 		commandStatLadderTemplate = value(commandStatLadderTemplate, defaults.commandStatLadderTemplate);
+		commandStatMatchTemplate = value(commandStatMatchTemplate, defaults.commandStatMatchTemplate);
 		commandStatCombatTemplate = value(commandStatCombatTemplate, defaults.commandStatCombatTemplate);
 		commandStatCurrencyTemplate = value(commandStatCurrencyTemplate, defaults.commandStatCurrencyTemplate);
 		commandStatActivityTemplate = value(commandStatActivityTemplate, defaults.commandStatActivityTemplate);

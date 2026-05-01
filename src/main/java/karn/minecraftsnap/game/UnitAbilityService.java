@@ -89,6 +89,24 @@ public class UnitAbilityService {
 		unitCooldownTicks.remove(playerId);
 	}
 
+	public void increaseCooldownIfRemainingAtMost(ServerPlayerEntity player, MatchManager matchManager, UnitDefinition definition, long thresholdTicks, long addTicks) {
+		if (player == null || matchManager == null || definition == null || thresholdTicks < 0L || addTicks <= 0L) {
+			return;
+		}
+		var now = matchManager.getServerTicks();
+		var nextUseTick = unitCooldownTicks.getOrDefault(player.getUuid(), Long.MIN_VALUE);
+		var remainingTicks = Math.max(0L, nextUseTick - now);
+		if (remainingTicks > thresholdTicks) {
+			return;
+		}
+		var newRemainingTicks = remainingTicks + addTicks;
+		unitCooldownTicks.put(player.getUuid(), now + newRemainingTicks);
+		var cooldownItem = definition.skillCooldownItem();
+		if (cooldownItem != null) {
+			player.getItemCooldownManager().set(cooldownItem.getDefaultStack(), (int) newRemainingTicks);
+		}
+	}
+
 	public int remainingUnitCooldownSeconds(UUID playerId, long serverTicks) {
 		if (playerId == null) {
 			return 0;

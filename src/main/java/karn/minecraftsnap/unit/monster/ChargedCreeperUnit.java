@@ -27,7 +27,7 @@ public class ChargedCreeperUnit extends CreeperUnit {
 
 	@Override
 	double blastRadius() {
-		return 9.0D;
+		return 8.0D;
 	}
 
 	@Override

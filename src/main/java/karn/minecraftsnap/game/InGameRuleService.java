@@ -6,6 +6,7 @@ import karn.minecraftsnap.config.ServerStatsRepository;
 import karn.minecraftsnap.config.TextConfigFile;
 import karn.minecraftsnap.config.StatsRepository;
 import karn.minecraftsnap.config.SystemConfig;
+import karn.minecraftsnap.stats.MatchStatsRecorder;
 import karn.minecraftsnap.unit.SummonedMobSupport;
 import karn.minecraftsnap.unit.nether.HoglinUnit;
 import karn.minecraftsnap.lane.LaneRuntimeRegistry;
@@ -43,6 +44,7 @@ public class InGameRuleService {
 	private final LaneRuntimeRegistry laneRuntimeRegistry;
 	private final UnitHookService unitHookService;
 	private final UiSoundService uiSoundService;
+	private final MatchStatsRecorder matchStatsRecorder;
 	private SystemConfig lastSystemConfig = new SystemConfig();
 	private final Set<UUID> pendingSpectators = new HashSet<>();
 	private final Map<UUID, Long> laneWarningTicks = new HashMap<>();
@@ -50,7 +52,7 @@ public class InGameRuleService {
 	private final Map<UUID, Set<net.minecraft.registry.entry.RegistryEntry<net.minecraft.entity.effect.StatusEffect>>> pendingLongRangeStatusClears = new HashMap<>();
 
 	public InGameRuleService(MatchManager matchManager, StatsRepository statsRepository, TextTemplateResolver textTemplateResolver) {
-		this(matchManager, statsRepository, textTemplateResolver, null, null, null, null, null, null, null, null, null);
+		this(matchManager, statsRepository, textTemplateResolver, null, null, null, null, null, null, null, null, null, null);
 	}
 
 	public InGameRuleService(
@@ -66,7 +68,7 @@ public class InGameRuleService {
 		UnitHookService unitHookService,
 		UiSoundService uiSoundService
 	) {
-		this(matchManager, statsRepository, textTemplateResolver, unitSpawnQueueService, unitSpawnService, captainManaService, unitRegistry, unitAbilityService, laneRuntimeRegistry, unitHookService, uiSoundService, null);
+		this(matchManager, statsRepository, textTemplateResolver, unitSpawnQueueService, unitSpawnService, captainManaService, unitRegistry, unitAbilityService, laneRuntimeRegistry, unitHookService, uiSoundService, null, null);
 	}
 
 	public InGameRuleService(
@@ -83,6 +85,24 @@ public class InGameRuleService {
 		UiSoundService uiSoundService,
 		ServerStatsRepository serverStatsRepository
 	) {
+		this(matchManager, statsRepository, textTemplateResolver, unitSpawnQueueService, unitSpawnService, captainManaService, unitRegistry, unitAbilityService, laneRuntimeRegistry, unitHookService, uiSoundService, serverStatsRepository, null);
+	}
+
+	public InGameRuleService(
+		MatchManager matchManager,
+		StatsRepository statsRepository,
+		TextTemplateResolver textTemplateResolver,
+		UnitSpawnQueueService unitSpawnQueueService,
+		UnitSpawnService unitSpawnService,
+		CaptainManaService captainManaService,
+		UnitRegistry unitRegistry,
+		UnitAbilityService unitAbilityService,
+		LaneRuntimeRegistry laneRuntimeRegistry,
+		UnitHookService unitHookService,
+		UiSoundService uiSoundService,
+		ServerStatsRepository serverStatsRepository,
+		MatchStatsRecorder matchStatsRecorder
+	) {
 		this.matchManager = matchManager;
 		this.statsRepository = statsRepository;
 		this.serverStatsRepository = serverStatsRepository;
@@ -95,6 +115,7 @@ public class InGameRuleService {
 		this.laneRuntimeRegistry = laneRuntimeRegistry;
 		this.unitHookService = unitHookService;
 		this.uiSoundService = uiSoundService;
+		this.matchStatsRecorder = matchStatsRecorder;
 	}
 
 	public void tick(MinecraftServer server, SystemConfig systemConfig) {
@@ -326,6 +347,9 @@ public class InGameRuleService {
 		}
 		if (unitHookService != null) {
 			unitHookService.handleDeath(player, source, nullSafeSystemConfig());
+		}
+		if (matchStatsRecorder != null) {
+			matchStatsRecorder.recordUnitDeath(player, source, matchManager, laneRuntimeRegistry);
 		}
 
 		var attacker = resolvePlayerAttacker(source);

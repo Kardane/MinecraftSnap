@@ -20,6 +20,7 @@ public class DrownedUnit extends ZombieUnit {
 	@Override
 	public void onDeath(UnitContext context, net.minecraft.entity.damage.DamageSource source) {
 		discardOwnedTridents(context);
+		super.onDeath(context, source);
 	}
 
 	@Override

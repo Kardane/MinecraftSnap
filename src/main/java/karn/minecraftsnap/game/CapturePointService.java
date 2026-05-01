@@ -7,6 +7,7 @@ import karn.minecraftsnap.config.StatsRepository;
 import karn.minecraftsnap.config.SystemConfig;
 import karn.minecraftsnap.config.TextConfigFile;
 import karn.minecraftsnap.lane.LaneRuntimeRegistry;
+import karn.minecraftsnap.stats.MatchStatsRecorder;
 import karn.minecraftsnap.util.TextTemplateResolver;
 import it.unimi.dsi.fastutil.ints.IntList;
 import net.minecraft.component.DataComponentTypes;
@@ -35,6 +36,7 @@ public class CapturePointService {
 	private final TextTemplateResolver textTemplateResolver;
 	private final LaneRuntimeRegistry laneRuntimeRegistry;
 	private final UnitHookService unitHookService;
+	private final MatchStatsRecorder matchStatsRecorder;
 
 	public CapturePointService(
 		MatchManager matchManager,
@@ -44,12 +46,25 @@ public class CapturePointService {
 		LaneRuntimeRegistry laneRuntimeRegistry,
 		UnitHookService unitHookService
 	) {
+		this(matchManager, statsRepository, uiSoundService, textTemplateResolver, laneRuntimeRegistry, unitHookService, null);
+	}
+
+	public CapturePointService(
+		MatchManager matchManager,
+		StatsRepository statsRepository,
+		UiSoundService uiSoundService,
+		TextTemplateResolver textTemplateResolver,
+		LaneRuntimeRegistry laneRuntimeRegistry,
+		UnitHookService unitHookService,
+		MatchStatsRecorder matchStatsRecorder
+	) {
 		this.matchManager = matchManager;
 		this.statsRepository = statsRepository;
 		this.uiSoundService = uiSoundService;
 		this.textTemplateResolver = textTemplateResolver;
 		this.laneRuntimeRegistry = laneRuntimeRegistry;
 		this.unitHookService = unitHookService;
+		this.matchStatsRecorder = matchStatsRecorder;
 		for (var laneId : LaneId.values()) {
 			states.put(laneId, new CapturePointState(laneId));
 		}
@@ -135,6 +150,9 @@ public class CapturePointService {
 				var playerState = matchManager.getPlayerState(player.getUuid());
 				if (playerState.isUnit() && playerState.getCurrentUnitId() != null && playerState.getTeamId() == occupyingTeam && !player.isSpectator()) {
 					statsRepository.addCapture(player.getUuid(), player.getName().getString(), 1);
+					if (matchStatsRecorder != null) {
+						matchStatsRecorder.recordCaptureCompletion(player, playerState);
+					}
 				}
 			}
 		}
@@ -228,6 +246,9 @@ public class CapturePointService {
 			} else if (playerState.getFactionId() == FactionId.VILLAGER) {
 				playerState.addEmeralds(1);
 				statsRepository.addEmeralds(player.getUuid(), player.getName().getString(), 1);
+			}
+			if (matchStatsRecorder != null) {
+				matchStatsRecorder.recordCaptureAssist(player, playerState);
 			}
 			playerState.addMatchCaptureScore(1);
 			player.getWorld().playSound(

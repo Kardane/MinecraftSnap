@@ -28,6 +28,7 @@ import karn.minecraftsnap.unit.nether.ZombifiedPiglinUnit;
 import karn.minecraftsnap.unit.villager.IllusionerUnit;
 import karn.minecraftsnap.unit.villager.IronGolemUnit;
 import karn.minecraftsnap.unit.villager.PillagerUnit;
+import karn.minecraftsnap.unit.villager.RavagerUnit;
 import karn.minecraftsnap.unit.villager.SnowGolemUnit;
 import karn.minecraftsnap.unit.villager.SummonerUnit;
 import karn.minecraftsnap.unit.villager.VillagerUnit;
@@ -49,6 +50,7 @@ public class UnitClassRegistry {
 		register("illusioner", new IllusionerUnit());
 		register("vindicator", new VindicatorUnit());
 		register("pillager", new PillagerUnit());
+		register("ravager", new RavagerUnit());
 		register("zombie", new ZombieUnit());
 		register("silverfish", new SilverfishUnit());
 		register("cave_spider", new CaveSpiderUnit());

@@ -20,7 +20,7 @@ public class PiglinUnit extends AbstractNetherUnit implements ConfiguredUnitClas
 	public void buildLoadout(UnitContext context) {
 		context.baseBuildLoadout();
 		context.player().getInventory().insertStack(new ItemStack(Items.CROSSBOW, 1));
-		context.player().getInventory().insertStack(new ItemStack(Items.ARROW, 3));
+		context.player().getInventory().insertStack(new ItemStack(Items.ARROW, 16));
 	}
 
 	@Override

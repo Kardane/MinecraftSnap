@@ -5,6 +5,7 @@ import karn.minecraftsnap.MinecraftSnap;
 import karn.minecraftsnap.config.TextConfigFile;
 import karn.minecraftsnap.config.SystemConfig;
 import karn.minecraftsnap.integration.DisguiseSupport;
+import karn.minecraftsnap.stats.MatchStatsRecorder;
 import karn.minecraftsnap.util.TextTemplateResolver;
 import net.minecraft.entity.effect.StatusEffectInstance;
 import net.minecraft.entity.effect.StatusEffects;
@@ -36,10 +37,11 @@ public class UnitSpawnService {
 	private final java.util.function.Supplier<CaptainSkillService> captainSkillServiceSupplier;
 	private final java.util.function.Supplier<UnitHookService> unitHookServiceSupplier;
 	private final UnitSpawnQueueService unitSpawnQueueService;
+	private final MatchStatsRecorder matchStatsRecorder;
 	private final java.util.Random random = new java.util.Random();
 
 	public UnitSpawnService() {
-		this(new CaptainManaService(), null, new UnitLoadoutService(), new UnitAbilityService(), null, null, () -> null, () -> null);
+		this(new CaptainManaService(), null, new UnitLoadoutService(), new UnitAbilityService(), null, null, () -> null, () -> null, null);
 	}
 
 	public UnitSpawnService(
@@ -51,7 +53,7 @@ public class UnitSpawnService {
 		java.util.function.Supplier<CaptainSkillService> captainSkillServiceSupplier,
 		java.util.function.Supplier<UnitHookService> unitHookServiceSupplier
 	) {
-		this(captainManaService, unitRegistry, unitLoadoutService, unitAbilityService, null, unitSpawnQueueService, captainSkillServiceSupplier, unitHookServiceSupplier);
+		this(captainManaService, unitRegistry, unitLoadoutService, unitAbilityService, null, unitSpawnQueueService, captainSkillServiceSupplier, unitHookServiceSupplier, null);
 	}
 
 	public UnitSpawnService(
@@ -64,6 +66,20 @@ public class UnitSpawnService {
 		java.util.function.Supplier<CaptainSkillService> captainSkillServiceSupplier,
 		java.util.function.Supplier<UnitHookService> unitHookServiceSupplier
 	) {
+		this(captainManaService, unitRegistry, unitLoadoutService, unitAbilityService, uiSoundService, unitSpawnQueueService, captainSkillServiceSupplier, unitHookServiceSupplier, null);
+	}
+
+	public UnitSpawnService(
+		CaptainManaService captainManaService,
+		UnitRegistry unitRegistry,
+		UnitLoadoutService unitLoadoutService,
+		UnitAbilityService unitAbilityService,
+		UiSoundService uiSoundService,
+		UnitSpawnQueueService unitSpawnQueueService,
+		java.util.function.Supplier<CaptainSkillService> captainSkillServiceSupplier,
+		java.util.function.Supplier<UnitHookService> unitHookServiceSupplier,
+		MatchStatsRecorder matchStatsRecorder
+	) {
 		this.captainManaService = captainManaService;
 		this.unitRegistry = unitRegistry;
 		this.unitLoadoutService = unitLoadoutService;
@@ -72,6 +88,7 @@ public class UnitSpawnService {
 		this.unitSpawnQueueService = unitSpawnQueueService;
 		this.captainSkillServiceSupplier = captainSkillServiceSupplier;
 		this.unitHookServiceSupplier = unitHookServiceSupplier;
+		this.matchStatsRecorder = matchStatsRecorder;
 	}
 
 	public SpawnCandidate selectSpawnCandidate(String unitId, List<SpawnCandidate> candidates) {
@@ -149,6 +166,9 @@ public class UnitSpawnService {
 			unitAbilityService.clearPlayerState(target.getUuid());
 			unitLoadoutService.applyUnitLoadout(target, definition, captainPlayerState.getTeamId(), textTemplateResolver);
 			DisguiseSupport.applyTeamDisguise(target, definition.disguise(), captainPlayerState.getTeamId());
+		}
+		if (matchStatsRecorder != null) {
+			matchStatsRecorder.recordUnitSpawn(target, matchManager.getPlayerState(target.getUuid()), laneId, matchManager.getServerTicks());
 		}
 		applySpawnProtection(target, matchManager);
 		target.sendMessage(textTemplateResolver.format(textConfig().unitSpawnedMessage.replace("{unit}", definition.displayName())), false);

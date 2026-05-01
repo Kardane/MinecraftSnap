@@ -31,8 +31,12 @@ public class VanillaPlayerTeamService {
 			return;
 		}
 		ensureManagedTeams(scoreboard);
-		clearScoreHolder(scoreboard, scoreHolder);
 		var team = scoreboard.getTeam(teamName(teamId));
+		var currentTeam = scoreboard.getScoreHolderTeam(scoreHolder);
+		if (currentTeam == team) {
+			return;
+		}
+		clearScoreHolder(scoreboard, scoreHolder);
 		if (team != null) {
 			scoreboard.addScoreHolderToTeam(scoreHolder, team);
 		}

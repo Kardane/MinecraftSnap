@@ -5,6 +5,9 @@ import karn.minecraftsnap.game.UnitDefinition;
 import karn.minecraftsnap.unit.ConfiguredUnitClass;
 import karn.minecraftsnap.unit.SummonedMobSupport;
 import karn.minecraftsnap.unit.UnitContext;
+import net.minecraft.component.DataComponentTypes;
+import net.minecraft.component.type.AttributeModifiersComponent;
+import net.minecraft.component.type.DyedColorComponent;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EquipmentSlot;
 import net.minecraft.entity.EntityType;
@@ -58,14 +61,47 @@ public class ZombifiedPiglinUnit extends AbstractNetherUnit implements Configure
 		}
 		piglin.equipStack(EquipmentSlot.MAINHAND, new ItemStack(Items.GOLDEN_SWORD));
 		piglin.setEquipmentDropChance(EquipmentSlot.MAINHAND, 0.0f);
+		piglin.equipStack(EquipmentSlot.CHEST, teamChestplate(context));
+		piglin.setEquipmentDropChance(EquipmentSlot.CHEST, 0.0f);
 		SummonedMobSupport.applyFriendlyTeam(context, piglin);
 		piglin.setTarget(attacker);
 		world.spawnEntity(piglin);
 	}
 
+	private ItemStack teamChestplate(UnitContext context) {
+		var stack = new ItemStack(Items.LEATHER_CHESTPLATE);
+		var color = context.state().getTeamId() == karn.minecraftsnap.game.TeamId.BLUE ? 0x3366FF : 0xFF3333;
+		stack.set(DataComponentTypes.DYED_COLOR, new DyedColorComponent(color));
+		stack.set(DataComponentTypes.ATTRIBUTE_MODIFIERS, AttributeModifiersComponent.builder().build());
+		return stack;
+	}
+
 	@Override
 	public void onDeath(UnitContext context, DamageSource source) {
+		if (!shouldRestoreCaptainManaOnDeath(context)) {
+			return;
+		}
 		context.restoreCaptainMana(captainManaRestoreOnDeath());
+	}
+
+	boolean shouldRestoreCaptainManaOnDeath(UnitContext context) {
+		return countFriendlyZombifiedPiglinUnitsOnLane(context) <= maxFriendlyZombifiedPiglinUnitsForRefund();
+	}
+
+	int countFriendlyZombifiedPiglinUnitsOnLane(UnitContext context) {
+		if (context == null || context.laneRuntime() == null || context.matchManager() == null || context.matchManager().getServer() == null || context.state() == null || context.state().getTeamId() == null) {
+			return Integer.MAX_VALUE;
+		}
+		var teamId = context.state().getTeamId();
+		return (int) context.laneRuntime().resolveAliveUnitPlayers(context.matchManager().getServer()).stream()
+			.map(player -> context.matchManager().getPlayerState(player.getUuid()))
+			.filter(state -> state.getTeamId() == teamId)
+			.filter(state -> "zombified_piglin".equals(state.getCurrentUnitId()))
+			.count();
+	}
+
+	int maxFriendlyZombifiedPiglinUnitsForRefund() {
+		return 5;
 	}
 
 	String summonedPiglinWeaponItemId() {

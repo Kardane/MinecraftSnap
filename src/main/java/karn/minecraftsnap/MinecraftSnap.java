@@ -50,6 +50,7 @@ import karn.minecraftsnap.game.UnitSpawnService;
 import karn.minecraftsnap.game.VillagerEnchantService;
 import karn.minecraftsnap.game.VictoryCountdownService;
 import karn.minecraftsnap.lane.LaneRuntimeRegistry;
+import karn.minecraftsnap.stats.MatchStatsRecorder;
 import karn.minecraftsnap.ui.AdvanceGuiService;
 import karn.minecraftsnap.ui.AdminToolsGuiService;
 import karn.minecraftsnap.ui.BossBarService;
@@ -183,6 +184,7 @@ public class MinecraftSnap implements DedicatedServerModInitializer {
 	private final McSnapCommandRegistrar commandRegistrar = new McSnapCommandRegistrar(this);
 	private final LaneBiomeService laneBiomeService = new LaneBiomeService();
 	private final FactionStructureResetService factionStructureResetService = new FactionStructureResetService(laneStructureService);
+	private final MatchStatsRecorder matchStatsRecorder = new MatchStatsRecorder(getConfigDirectory(), LOGGER);
 	private final GameEndService gameEndService = new GameEndService(
 		matchManager,
 		textTemplateResolver,
@@ -222,7 +224,7 @@ public class MinecraftSnap implements DedicatedServerModInitializer {
 		() -> configManager.getShopConfig(FactionId.VILLAGER)
 	);
 	private final UnitSpawnQueueService unitSpawnQueueService = new UnitSpawnQueueService();
-	private final UnitSpawnService unitSpawnService = new UnitSpawnService(captainManaService, unitRegistry, unitLoadoutService, unitAbilityService, uiSoundService, unitSpawnQueueService, () -> captainSkillService, () -> unitHookService);
+	private final UnitSpawnService unitSpawnService = new UnitSpawnService(captainManaService, unitRegistry, unitLoadoutService, unitAbilityService, uiSoundService, unitSpawnQueueService, () -> captainSkillService, () -> unitHookService, matchStatsRecorder);
 	private final UnitHudService unitHudService = new UnitHudService(matchManager, unitRegistry, captainManaService, unitAbilityService, textTemplateResolver, unitSpawnQueueService);
 	private final OngoingMatchJoinService ongoingMatchJoinService = new OngoingMatchJoinService(matchManager, unitSpawnQueueService, unitSpawnService, textTemplateResolver);
 	private final SurrenderVoteService surrenderVoteService = new SurrenderVoteService(matchManager, textTemplateResolver, message -> {
@@ -301,6 +303,7 @@ public class MinecraftSnap implements DedicatedServerModInitializer {
 			if (currentTicks % 5L == 0L) {
 				captureHudService.tick(server, configManager.getSystemConfig(), capturePointService);
 				laneRuntimeRegistry.refresh(server, configManager.getSystemConfig(), matchManager, capturePointService);
+				matchStatsRecorder.recordCapturePresence(server, matchManager, laneRuntimeRegistry, 5L);
 			}
 			var revealed = biomeRevealService.tick(server, configManager.getSystemConfig(), configManager.getBiomeCatalog(), laneBiomeService);
 			laneBiomeService.tick(server);
@@ -412,7 +415,8 @@ public class MinecraftSnap implements DedicatedServerModInitializer {
 			uiSoundService,
 			textTemplateResolver,
 			laneRuntimeRegistry,
-			unitHookService
+			unitHookService,
+			matchStatsRecorder
 		);
 
 		captainSkillService = new CaptainSkillService(
@@ -445,7 +449,8 @@ public class MinecraftSnap implements DedicatedServerModInitializer {
 			laneRuntimeRegistry,
 			unitHookService,
 			uiSoundService,
-			configManager.getServerStatsRepository()
+			configManager.getServerStatsRepository(),
+			matchStatsRecorder
 		);
 	}
 
@@ -871,6 +876,9 @@ public class MinecraftSnap implements DedicatedServerModInitializer {
 			return false;
 		}
 
+		if (captainSkillService.handleVillagerRecallResponse(player, stack, configManager.getSystemConfig())) {
+			return true;
+		}
 		if (UnitHookService.canUseUnitActions(state.getRoleType(), state.getCurrentUnitId(), player.isSpectator())
 			&& unitLoadoutService.matchesUnitAbilityTrigger(stack, unitDefinition)) {
 			return unitHookService.handleSkillUse(player, configManager.getSystemConfig());
@@ -1098,7 +1106,11 @@ public class MinecraftSnap implements DedicatedServerModInitializer {
 			capturePointService.resetAll();
 			surrenderVoteService.clear();
 			unitSpawnQueueService.clear();
+			matchStatsRecorder.reset();
 			prepareLobbyLaneBiomes();
+		}
+		if (phase == MatchPhase.GAME_RUNNING) {
+			matchStatsRecorder.startMatch();
 		}
 		if (phase != MatchPhase.GAME_RUNNING) {
 			lastCaptainRevealWarningElapsedSeconds = -1;
@@ -1293,6 +1305,7 @@ public class MinecraftSnap implements DedicatedServerModInitializer {
 			return;
 		}
 		var statsRepository = configManager.getStatsRepository();
+		matchStatsRecorder.finishMatch(server, matchManager, laneRuntimeRegistry);
 		var beforeLadders = snapshotParticipantLadders(statsRepository);
 		if (!shouldSkipGameEndRewards()) {
 			ladderRewardService.applyMatchRewards(server, matchManager, statsRepository, configManager.getSystemConfig());

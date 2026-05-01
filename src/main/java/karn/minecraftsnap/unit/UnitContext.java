@@ -139,6 +139,12 @@ public class UnitContext {
 			&& unitAbilityService.activateUnitSkill(player, matchManager, unitDefinition, cooldownTicksOverride, action);
 	}
 
+	public void increaseSkillCooldownIfRemainingAtMost(long thresholdTicks, long addTicks) {
+		if (player != null && unitAbilityService != null && matchManager != null && unitDefinition != null) {
+			unitAbilityService.increaseCooldownIfRemainingAtMost(player, matchManager, unitDefinition, thresholdTicks, addTicks);
+		}
+	}
+
 	public void rewardEmerald(int amount) {
 		if (amount <= 0 || player == null) {
 			return;

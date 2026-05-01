@@ -137,6 +137,12 @@ public class McSnapCommandRegistrar {
 		send(source, textConfig().commandStatLadderTemplate
 			.replace("{ladder}", Integer.toString(stats.ladder))
 			.replace("{preference}", stats.preference));
+		var games = stats.wins + stats.losses;
+		var winRate = games <= 0 ? "0.0%" : decimalText((double) stats.wins * 100.0D / (double) games) + "%";
+		send(source, textConfig().commandStatMatchTemplate
+			.replace("{games}", Integer.toString(games))
+			.replace("{wins}", Integer.toString(stats.wins))
+			.replace("{win_rate}", winRate));
 		send(source, textConfig().commandStatCombatTemplate
 			.replace("{kills}", Integer.toString(stats.kills))
 			.replace("{deaths}", Integer.toString(stats.deaths))

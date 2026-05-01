@@ -12,6 +12,7 @@ import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.attribute.EntityAttributes;
 import net.minecraft.entity.effect.StatusEffectInstance;
 import net.minecraft.entity.effect.StatusEffects;
+import net.minecraft.particle.DustParticleEffect;
 import net.minecraft.particle.ParticleTypes;
 import net.minecraft.sound.SoundCategory;
 import net.minecraft.sound.SoundEvents;
@@ -29,13 +30,16 @@ public class CreeperUnit extends AbstractMonsterUnit implements ConfiguredUnitCl
 	private static final String BLAST_CENTER_X_KEY = "creeper_blast_center_x";
 	private static final String BLAST_CENTER_Y_KEY = "creeper_blast_center_y";
 	private static final String BLAST_CENTER_Z_KEY = "creeper_blast_center_z";
+	private static final String LOCK_X_KEY = "creeper_lock_x";
+	private static final String LOCK_Y_KEY = "creeper_lock_y";
+	private static final String LOCK_Z_KEY = "creeper_lock_z";
 	private static final String ORIGINAL_JUMP_STRENGTH_KEY = "creeper_original_jump_strength";
 	private static final long SELF_DESTRUCT_DELAY_TICKS = 30L;
-	private static final long BLAST_CENTER_CAPTURE_TICKS = 30L;
-	private static final double DEFAULT_BLAST_RADIUS = 5.5D;
+	private static final double DEFAULT_BLAST_RADIUS = 5D;
 	private static final float DEFAULT_BLAST_DAMAGE = 40.0f;
 	private static final EntitySpecEntry BASE_DISGUISE = disguise("minecraft:creeper");
 	private static final EntitySpecEntry IGNITED_DISGUISE = disguise("minecraft:creeper", "{ignited:1b}");
+	private static final DustParticleEffect BLAST_RANGE_PARTICLE = new DustParticleEffect(0x35D742, 1.2F);
 
 	@Override
 	public void buildLoadout(UnitContext context) {
@@ -56,16 +60,10 @@ public class CreeperUnit extends AbstractMonsterUnit implements ConfiguredUnitCl
 		if (triggerTick == null) {
 			return;
 		}
+		lockPosition(context);
 		lockJump(context);
-		if (context.serverTicks() == triggerTick - (SELF_DESTRUCT_DELAY_TICKS - BLAST_CENTER_CAPTURE_TICKS)) {
-			captureBlastCenter(context);
-		}
-		var velocity = context.player().getVelocity();
-		if (velocity.y > 0.0D) {
-			context.player().setVelocity(velocity.x, 0.0D, velocity.z);
-			context.player().velocityModified = true;
-		}
 		if (context.serverTicks() < triggerTick) {
+			spawnPrimedParticles(context);
 			return;
 		}
 		clearBombState(context);
@@ -79,8 +77,11 @@ public class CreeperUnit extends AbstractMonsterUnit implements ConfiguredUnitCl
 				return false;
 			}
 			context.setUnitRuntimeLong(BOMB_TICK_KEY, context.serverTicks() + SELF_DESTRUCT_DELAY_TICKS);
+			captureLockPosition(context);
+			captureBlastCenter(context);
 			storeOriginalJumpStrength(context);
 			lockJump(context);
+			context.world().spawnParticles(ParticleTypes.FLASH, context.player().getX(), context.player().getBodyY(0.5D), context.player().getZ(), 1, 0.0D, 0.0D, 0.0D, 0.0D);
 			context.player().addStatusEffect(new StatusEffectInstance(StatusEffects.GLOWING, 30, 0, false, false, true), context.player());
 			context.player().addStatusEffect(new StatusEffectInstance(StatusEffects.SLOWNESS, (int) SELF_DESTRUCT_DELAY_TICKS + 5, 255, false, false, false), context.player());
 			context.player().getWorld().playSound(
@@ -104,7 +105,6 @@ public class CreeperUnit extends AbstractMonsterUnit implements ConfiguredUnitCl
 
 	private void explode(UnitContext context) {
 		var player = context.player();
-		applyDisguise(context, false);
 		var center = blastCenter(context);
 		spawnExplosionRing(context, center.x(), center.y(), center.z(), blastRadius());
 		player.getWorld().playSound(
@@ -149,6 +149,9 @@ public class CreeperUnit extends AbstractMonsterUnit implements ConfiguredUnitCl
 		context.removeUnitRuntimeDouble(BLAST_CENTER_X_KEY);
 		context.removeUnitRuntimeDouble(BLAST_CENTER_Y_KEY);
 		context.removeUnitRuntimeDouble(BLAST_CENTER_Z_KEY);
+		context.removeUnitRuntimeDouble(LOCK_X_KEY);
+		context.removeUnitRuntimeDouble(LOCK_Y_KEY);
+		context.removeUnitRuntimeDouble(LOCK_Z_KEY);
 		if (context.player() != null) {
 			context.player().removeStatusEffect(StatusEffects.SLOWNESS);
 			restoreJump(context);
@@ -178,6 +181,26 @@ public class CreeperUnit extends AbstractMonsterUnit implements ConfiguredUnitCl
 		context.removeUnitRuntimeDouble(ORIGINAL_JUMP_STRENGTH_KEY);
 	}
 
+	private void captureLockPosition(UnitContext context) {
+		var pos = context.player().getPos();
+		context.setUnitRuntimeDouble(LOCK_X_KEY, pos.x);
+		context.setUnitRuntimeDouble(LOCK_Y_KEY, pos.y);
+		context.setUnitRuntimeDouble(LOCK_Z_KEY, pos.z);
+	}
+
+	private void lockPosition(UnitContext context) {
+		var x = context.getUnitRuntimeDouble(LOCK_X_KEY);
+		var y = context.getUnitRuntimeDouble(LOCK_Y_KEY);
+		var z = context.getUnitRuntimeDouble(LOCK_Z_KEY);
+		if (x == null || y == null || z == null) {
+			return;
+		}
+		var player = context.player();
+		player.setVelocity(0.0D, 0.0D, 0.0D);
+		player.velocityModified = true;
+		player.teleport(context.world(), x, y, z, java.util.Set.of(), player.getYaw(), player.getPitch(), false);
+	}
+
 	private void captureBlastCenter(UnitContext context) {
 		var pos = context.player().getPos().add(0.0D, 0.1D, 0.0D);
 		context.setUnitRuntimeDouble(BLAST_CENTER_X_KEY, pos.x);
@@ -194,6 +217,25 @@ public class CreeperUnit extends AbstractMonsterUnit implements ConfiguredUnitCl
 		}
 		var pos = context.player().getPos().add(0.0D, 0.1D, 0.0D);
 		return new BlastCenter(pos.x, pos.y, pos.z);
+	}
+
+	private void spawnPrimedParticles(UnitContext context) {
+		var center = blastCenter(context);
+		spawnBlastRangeParticles(context, center.x(), center.y(), center.z(), blastRadius());
+		//context.world().spawnParticles(ParticleTypes.FLASH, context.player().getX(), context.player().getBodyY(0.5D), context.player().getZ(), 1, 0.0D, 0.0D, 0.0D, 0.0D);
+	}
+
+	private void spawnBlastRangeParticles(UnitContext context, double centerX, double centerY, double centerZ, double radius) {
+		var world = context.world();
+		if (world == null) {
+			return;
+		}
+		for (int degree = 0; degree < 360; degree += 4) {
+			var radians = Math.toRadians(degree);
+			var x = centerX + Math.cos(radians) * radius;
+			var z = centerZ + Math.sin(radians) * radius;
+			world.spawnParticles(BLAST_RANGE_PARTICLE, x, centerY + 0.05D, z, 1, 0.0D, 0.0D, 0.0D, 0.0D);
+		}
 	}
 
 	void applyDisguise(UnitContext context, boolean ignited) {

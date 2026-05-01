@@ -371,7 +371,7 @@ public class LobbyCoordinator {
 		} else {
 			player.changeGameMode(GameMode.ADVENTURE);
 			teleport(player, config.world, config.gameStart.captainSpawnFor(state.getTeamId()));
-			DisguiseSupport.applyDisguise(player, CAPTAIN_DISGUISE);
+			//DisguiseSupport.applyDisguise(player, CAPTAIN_DISGUISE);
 			unitSpawnService.getUnitLoadoutService().giveCaptainItems(player, state.getFactionId(), textTemplateResolver);
 		}
 	}

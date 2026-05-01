@@ -14,11 +14,15 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.lang.reflect.Method;
+import java.util.HashSet;
+import java.util.Set;
+import java.util.UUID;
 import java.util.function.Consumer;
 
 public final class DisguiseSupport {
 	private static final String ENTITY_DISGUISE_CLASS = "xyz.nucleoid.disguiselib.api.EntityDisguise";
 	private static final Logger LOGGER = LoggerFactory.getLogger("MCsnap/DisguiseSupport");
+	private static final Set<UUID> DISGUISED_PLAYERS = new HashSet<>();
 
 	private DisguiseSupport() {
 	}
@@ -54,9 +58,11 @@ public final class DisguiseSupport {
 				if (entityCustomizer != null) {
 					entityCustomizer.accept(disguiseEntity);
 				}
+				markDisguised(player);
 				return;
 			}
 			if (invokeDisguiseAsType(player, disguiseClass, entityType)) {
+				markDisguised(player);
 				return;
 			}
 			if (disguiseEntity == null && !disguise.entityNbt.isBlank()) {
@@ -72,10 +78,13 @@ public final class DisguiseSupport {
 		}
 		var teamService = new VanillaPlayerTeamService();
 		var scoreboard = player.getServer().getScoreboard();
-		teamService.assignScoreHolder(scoreboard, entity.getNameForScoreboard(), teamId);
-		teamService.assignScoreHolder(scoreboard, entity.getUuidAsString(), teamId);
-		teamService.assignScoreHolder(scoreboard, entity.getUuid().toString(), teamId);
-		teamService.assignScoreHolder(scoreboard, player.getNameForScoreboard(), teamId);
+		var scoreHolders = new java.util.LinkedHashSet<String>();
+		scoreHolders.add(entity.getNameForScoreboard());
+		scoreHolders.add(entity.getUuidAsString());
+		scoreHolders.add(entity.getUuid().toString());
+		for (var scoreHolder : scoreHolders) {
+			teamService.assignScoreHolder(scoreboard, scoreHolder, teamId);
+		}
 	}
 
 	static boolean shouldCreateDisguiseEntity(EntitySpecEntry disguise, boolean hasEntityCustomizer) {
@@ -84,12 +93,21 @@ public final class DisguiseSupport {
 
 	public static void clearDisguise(ServerPlayerEntity player) {
 		try {
+			if (player == null || !DISGUISED_PLAYERS.remove(player.getUuid())) {
+				return;
+			}
 			var disguiseClass = Class.forName(ENTITY_DISGUISE_CLASS);
 			if (!disguiseClass.isInstance(player)) {
 				return;
 			}
 			disguiseClass.getMethod("removeDisguise").invoke(player);
 		} catch (Exception ignored) {
+		}
+	}
+
+	private static void markDisguised(ServerPlayerEntity player) {
+		if (player != null) {
+			DISGUISED_PLAYERS.add(player.getUuid());
 		}
 	}
 
